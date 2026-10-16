@@ -4,6 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="robots" content="noindex,nofollow">
+  <meta name="referrer" content="no-referrer">
   <title>Coordenação — IDEAL OLÍMPICO</title>
   <link rel="stylesheet" href="coordenador.css">
 </head>
@@ -11,20 +12,17 @@
   <header><div class="head"><img class="mark" src="../ideal.jpg" alt=""><div class="brand"><h1>IDEAL OLÍMPICO — Coordenação</h1><p>Área restrita do coordenador</p></div><a class="back" href="../">Voltar ao portal</a></div></header>
   <main>
     <div class="test-banner"><b>Homologação:</b> esta área usa somente dados fictícios. Aprovar confirma o pagamento e a inscrição oficial do registro de teste. Não use para operações reais.</div>
-    <iframe class="coordinator-panel" title="Painel privado do coordenador" src="https://script.google.com/macros/s/AKfycbzTv99DnAhZt5jBBJJydM-6mE9EUwfQygOkkXGZOTNnp_LNdzufPrHtc1SFetuo1K-Uag/exec?page=coordenador&amp;embedded=true&amp;authuser=0" referrerpolicy="origin" allow="clipboard-write" style="display:block;width:100%;height:calc(100vh - 230px);min-height:720px;border:0;border-radius:10px;background:#fbf8f1"></iframe>
+    <p id="status" class="status" role="status" aria-live="polite">Conectando à área segura…</p>
+    <div id="fallback" class="message error hidden">Se a autenticação do Google não funcionar nesta janela, <a id="fallbackLink" href="#" target="_blank" rel="noopener noreferrer">abra a conexão segura</a>, conclua a autorização e recarregue esta página.</div>
+    <section id="app" class="hidden" aria-live="polite">
+      <div id="msg"></div>
+      <div class="toolbar"><button class="button" id="refresh">Atualizar comprovantes</button><label for="competition">Baixar inscritos:</label><select id="competition"><option value="">Selecione uma competição</option></select><button class="button download" id="download">Baixar CSV</button><span id="stamp" class="status"></span></div>
+      <h2 class="section-title">Comprovantes aguardando conferência</h2>
+      <section id="list"><div class="empty">Conectando ao backend…</div></section>
+    </section>
   </main>
-  <script>
-    (() => {
-      const trustedOrigin = origin => {
-        try { const url = new URL(origin); return url.protocol === 'https:' && (url.hostname === 'script.google.com' || url.hostname === 'script.googleusercontent.com' || url.hostname.endsWith('-script.googleusercontent.com')); }
-        catch { return false; }
-      };
-      window.addEventListener('message', event => {
-        const data = event.data;
-        if (!trustedOrigin(event.origin) || !data || data.type !== 'ideal-coord-ready' || typeof data.nonce !== 'string' || data.nonce.length < 24) return;
-        event.source.postMessage({type: 'ideal-coord-embed', nonce: data.nonce}, event.origin);
-      });
-    })();
-  </script>
+  <iframe id="backendBridge" title="Conexão segura com o backend de homologação" aria-hidden="true" tabindex="-1"></iframe>
+  <script src="config.js"></script>
+  <script src="coordenador.js"></script>
 </body>
 </html>
