@@ -54,7 +54,7 @@ function processarAutenticacao(r){
 
 function entrarComSessao(r){
   const a=r.aluno||{};
-  alunoAtual={sessao:r.sessao,matricula:a.matricula,nome:a.nome,email:a.email,dataNascimento:a.dataNascimento,unidade:a.unidade,serie:a.serie,segmento:a.segmento,cpfMascarado:a.cpfMascarado,whatsappAluno:a.whatsappAluno||'',responsavelNome:a.responsavelNome||'',responsavelVinculo:a.responsavelVinculo||'',responsavelWhatsapp:a.responsavelWhatsapp||'',contatosConfirmadosAno:a.contatosConfirmadosAno||0,contatosConfirmadosNesteAno:!!a.contatosConfirmadosNesteAno,anoAtual:a.anoAtual||''};
+  alunoAtual={sessao:r.sessao,matricula:a.matricula,nome:a.nome,email:a.email,emailPessoal:a.emailPessoal||'',dataNascimento:a.dataNascimento,unidade:a.unidade,serie:a.serie,segmento:a.segmento,cpfMascarado:a.cpfMascarado,whatsappAluno:a.whatsappAluno||'',responsavelNome:a.responsavelNome||'',responsavelVinculo:a.responsavelVinculo||'',responsavelWhatsapp:a.responsavelWhatsapp||'',contatosConfirmadosAno:a.contatosConfirmadosAno||0,contatosConfirmadosNesteAno:!!a.contatosConfirmadosNesteAno,anoAtual:a.anoAtual||''};
   grupos={};grupoAtual=null;catalogoAtual=[];carrinho={};pedidoPendenteIds=[];atualizarCarrinho();
   document.getElementById('badgeNome').textContent=a.nome||'Aluno';
   document.getElementById('badgeEmail').textContent=a.email||'';
@@ -79,6 +79,7 @@ function renderCadastroAluno(){
   document.getElementById('cadSerie').textContent=a.serie||'—';
   document.getElementById('cadNascimento').textContent=a.dataNascimento||'—';
   document.getElementById('cadEmail').textContent=a.email||'—';
+  document.getElementById('cadEmailPessoal').value=a.emailPessoal||'';
   document.getElementById('cadWhatsappAluno').value=a.whatsappAluno||'';
   document.getElementById('cadRespNome').value=a.responsavelNome||'';
   document.getElementById('cadRespVinculo').value=a.responsavelVinculo||'';
@@ -123,7 +124,10 @@ function confirmarCadastro(){
   const respNome=document.getElementById('cadRespNome').value.trim();
   const respVinculo=document.getElementById('cadRespVinculo').value;
   const respWa=document.getElementById('cadRespWhatsapp').value;
+  const emailPessoal=document.getElementById('cadEmailPessoal').value.trim();
   const msg=document.getElementById('cadastroMsg');
+
+  if(emailPessoal.length>254||!(/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailPessoal)||emailPessoal==='')){msg.innerHTML='<div class=\"message bad\">Confira o e-mail pessoal informado ou deixe o campo em branco.</div>';return;}
 
   if(seg==='EF1'){
     if(!respNome||!respVinculo||!whatsappValidoLocal(respWa)){msg.innerHTML='<div class="message bad">Preencha corretamente nome, vínculo e WhatsApp do responsável.</div>';return;}
@@ -147,7 +151,7 @@ function confirmarCadastro(){
     window.scrollTo({top:0,behavior:'smooth'});
   }).withFailureHandler(e=>{
     btn.disabled=false;msg.innerHTML=`<div class="message bad">${esc(e&&e.message?e.message:e)}</div>`;
-  }).confirmarCadastroAluno(alunoAtual.sessao,{whatsappAluno:waAluno,responsavelNome:respNome,responsavelVinculo:respVinculo,responsavelWhatsapp:respWa});
+  }).confirmarCadastroAluno(alunoAtual.sessao,{whatsappAluno:waAluno,responsavelNome:respNome,responsavelVinculo:respVinculo,responsavelWhatsapp:respWa,emailPessoal});
 }
 
 function abrirSolicitacaoAlteracao(){
