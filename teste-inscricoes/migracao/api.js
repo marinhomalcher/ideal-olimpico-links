@@ -1,37 +1,82 @@
-/* Transporte de homologação: dados e sessão exclusivamente no corpo POST. */
+/* Static-site adapter: preserves the existing google.script.run call sites. */
 (() => {
-  let accessKey='';
-  const allowed=new Set(['autenticarAluno','confirmarCadastroAluno','solicitarAlteracaoCadastral','encerrarSessaoAluno','getPortalHome','getCatalogoGrupo','getOpcoesLiteratura','validarCompeticaoSerie','verificarInscricaoExistente','verificarCarrinhoAluno','criarPedido','listarPedidosAluno','cancelarPedidoAluno','obterPixPedido','enviarComprovantePedido']);
-  function endpoint(){
-    const value=window.PORTAL_TEST_CONFIG?.endpoint;
-    if(!value)throw Error('O backend de teste aguarda autorização e implantação no Google.');
-    const url=new URL(value);
-    if(url.protocol!=='https:'||url.hostname!=='script.google.com'||!/^\/macros\/s\/[A-Za-z0-9_-]+\/exec$/.test(url.pathname)||url.search||url.hash)throw Error('Endereço de teste inválido.');
-    if(url.pathname.includes('AKfycbwE7f_rZ04wznIY_WViTAw1cIq55drbJ_UAWV1qyys8s5ScTqvyWRwcU7myz43CJd51'))throw Error('O backend oficial está bloqueado nesta versão.');
-    return url.href;
+  'use strict';
+  const methods=Object.freeze({
+    autenticarAluno:2,confirmarCadastroAluno:2,solicitarAlteracaoCadastral:2,
+    encerrarSessaoAluno:1,getCatalogoGrupo:1,getOpcoesLiteratura:1,
+    validarCompeticaoSerie:2,verificarInscricaoExistente:2,verificarCarrinhoAluno:2,
+    criarPedido:2,listarPedidosAluno:1,cancelarPedidoAluno:2,obterPixPedido:2,
+    enviarComprovantePedido:3
+  });
+  const configured=window.PORTAL_TEST_CONFIG&&window.PORTAL_TEST_CONFIG.bridgeUrl;
+  if(!configured)throw new Error('A conexão segura do portal não foi configurada.');
+  const bridgeUrl=new URL(configured);
+  if(bridgeUrl.protocol!=='https:'||bridgeUrl.hostname!=='script.google.com'||
+      !/^\/macros\/s\/[A-Za-z0-9_-]+\/exec$/.test(bridgeUrl.pathname)||
+      bridgeUrl.hash||bridgeUrl.searchParams.size!==1||bridgeUrl.searchParams.get('bridge')!=='aluno'){
+    throw new Error('Endereço da conexão segura inválido.');
   }
-  async function request(method,args){
-    if(!allowed.has(method))throw Error('Operação não permitida.');
-    const url=endpoint();
-    if(!accessKey){accessKey=document.getElementById('testAccessKey')?.value||window.prompt('Informe a chave de acesso do ambiente de teste. Ela ficará apenas na memória desta página.')||'';if(!accessKey)throw Error('Acesso ao teste cancelado.');}
-    const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),90000);
+  const frame=document.createElement('iframe');
+  frame.title='Conexão segura com o portal';
+  frame.setAttribute('aria-hidden','true');
+  frame.tabIndex=-1;
+  frame.style.cssText='position:absolute;width:1px;height:1px;left:-10000px;top:auto;border:0';
+  let source=null,origin='',nonce='',ready=false,sequence=0;
+  const pending=new Map();
+  const queued=[];
+  function trustedOrigin(value){
     try{
-      const response=await fetch(url,{method:'POST',headers:{'Content-Type':'text/plain;charset=UTF-8'},body:JSON.stringify({method,args,accessKey}),mode:'cors',credentials:'omit',redirect:'follow',referrerPolicy:'no-referrer',signal:controller.signal});
-      if(!response.ok)throw Error('Resposta HTTP inesperada.');
-      const body=await response.json();
-      if(body.environment!=='test')throw Error('Resposta fora do ambiente de teste.');
-      if(!body.ok){if(/não autorizado/i.test(body.error?.message||''))accessKey='';throw Error(body.error?.message||'A operação falhou.');}
-      return body.data;
-    }catch(error){
-      if(error.name==='AbortError'||error instanceof TypeError)throw Error('Não foi possível confirmar a resposta. Se você estava criando um pedido ou enviando comprovante, consulte Meus Pedidos antes de repetir.');
-      throw error;
-    }finally{clearTimeout(timer);}
+      const u=new URL(value);
+      return u.protocol==='https:'&&(u.hostname==='script.google.com'||u.hostname==='script.googleusercontent.com'||/^[a-z0-9-]+-script\.googleusercontent\.com$/.test(u.hostname));
+    }catch{return false;}
   }
-  function runner(success=()=>{},failure=e=>window.alert(e.message)){
-    return new Proxy({}, {get(_,name){
-      if(name==='withSuccessHandler')return fn=>runner(fn,failure);
-      if(name==='withFailureHandler')return fn=>runner(success,fn);
-      return (...args)=>{request(name,args).then(success,failure);};
+  function sendCall(method,args,success,failure){
+    const id='student-'+(++sequence)+'-'+Date.now();
+    const timer=setTimeout(()=>{pending.delete(id);failure(new Error('O Google não respondeu a tempo. Se você enviou um comprovante ou criou um pedido, confira Meus Pedidos antes de repetir.'));},90000);
+    pending.set(id,{success,failure,timer});
+    source.postMessage({type:'ideal-student-call',id,method,args},origin);
+  }
+  function dispatch(method,args,success,failure){
+    if(!Object.prototype.hasOwnProperty.call(methods,method)||args.length!==methods[method]){
+      failure(new Error('Operação não permitida.'));return;
+    }
+    if(!ready||!source){
+      const call={method,args,success,failure};
+      call.timer=setTimeout(()=>{const i=queued.indexOf(call);if(i>=0)queued.splice(i,1);failure(new Error('A conexão segura demorou para iniciar. Tente novamente.'));},90000);
+      queued.push(call);return;
+    }
+    sendCall(method,args,success,failure);
+  }
+  window.addEventListener('message',event=>{
+    if(event.source!==frame.contentWindow||!trustedOrigin(event.origin)||!event.data)return;
+    const data=event.data;
+    if(data.type==='ideal-student-ready'&&typeof data.nonce==='string'&&data.nonce.length===48){
+      source=event.source;origin=event.origin;nonce=data.nonce;
+      source.postMessage({type:'ideal-student-authorize',nonce:data.nonce},origin);
+      return;
+    }
+    if(event.source!==source||event.origin!==origin)return;
+    if(data.type==='ideal-student-connected'){
+      if(data.nonce===nonce){
+        ready=true;
+        while(queued.length){const call=queued.shift();clearTimeout(call.timer);sendCall(call.method,call.args,call.success,call.failure);}
+      }
+      return;
+    }
+    if(data.type!=='ideal-student-result'||typeof data.id!=='string')return;
+    const request=pending.get(data.id);if(!request)return;
+    clearTimeout(request.timer);pending.delete(data.id);
+    if(data.ok)request.success(data.data);else request.failure(new Error(String(data.error||'A operação falhou.')));
+  });
+  frame.src=bridgeUrl.href;
+  (document.body||document.documentElement).appendChild(frame);
+  function runner(success=()=>{},failure=error=>console.error(error)){
+    return new Proxy({}, {get(_target,name){
+      if(name==='withSuccessHandler')return fn=>runner(typeof fn==='function'?fn:success,failure);
+      if(name==='withFailureHandler')return fn=>runner(success,typeof fn==='function'?fn:failure);
+      if(name==='withUserObject')return ()=>runner(success,failure);
+      if(typeof name!=='string')return undefined;
+      return (...args)=>dispatch(name,args,success,failure);
     }});
   }
   window.google={script:{get run(){return runner();}}};
