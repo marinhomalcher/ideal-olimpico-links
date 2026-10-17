@@ -5,7 +5,7 @@ let grupos={},grupoAtual=null,catalogoAtual=[],carrinho={},alunoAtual=null,pedid
 const money=v=>new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(Number(v||0));
 const esc=s=>String(s??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
 
-window.addEventListener('load',()=>{
+document.addEventListener('DOMContentLoaded',()=>{
   const mat=document.getElementById('matriculaInput');
   const nasc=document.getElementById('nascimentoInput');
   mat.addEventListener('input',()=>{mat.value=mat.value.replace(/\D/g,'').slice(0,5);limparMensagemLogin();});
