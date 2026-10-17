@@ -82,7 +82,7 @@
     const id=document.getElementById('competition').value;
     if(!id){showMessage('Selecione uma competição.','error');return;}
     setBusy(true);showMessage('');
-    try{const result=await call('coordenadorCsvInscritos',id);const blob=new Blob(['\ufeff'+result.csv],{type:'text/csv;charset=utf-8'}),url=URL.createObjectURL(blob),anchor=document.createElement('a');anchor.href=url;anchor.download=result.nomeArquivo;anchor.click();setTimeout(()=>URL.revokeObjectURL(url),1500);showMessage('CSV gerado com '+result.quantidade+' inscrito(s).');}
+    try{const result=await call('coordenadorCsvInscritos',id);const blob=new Blob(['\ufeff'+String(result.csv||'').replace(/^\ufeff/,'')],{type:'text/csv;charset=utf-8'}),url=URL.createObjectURL(blob),anchor=document.createElement('a');anchor.href=url;anchor.download=result.nomeArquivo;anchor.click();setTimeout(()=>URL.revokeObjectURL(url),1500);showMessage('CSV gerado com '+result.quantidade+' inscrito(s).');}
     catch(error){showMessage(error.message,'error');}
     finally{setBusy(false);}
   }
