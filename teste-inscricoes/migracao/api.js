@@ -24,6 +24,21 @@
   let source=null,origin='',nonce='',ready=false,sequence=0;
   const pending=new Map();
   const queued=[];
+  function isBridgeFrame(candidate){
+    const stack=[{frame:frame.contentWindow,depth:0}],seen=new Set();
+    while(stack.length&&seen.size<32){
+      const item=stack.pop(),current=item.frame;
+      if(current===candidate)return true;
+      if(!current||seen.has(current)||item.depth>=8)continue;
+      seen.add(current);
+      try{
+        const children=current.frames,count=children.length;
+        if(!Number.isInteger(count)||count<0||count>20)continue;
+        for(let i=0;i<count;i++)stack.push({frame:children[i],depth:item.depth+1});
+      }catch{}
+    }
+    return false;
+  }
   function trustedOrigin(value){
     try{
       const u=new URL(value);
@@ -42,13 +57,13 @@
     }
     if(!ready||!source){
       const call={method,args,success,failure};
-      call.timer=setTimeout(()=>{const i=queued.indexOf(call);if(i>=0)queued.splice(i,1);failure(new Error('A conexão segura demorou para iniciar. Tente novamente.'));},90000);
+      call.timer=setTimeout(()=>{const i=queued.indexOf(call);if(i>=0){queued.splice(i,1);failure(new Error('Não foi possível conectar ao Google para validar seus dados. Atualize a página e tente novamente.'));}},20000);
       queued.push(call);return;
     }
     sendCall(method,args,success,failure);
   }
   window.addEventListener('message',event=>{
-    if(event.source!==frame.contentWindow||!trustedOrigin(event.origin)||!event.data)return;
+    if(!isBridgeFrame(event.source)||!trustedOrigin(event.origin)||!event.data)return;
     const data=event.data;
     if(data.type==='ideal-student-ready'&&typeof data.nonce==='string'&&data.nonce.length===48){
       source=event.source;origin=event.origin;nonce=data.nonce;
