@@ -1,1 +1,1 @@
-window.PORTAL_TEST_CONFIG=Object.freeze({"bridgeUrl":"https://script.google.com/macros/s/AKfycbxU3pzbAG6lBt-xTLZZKT0DosBn2euw_ck1Kxs0K3qC2VxLAkcYKatBi6ln43ms3ZbF/exec?bridge=aluno"});
+window.PORTAL_TEST_CONFIG=Object.freeze({"bridgeUrl":"https://script.google.com/macros/s/AKfycbxCSDb6ni7Mg1gpgW_dyZXnYenQqOMpDphuBAntwuBmTv8sWh1dTmn5DKPM30f0C1ap8Q/exec?bridge=aluno"});
