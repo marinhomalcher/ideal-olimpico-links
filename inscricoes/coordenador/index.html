@@ -11,8 +11,8 @@
 <body>
   <header><div class="head"><img class="mark" src="../assets/ideal.jpg" alt=""><div class="brand"><h1>IDEAL OLÍMPICO — Coordenação</h1><p>Área restrita do coordenador</p></div><a class="back" href="../">Voltar ao portal</a></div></header>
   <main>
-    <div class="test-banner"><b>Acesso restrito:</b> painel privado da coordenação. Confira o comprovante e realize a inscrição no site da competição antes de confirmar.</div>
-    <p id="status" class="status" role="status" aria-live="polite">Conectando à área segura…</p>
+    <div id="coordinatorGate" class="gate"><button id="enterCoordinator" class="restricted-entry" type="button">🔒 Acesso restrito</button></div>
+    <p id="status" class="status hidden" role="status" aria-live="polite"></p>
     <div id="fallback" class="message error hidden">Se a autenticação do Google não funcionar nesta janela, <a id="fallbackLink" href="#" target="_blank" rel="noopener noreferrer">abra a conexão segura</a>, conclua a autorização e recarregue esta página.</div>
     <section id="app" class="hidden" aria-live="polite">
       <div id="msg"></div>
