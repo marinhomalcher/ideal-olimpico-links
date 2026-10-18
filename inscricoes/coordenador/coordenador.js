@@ -9,6 +9,7 @@
   const pending=new Map();
   let bridgeSource=null,bridgeOrigin='',connected=false,sequence=0,busy=false;
   const LITERATURE_ALL_ID='__literatura_todas_as_obras__';
+  let literatureCompetitionIds=[];
   const allowedMethods=new Set(['coordenadorDados','coordenadorAprovarPagamentoEInscricao','coordenadorRejeitarComprovante','coordenadorCsvInscritos','coordenadorSalvarValorCompeticao']);
   function trustedBridgeOrigin(origin){
     try{const u=new URL(origin);return u.protocol==='https:'&&(u.hostname==='script.google.com'||u.hostname==='script.googleusercontent.com'||u.hostname.endsWith('-script.googleusercontent.com'));}catch{return false;}
@@ -76,7 +77,9 @@
     listEl.querySelectorAll('.reject').forEach(button=>button.addEventListener('click',()=>rejeitar(button.dataset.id)));
     const select=document.getElementById('competition'),old=select.value;
     const literature=(data.competicoes||[]).filter(item=>String(item.nome||'').trim().toLocaleUpperCase('pt-BR').startsWith('LITERATURA'));
-    select.innerHTML='<option value="">Selecione uma competição</option>'+(literature.length?'<option value="'+LITERATURE_ALL_ID+'">LITERATURA — Todas as obras</option>':'')+(data.competicoes||[]).map(item=>'<option value="'+escapeHtml(item.id)+'">'+escapeHtml(item.nome)+'</option>').join('');
+    literatureCompetitionIds=literature.map(item=>item.id);
+    const otherCompetitions=(data.competicoes||[]).filter(item=>!String(item.nome||'').trim().toLocaleUpperCase('pt-BR').startsWith('LITERATURA'));
+    select.innerHTML='<option value="">Selecione uma competição</option>'+(literature.length?'<option value="'+LITERATURE_ALL_ID+'">LITERATURA</option>':'')+otherCompetitions.map(item=>'<option value="'+escapeHtml(item.id)+'">'+escapeHtml(item.nome)+'</option>').join('');
     if(old)select.value=old;
     document.getElementById('prices').innerHTML=priceGroups(data.competicoes).map(group=>{
       const ids=group.matches.map(item=>item.id),values=group.matches.map(item=>Number(item.valor||0)),same=values.every(value=>value===values[0]),value=same?values[0]:'';
@@ -114,7 +117,7 @@
     try{
       let csv='',quantity=0,filename='';
       if(id===LITERATURE_ALL_ID){
-        const competitions=[...document.getElementById('competition').options].filter(option=>option.value&&option.textContent.trim().toLocaleUpperCase('pt-BR').startsWith('LITERATURA')).map(option=>option.value);
+        const competitions=[...literatureCompetitionIds];
         if(!competitions.length)throw new Error('Nenhuma obra de Literatura está disponível para exportação.');
         const results=new Array(competitions.length);let next=0;
         const batches=await Promise.allSettled(Array.from({length:Math.min(4,competitions.length)},async()=>{while(next<competitions.length){const index=next++;results[index]=await call('coordenadorCsvInscritos',competitions[index]);}}));
