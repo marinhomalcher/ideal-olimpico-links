@@ -55,6 +55,16 @@
     }
   });
   function money(value){return new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(Number(value||0));}
+  function priceGroups(competicoes){
+    const groups=[{id:'literatura',label:'OLIMPÍADA DE LITERATURA',matches:[]},{id:'seleta',label:'GRUPO SELETA',matches:[]}];
+    const other=[];
+    (competicoes||[]).forEach(item=>{
+      const name=String(item.nome||'').trim().toLocaleUpperCase('pt-BR');
+      const group=name.startsWith('LITERATURA')?groups[0]:name.startsWith('SELETA')?groups[1]:null;
+      if(group)group.matches.push(item);else other.push(item);
+    });
+    return groups.filter(group=>group.matches.length).concat(other.map(item=>({id:'individual-'+item.id,label:item.nome,matches:[item],individual:true})));
+  }
   function driveUrl(value){try{const u=new URL(value);return u.protocol==='https:'&&u.hostname==='drive.google.com'?u.href:'';}catch{return'';}}
   function render(data){
     listEl.innerHTML=(data.pendentes||[]).map(item=>{
@@ -66,7 +76,11 @@
     const select=document.getElementById('competition'),old=select.value;
     select.innerHTML='<option value="">Selecione uma competição</option>'+(data.competicoes||[]).map(item=>'<option value="'+escapeHtml(item.id)+'">'+escapeHtml(item.nome)+'</option>').join('');
     if(old)select.value=old;
-    document.getElementById('prices').innerHTML=(data.competicoes||[]).map(item=>'<article class="price-card"><label>'+escapeHtml(item.nome)+'<span>Valor (R$)</span><input class="price-value" type="number" min="0.01" max="99999.99" step="0.01" inputmode="decimal" data-id="'+escapeHtml(item.id)+'" value="'+escapeHtml(Number(item.valor||0).toFixed(2))+'"></label><button class="button save-price" data-id="'+escapeHtml(item.id)+'">Salvar valor</button></article>').join('')||'<div class="empty">Nenhuma competição encontrada.</div>';
+    document.getElementById('prices').innerHTML=priceGroups(data.competicoes).map(group=>{
+      const ids=group.matches.map(item=>item.id),values=group.matches.map(item=>Number(item.valor||0)),same=values.every(value=>value===values[0]),value=same?values[0]:'';
+      const note=group.individual?'':'Aplica o mesmo valor a '+group.matches.length+' competição(ões) deste grupo.'+(same?'':' Os valores atuais do grupo estão diferentes.');
+      return '<article class="price-card"><label>'+escapeHtml(group.label)+'<span>Valor (R$)</span><input class="price-value" type="number" min="0.01" max="99999.99" step="0.01" inputmode="decimal" data-ids="'+escapeHtml(JSON.stringify(ids))+'" value="'+escapeHtml(same?Number(value||0).toFixed(2):'')+'" placeholder="Informe o valor"></label>'+(note?'<p class="price-note">'+escapeHtml(note)+'</p>':'')+'<button class="button save-price" data-ids="'+escapeHtml(JSON.stringify(ids))+'">Salvar valor</button></article>';
+    }).join('')||'<div class="empty">Nenhuma competição encontrada.</div>';
     document.getElementById('stamp').textContent='Atualizado '+(data.atualizadoEm||'');
   }
   async function carregar(){
@@ -100,11 +114,13 @@
     finally{setBusy(false);}
   }
   async function salvarValor(button){
-    const id=button.dataset.id,input=Array.from(document.querySelectorAll('.price-value')).find(item=>item.dataset.id===id),valor=Number(input&&input.value);
+    const ids=JSON.parse(button.dataset.ids||'[]'),input=button.closest('.price-card').querySelector('.price-value'),valor=Number(input&&input.value);
     if(!Number.isFinite(valor)||valor<=0||valor>99999.99||Math.abs(valor*100-Math.round(valor*100))>1e-7){showMessage('Informe um valor entre R$ 0,01 e R$ 99.999,99, com até duas casas decimais.','error');return;}
+    if(!ids.length){showMessage('Não foi possível identificar as competições deste grupo. Atualize o painel e tente novamente.','error');return;}
     setBusy(true);showMessage('');
-    try{await call('coordenadorSalvarValorCompeticao',id,valor);showMessage('Valor atualizado para '+money(valor)+'.');render(await call('coordenadorDados'));}
-    catch(error){showMessage(error.message,'error');}
+    let salvos=0;
+    try{for(const id of ids){await call('coordenadorSalvarValorCompeticao',id,valor);salvos++;}showMessage('Valor '+money(valor)+' aplicado a '+salvos+' competição(ões).');render(await call('coordenadorDados'));}
+    catch(error){const detalhe=salvos?' O valor foi atualizado em '+salvos+' de '+ids.length+' competições; atualize o painel e tente novamente para concluir. ':'';showMessage((error.message||'A operação falhou.')+detalhe,'error');try{render(await call('coordenadorDados'));}catch{}}
     finally{setBusy(false);}
   }
   document.getElementById('refresh').addEventListener('click',carregar);
