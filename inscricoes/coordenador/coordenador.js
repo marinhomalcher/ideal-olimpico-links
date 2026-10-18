@@ -67,7 +67,7 @@
   async function aprovar(id){
     if(!confirm('Ao confirmar, o pagamento será aprovado e a inscrição oficial será marcada como concluída. Confirme somente se o comprovante foi conferido e a inscrição já foi feita no site da competição.'))return;
     setBusy(true);showMessage('');
-    try{const result=await call('coordenadorAprovarPagamentoEInscricao',id);showMessage('Pagamento e '+result.inscricoes+' inscrição(ões) oficial(is) confirmados.');render(await call('coordenadorDados'));}
+    try{const result=await call('coordenadorAprovarPagamentoEInscricao',id);showMessage('Pagamento e '+result.inscricoes+' inscrição(ões) oficial(is) confirmados.'+(result.emailAvisoEnviado?' Aviso enviado ao e-mail pessoal cadastrado.':' Não foi possível enviar o aviso por e-mail; o aluno pode consultar Meus Pedidos.'));render(await call('coordenadorDados'));}
     catch(error){showMessage(error.message,'error');}
     finally{setBusy(false);}
   }
@@ -76,7 +76,7 @@
     if(reason===null)return;if(reason.trim().length<3){showMessage('Informe um motivo com pelo menos 3 caracteres.','error');return;}
     if(!confirm('Rejeitar este comprovante? O arquivo ficará preservado para auditoria e o aluno poderá enviar outro.'))return;
     setBusy(true);showMessage('');
-    try{await call('coordenadorRejeitarComprovante',id,reason);showMessage('Comprovante rejeitado. O pedido voltou a aguardar novo envio.');render(await call('coordenadorDados'));}
+    try{const result=await call('coordenadorRejeitarComprovante',id,reason);showMessage('Comprovante rejeitado. O pedido voltou a aguardar novo envio.'+(result.emailAvisoEnviado?' O aluno foi avisado por e-mail.':' Não foi possível enviar o aviso por e-mail; o aluno pode consultar Meus Pedidos.'));render(await call('coordenadorDados'));}
     catch(error){showMessage(error.message,'error');}
     finally{setBusy(false);}
   }
