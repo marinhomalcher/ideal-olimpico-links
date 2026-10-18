@@ -3,6 +3,7 @@
   const listEl=document.getElementById('list');
   const msgEl=document.getElementById('msg');
   const appEl=document.getElementById('app');
+  const bridgeFrame=document.getElementById('backendBridge');
   const pending=new Map();
   let bridgeSource=null,bridgeOrigin='',connected=false,sequence=0,busy=false;
   const allowedMethods=new Set(['coordenadorDados','coordenadorAprovarPagamentoEInscricao','coordenadorRejeitarComprovante','coordenadorCsvInscritos','coordenadorSalvarValorCompeticao']);
@@ -25,7 +26,7 @@
     });
   }
   window.addEventListener('message',event=>{
-    if(!trustedBridgeOrigin(event.origin)||!event.data)return;
+    if(event.source!==bridgeFrame.contentWindow||!trustedBridgeOrigin(event.origin)||!event.data)return;
     const data=event.data;
     if(data.type==='ideal-coord-ready'&&typeof data.nonce==='string'&&data.nonce.length>=24){
       bridgeSource=event.source;bridgeOrigin=event.origin;
@@ -100,6 +101,6 @@
   document.getElementById('prices').addEventListener('click',event=>{const button=event.target.closest('.save-price');if(button)salvarValor(button);});
   if(!window.COORD_CONFIG.bridgeUrl){setStatus('A conexão privada ainda não foi configurada.');return;}
   document.getElementById('fallbackLink').href=window.COORD_CONFIG.standaloneUrl||window.COORD_CONFIG.bridgeUrl;
-  document.getElementById('backendBridge').src=window.COORD_CONFIG.bridgeUrl;
+  bridgeFrame.src=window.COORD_CONFIG.bridgeUrl;
   setTimeout(()=>{if(!connected){setStatus('A conexão segura não respondeu. Se o Google pedir autorização, conclua e recarregue esta página.');document.getElementById('fallback').classList.remove('hidden');}},10000);
 })();
