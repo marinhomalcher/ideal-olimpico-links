@@ -122,7 +122,7 @@ function confirmarCadastro(){
   const seg=String(alunoAtual.segmento||'').toUpperCase();
   const waAluno=document.getElementById('cadWhatsappAluno').value;
   const emailPessoal=document.getElementById('cadEmailPessoal').value.trim();
-  if(emailPessoal&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailPessoal)){msg.innerHTML='<div class="message bad">Informe um e-mail pessoal válido ou deixe o campo vazio.</div>';return;}
+  if(!emailPessoal||emailPessoal.length>254||!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailPessoal)){msg.innerHTML='<div class="message bad">Informe um e-mail pessoal válido. Ele pode ser do aluno ou do responsável.</div>';return;}
   const respNome=document.getElementById('cadRespNome').value.trim();
   const respVinculo=document.getElementById('cadRespVinculo').value;
   const respWa=document.getElementById('cadRespWhatsapp').value;
