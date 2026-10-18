@@ -5,7 +5,7 @@
   const appEl=document.getElementById('app');
   const pending=new Map();
   let bridgeSource=null,bridgeOrigin='',connected=false,sequence=0,busy=false;
-  const allowedMethods=new Set(['coordenadorDados','coordenadorAprovarPagamentoEInscricao','coordenadorRejeitarComprovante','coordenadorCsvInscritos']);
+  const allowedMethods=new Set(['coordenadorDados','coordenadorAprovarPagamentoEInscricao','coordenadorRejeitarComprovante','coordenadorCsvInscritos','coordenadorSalvarValorCompeticao']);
   function trustedBridgeOrigin(origin){
     try{const u=new URL(origin);return u.protocol==='https:'&&(u.hostname==='script.google.com'||u.hostname==='script.googleusercontent.com'||u.hostname.endsWith('-script.googleusercontent.com'));}catch{return false;}
   }
@@ -14,7 +14,7 @@
   function showMessage(text,kind='ok'){
     msgEl.innerHTML=text?'<div class="message '+(kind==='error'?'error':'okmsg')+'">'+escapeHtml(text)+'</div>':'';
   }
-  function setBusy(value){busy=value;appEl.classList.toggle('loading',value);appEl.querySelectorAll('button,select').forEach(el=>el.disabled=value);}
+  function setBusy(value){busy=value;appEl.classList.toggle('loading',value);appEl.querySelectorAll('button,select,input').forEach(el=>el.disabled=value);}
   function call(method,...args){
     if(!connected||!allowedMethods.has(method))return Promise.reject(new Error('A conexão segura ainda não está pronta.'));
     const id='coord-'+(++sequence)+'-'+Date.now();
@@ -54,6 +54,13 @@
     const select=document.getElementById('competition'),old=select.value;
     select.innerHTML='<option value="">Selecione uma competição</option>'+(data.competicoes||[]).map(item=>'<option value="'+escapeHtml(item.id)+'">'+escapeHtml(item.nome)+'</option>').join('');
     if(old)select.value=old;
+    const prices=document.getElementById('prices');
+    prices.innerHTML=(data.competicoes||[]).map(item=>{
+      const price=Number(item.valor);
+      const shown=Number.isFinite(price)?price.toFixed(2):'';
+      return '<article class="price-row" data-id="'+escapeHtml(item.id)+'"><div class="price-name"><strong>'+escapeHtml(item.nome)+'</strong><span>'+escapeHtml(item.grupoId||'')+'</span></div><label>Valor (R$)<input type="number" min="0.01" max="99999.99" step="0.01" inputmode="decimal" value="'+shown+'" aria-label="Valor da '+escapeHtml(item.nome)+'"></label><button class="button price-save">Salvar valor</button></article>';
+    }).join('')||'<div class="empty">Nenhuma competição disponível.</div>';
+    prices.querySelectorAll('.price-save').forEach(button=>button.addEventListener('click',()=>salvarPreco(button)));
     document.getElementById('stamp').textContent='Atualizado '+(data.atualizadoEm||'');
   }
   async function carregar(){
@@ -83,6 +90,15 @@
     if(!id){showMessage('Selecione uma competição.','error');return;}
     setBusy(true);showMessage('');
     try{const result=await call('coordenadorCsvInscritos',id);const blob=new Blob(['\ufeff'+String(result.csv||'').replace(/^\ufeff/,'')],{type:'text/csv;charset=utf-8'}),url=URL.createObjectURL(blob),anchor=document.createElement('a');anchor.href=url;anchor.download=result.nomeArquivo;anchor.click();setTimeout(()=>URL.revokeObjectURL(url),1500);showMessage('CSV gerado com '+result.quantidade+' inscrito(s).');}
+    catch(error){showMessage(error.message,'error');}
+    finally{setBusy(false);}
+  }
+  async function salvarPreco(button){
+    const row=button.closest('.price-row'),input=row&&row.querySelector('input'),id=row&&row.dataset.id;
+    const value=input&&input.valueAsNumber;
+    if(!id||!Number.isFinite(value)||value<=0||value>99999.99||Math.abs(value*100-Math.round(value*100))>0.000001){showMessage('Informe um preço maior que zero, com até duas casas decimais e no máximo R$ 99.999,99.','error');return;}
+    setBusy(true);showMessage('');
+    try{const result=await call('coordenadorSalvarValorCompeticao',id,value);showMessage('Valor atualizado para '+money(result.valor)+'. A mudança vale para novos pedidos.');render(await call('coordenadorDados'));}
     catch(error){showMessage(error.message,'error');}
     finally{setBusy(false);}
   }

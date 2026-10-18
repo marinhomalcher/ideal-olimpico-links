@@ -6,7 +6,7 @@
   <meta name="robots" content="noindex,nofollow">
   <meta name="referrer" content="no-referrer">
   <title>Coordenação — IDEAL OLÍMPICO</title>
-  <link rel="stylesheet" href="coordenador.css">
+  <link rel="stylesheet" href="coordenador.css?v=price-panel-1">
 </head>
 <body>
   <header><div class="head"><img class="mark" src="../ideal.jpg" alt=""><div class="brand"><h1>IDEAL OLÍMPICO — Coordenação</h1><p>Área restrita do coordenador</p></div><a class="back" href="../">Voltar ao portal</a></div></header>
@@ -17,12 +17,15 @@
     <section id="app" class="hidden" aria-live="polite">
       <div id="msg"></div>
       <div class="toolbar"><button class="button" id="refresh">Atualizar comprovantes</button><label for="competition">Baixar inscritos:</label><select id="competition"><option value="">Selecione uma competição</option></select><button class="button download" id="download">Baixar CSV</button><span id="stamp" class="status"></span></div>
+      <h2 class="section-title">Valores por competição</h2>
+      <p class="price-help">Defina o preço de cada competição em reais. A mudança vale para novos pedidos; pedidos já criados mantêm o total original.</p>
+      <section id="prices" class="prices" aria-label="Editar valores das competições"><div class="empty">Carregando valores…</div></section>
       <h2 class="section-title">Comprovantes aguardando conferência</h2>
       <section id="list"><div class="empty">Conectando ao backend…</div></section>
     </section>
   </main>
   <iframe id="backendBridge" title="Conexão segura com o backend de homologação" aria-hidden="true" tabindex="-1"></iframe>
   <script src="config.js"></script>
-  <script src="coordenador.js"></script>
+  <script src="coordenador.js?v=price-panel-1"></script>
 </body>
 </html>
