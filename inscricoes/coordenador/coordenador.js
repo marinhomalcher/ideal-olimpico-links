@@ -4,6 +4,8 @@
   const msgEl=document.getElementById('msg');
   const appEl=document.getElementById('app');
   const bridgeFrame=document.getElementById('backendBridge');
+  const gateEl=document.getElementById('coordinatorGate');
+  const enterButton=document.getElementById('enterCoordinator');
   const pending=new Map();
   let bridgeSource=null,bridgeOrigin='',connected=false,sequence=0,busy=false;
   const allowedMethods=new Set(['coordenadorDados','coordenadorAprovarPagamentoEInscricao','coordenadorRejeitarComprovante','coordenadorCsvInscritos','coordenadorSalvarValorCompeticao']);
@@ -84,7 +86,7 @@
     const id=document.getElementById('competition').value;
     if(!id){showMessage('Selecione uma competição.','error');return;}
     setBusy(true);showMessage('');
-    try{const result=await call('coordenadorCsvInscritos',id);const blob=new Blob(['\ufeff'+String(result.csv||'').replace(/^\ufeff/,'')],{type:'text/csv;charset=utf-8'}),url=URL.createObjectURL(blob),anchor=document.createElement('a');anchor.href=url;anchor.download=result.nomeArquivo;anchor.click();setTimeout(()=>URL.revokeObjectURL(url),1500);showMessage('CSV gerado com '+result.quantidade+' inscrito(s).');}
+    try{const result=await call('coordenadorCsvInscritos',id);const blob=new Blob(['\ufeff'+String(result.csv||'').replace(/^\ufeff/, '')],{type:'text/csv;charset=utf-8'}),url=URL.createObjectURL(blob),anchor=document.createElement('a');anchor.href=url;anchor.download=result.nomeArquivo;anchor.click();setTimeout(()=>URL.revokeObjectURL(url),1500);showMessage('CSV gerado com '+result.quantidade+' inscrito(s).');}
     catch(error){showMessage(error.message,'error');}
     finally{setBusy(false);}
   }
@@ -99,8 +101,11 @@
   document.getElementById('refresh').addEventListener('click',carregar);
   document.getElementById('download').addEventListener('click',baixar);
   document.getElementById('prices').addEventListener('click',event=>{const button=event.target.closest('.save-price');if(button)salvarValor(button);});
-  if(!window.COORD_CONFIG.bridgeUrl){setStatus('A conexão privada ainda não foi configurada.');return;}
-  document.getElementById('fallbackLink').href=window.COORD_CONFIG.standaloneUrl||window.COORD_CONFIG.bridgeUrl;
-  bridgeFrame.src=window.COORD_CONFIG.bridgeUrl;
-  setTimeout(()=>{if(!connected){setStatus('A conexão segura não respondeu. Se o Google pedir autorização, conclua e recarregue esta página.');document.getElementById('fallback').classList.remove('hidden');}},10000);
+  enterButton.addEventListener('click',()=>{
+    if(!window.COORD_CONFIG.bridgeUrl){gateEl.classList.add('hidden');setStatus('A conexão privada ainda não foi configurada.');statusEl.classList.remove('hidden');return;}
+    gateEl.classList.add('hidden');statusEl.classList.remove('hidden');setStatus('Conectando à área segura…');
+    document.getElementById('fallbackLink').href=window.COORD_CONFIG.standaloneUrl||window.COORD_CONFIG.bridgeUrl;
+    bridgeFrame.src=window.COORD_CONFIG.bridgeUrl;
+    setTimeout(()=>{if(!connected){setStatus('Não foi possível concluir a conexão. Entre com a conta Google autorizada e tente novamente.');document.getElementById('fallback').classList.remove('hidden');}},10000);
+  });
 })();
