@@ -428,6 +428,7 @@ function confirmarPedidoCarrinho(){
   const btn=document.getElementById('confirmarPedidoBtn');
   if(btn){btn.disabled=true;btn.textContent='REGISTRANDO...';}
   google.script.run.withSuccessHandler(r=>{
+    window.emailAvisosEnviados=Number(r.emailAvisosEnviados||0);
     pedidoPendenteIds=[];
     carrinho={};
     atualizarCarrinho();
@@ -464,7 +465,12 @@ function abrirFilaPagamentosNovos(totalGeral){
   const dlg=document.getElementById('modal');
   dlg.classList.add('wide');
   document.getElementById('modalTitle').textContent=pedidos.length>1?'Pagamentos das suas inscrições':'Pagamento da sua inscrição';
-  document.getElementById('modalBody').innerHTML=`<div class="message ok"><b>Inscrições registradas com sucesso.</b><br>${pedidos.length>1?`Foram criados ${pedidos.length} pagamentos separados.`:'Foi criado 1 pagamento.'}</div><div class="payment-queue">${cards}</div><div class="payment-queue-note"><b>Total das inscrições: ${money(total)}</b><br>${pendentes?`Ainda falta${pendentes>1?'m':''} ${pendentes} pagamento${pendentes>1?'s':''}. Pague um de cada vez e anexe o comprovante correspondente.`:'Todos os comprovantes deste conjunto já foram enviados.'}</div>`;
+  const emailCount=window.emailAvisosEnviados==null?null:Number(window.emailAvisosEnviados);
+  const emailNote=emailCount==null?'':emailCount===pedidos.length
+    ?'<div class="message ok">Enviamos os avisos desta inscrição para o e-mail pessoal cadastrado.</div>'
+    :'<div class="message warn">Não foi possível confirmar o envio de todos os avisos por e-mail. Acompanhe cada pedido em Meus Pedidos no portal.</div>';
+  window.emailAvisosEnviados=null;
+  document.getElementById('modalBody').innerHTML=`<div class="message ok"><b>Inscrições registradas com sucesso.</b><br>${pedidos.length>1?`Foram criados ${pedidos.length} pagamentos separados.`:'Foi criado 1 pagamento.'}</div>${emailNote}<div class="payment-queue">${cards}</div><div class="payment-queue-note"><b>Total das inscrições: ${money(total)}</b><br>${pendentes?`Ainda falta${pendentes>1?'m':''} ${pendentes} pagamento${pendentes>1?'s':''}. Pague um de cada vez e anexe o comprovante correspondente.`:'Todos os comprovantes deste conjunto já foram enviados.'}</div>`;
   document.getElementById('modalActions').innerHTML=`<button class="secondary" onclick="fecharModal()">FECHAR</button><button class="secondary" onclick="fecharModal();abrirMeusPedidos()">🛒 MEUS PEDIDOS</button>`;
   if(!dlg.open)dlg.showModal();
 }
