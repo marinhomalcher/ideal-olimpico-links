@@ -62,9 +62,9 @@
               <input id="cadWhatsappAluno" type="text" inputmode="numeric" maxlength="15" placeholder="(91) 99999-9999">
             </label>
           </div>
-          <label class="field email-pessoal-field">E-mail pessoal (opcional)
-            <input id="cadEmailPessoal" type="email" maxlength="254" autocomplete="email" inputmode="email" placeholder="voce@exemplo.com">
-            <small>Usaremos este endereço para contato relacionado às inscrições.</small>
+          <label class="field email-pessoal-field">E-mail pessoal <span aria-hidden="true">*</span>
+            <input id="cadEmailPessoal" type="email" maxlength="254" autocomplete="email" inputmode="email" placeholder="voce@exemplo.com" required aria-required="true">
+            <small>Obrigatório. Pode ser o e-mail do aluno ou do responsável. Os comunicados e as informações das olimpíadas serão enviados para este endereço. O mesmo e-mail não pode ser usado por alunos diferentes.</small>
           </label>
           <div id="responsavelBox" class="resp-grid">
             <label class="field">Nome do responsável <span id="respObrigatorio"></span>
