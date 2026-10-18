@@ -1,54 +1,124 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html>
 <head>
-  <meta charset="UTF-8">
-
-  <title>Portal de Inscrições – IDEAL OLÍMPICO</title>
-
-  <meta name="description"
-        content="Acesse o Portal de Inscrições do IDEAL OLÍMPICO.">
-
-  <!-- Prévia para WhatsApp, Facebook e outros apps -->
-  <meta property="og:title"
-        content="Portal de Inscrições – IDEAL OLÍMPICO">
-
-  <meta property="og:description"
-        content="Acesse o Portal de Inscrições do IDEAL OLÍMPICO.">
-
-  <meta property="og:type" content="website">
-
-  <meta property="og:url"
-        content="https://marinhomalcher.github.io/ideal-olimpico-links/inscricoes/">
-
-  <meta property="og:image"
-        content="https://marinhomalcher.github.io/ideal-olimpico-links/logo-ideal-olimpico.png">
-
-  <!-- Prévia para X/Twitter e outros serviços -->
-  <meta name="twitter:card" content="summary_large_image">
-
-  <meta name="twitter:title"
-        content="Portal de Inscrições – IDEAL OLÍMPICO">
-
-  <meta name="twitter:description"
-        content="Acesse o Portal de Inscrições do IDEAL OLÍMPICO.">
-
-  <meta name="twitter:image"
-        content="https://marinhomalcher.github.io/ideal-olimpico-links/logo-ideal-olimpico.png">
-
-  <!-- Redirecionamento -->
-  <meta http-equiv="refresh"
-        content="1;url=https://script.google.com/macros/s/AKfycbwE7f_rZ04wznIY_WViTAw1cIq55drbJ_UAWV1qyys8s5ScTqvyWRwcU7myz43CJd51/exec">
+  <base target="_self">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><meta name="referrer" content="no-referrer"><meta name="robots" content="noindex, nofollow">
+  <title>Portal de Inscrições — IDEAL OLÍMPICO</title>
+  <link rel="stylesheet" href="./portal.css">
 </head>
 
 <body>
-  <p>Abrindo o Portal de Inscrições – IDEAL OLÍMPICO...</p>
+<header>
+  <div class="head">
+    <img id="brandLogo" class="brand-logo" alt="Ideal Olímpico">
+    <div class="brand"><h1>Portal de Inscrições – IDEAL OLÍMPICO</h1><p>Inscrições em competições acadêmicas</p></div>
+    <div id="alunoBadge" class="student-badge hidden"><div class="who"><b id="badgeNome"></b><span id="badgeEmail"></span></div><div class="badge-actions"><button id="meusPedidosBtn" class="orders-btn hidden" onclick="abrirMeusPedidos()">🛒 MEUS PEDIDOS <span id="meusPedidosCount" class="pedido-count">0</span></button><button onclick="trocarAluno()">TROCAR ALUNO</button></div></div>
+  </div>
+</header>
+<main>
+  <section id="matriculaSec">
+    <div class="login-wrap">
+      <div class="login-card">
+        <div class="eyebrow">IDEAL OLÍMPICO</div>
+        <h2>Identifique-se para começar</h2>
+        <p>Informe sua matrícula e sua data de nascimento. Depois da identificação, você poderá conferir seus dados cadastrais antes de acessar as competições.</p>
+        <div class="auth-grid">
+          <label class="field">Matrícula
+            <input id="matriculaInput" type="text" inputmode="numeric" autocomplete="off" maxlength="5" pattern="[0-9]{5}" placeholder="12345" aria-label="Matrícula de 5 algarismos">
+          </label>
+          <label class="field">Data de nascimento
+            <input id="nascimentoInput" type="date" autocomplete="off">
+          </label>
+          <button id="loginBtn" class="primary" onclick="entrarPortal()">CONTINUAR</button>
+        </div>
+        <div class="login-hint">A matrícula deve conter exatamente 5 algarismos. Após a identificação, confira seus dados cadastrais e contatos antes de continuar.</div>
+        <div id="matriculaMsg" class="login-message"></div>
+      </div>
+    </div>
+  </section>
+  <section id="cadastroSec" class="hidden">
+    <div class="cadastro-wrap">
+      <div class="cadastro-card">
+        <div class="eyebrow">CONFIRMAÇÃO CADASTRAL</div>
+        <h2>Confira seus dados</h2>
+        <p>Revise as informações abaixo. Dados acadêmicos e documentos são somente leitura; se algo estiver incorreto, solicite a alteração para nossa equipe.</p>
+        <div id="annualOk" class="annual-ok hidden"></div>
+        <div class="dados-grid">
+          <div class="dado-readonly"><b>Nome completo</b><span id="cadNome"></span></div>
+          <div class="dado-readonly"><b>Matrícula</b><span id="cadMatricula"></span></div>
+          <div class="dado-readonly"><b>CPF cadastrado</b><span id="cadCpf"></span></div>
+          <div class="dado-readonly"><b>Unidade</b><span id="cadUnidade"></span></div>
+          <div class="dado-readonly"><b>Série</b><span id="cadSerie"></span></div>
+          <div class="dado-readonly"><b>Data de nascimento</b><span id="cadNascimento"></span></div>
+          <div class="dado-readonly"><b>E-mail institucional</b><span id="cadEmail"></span></div>
+        </div>
 
-  <script>
-    setTimeout(function () {
-      window.location.replace(
-        "https://script.google.com/macros/s/AKfycbwE7f_rZ04wznIY_WViTAw1cIq55drbJ_UAWV1qyys8s5ScTqvyWRwcU7myz43CJd51/exec"
-      );
-    }, 1000);
-  </script>
+        <div class="contatos-box">
+          <h3>Contatos</h3>
+          <p id="contatoOrientacao">Confirme ou atualize os contatos abaixo. Utilizamos apenas números de celular/WhatsApp com DDD.</p>
+          <div id="alunoWhatsappBox" class="contatos-grid">
+            <label class="field">WhatsApp do aluno <span id="waAlunoObrigatorio"></span>
+              <input id="cadWhatsappAluno" type="text" inputmode="numeric" maxlength="15" placeholder="(91) 99999-9999">
+            </label>
+          </div>
+          <label class="field email-pessoal-field">E-mail pessoal <span aria-hidden="true">(obrigatório)</span>
+            <input id="cadEmailPessoal" type="email" maxlength="254" autocomplete="email" inputmode="email" placeholder="voce@exemplo.com" required>
+            <small>Informe o e-mail do aluno ou do responsável. Os avisos e informações das olimpíadas serão enviados para este endereço. Use um e-mail diferente para cada aluno.</small>
+          </label>
+          <div id="responsavelBox" class="resp-grid">
+            <label class="field">Nome do responsável <span id="respObrigatorio"></span>
+              <input id="cadRespNome" type="text" maxlength="120" autocomplete="off">
+            </label>
+            <label class="field">Vínculo <span id="vinculoObrigatorio"></span>
+              <select id="cadRespVinculo">
+                <option value="">Selecione</option>
+                <option>Mãe</option><option>Pai</option><option>Avó/Avô</option><option>Tutor legal</option><option>Outro</option>
+              </select>
+            </label>
+            <label class="field">WhatsApp do responsável <span id="respWaObrigatorio"></span>
+              <input id="cadRespWhatsapp" type="text" inputmode="numeric" maxlength="15" placeholder="(91) 99999-9999">
+            </label>
+          </div>
+          <div class="required-note">O número deve ter DDD + 9 dígitos e começar com 9 após o DDD. Ex.: (91) 99999-9999.</div>
+          <div id="cadastroMsg" class="login-message"></div>
+        </div>
+
+        <div class="cadastro-actions">
+          <button id="solicitarAlteracaoBtn" class="secondary" onclick="abrirSolicitacaoAlteracao()">SOLICITAR ALTERAÇÃO</button>
+          <div class="right"><button id="confirmarCadastroBtn" class="primary" onclick="confirmarCadastro()">CONFIRMAR DADOS</button></div>
+        </div>
+      </div>
+    </div>
+  </section>
+  <section id="home" class="hidden">
+    <div class="hero"><div><div class="eyebrow">IDEAL OLÍMPICO</div><h2>Escolha a competição</h2><p>Consulte edições, regras e prazos. Antes de qualquer nova inscrição, o portal verifica se esta matrícula já possui solicitação para a mesma competição.</p></div></div>
+    <div id="homeGrid" class="home-grid"></div>
+  </section>
+  <section id="grupoSec" class="hidden">
+    <div class="topbar">
+      <img id="grupoLogo" alt=""><div><div class="eyebrow">Inscrições</div><h2 id="grupoTitulo"></h2><p id="grupoSub"></p></div>
+      <button class="secondary back" onclick="irHome()">← Voltar</button>
+    </div>
+    <div id="literaturaPerfil" class="hidden"></div>
+    <div id="catalogo"></div><div id="loading" class="loading hidden">Carregando...</div>
+  </section>
+  <section id="pedidosSec" class="hidden">
+    <div class="topbar">
+      <div class="orders-top-icon" aria-hidden="true">🛒</div><div><div class="eyebrow">IDEAL OLÍMPICO</div><h2>Meus pedidos</h2><p>Acompanhe suas inscrições e retome pagamentos pendentes. As confirmações ficam registradas aqui no portal.</p></div>
+      <button class="secondary back" onclick="fecharMeusPedidos()">← Voltar às competições</button>
+    </div>
+    <div id="pedidosResumo" class="orders-summary"></div>
+    <div id="pedidosLoading" class="loading hidden">Carregando seus pedidos...</div>
+    <div id="pedidosLista" class="pedidos-list"></div>
+  </section>
+</main>
+<footer class="coordinator-entry"><a href="./coordenador/">Área da coordenação</a></footer>
+<div id="cart" class="cart hidden"><div class="cart-inner"><div class="cart-main"><b id="cartQtd">0 inscrição(ões) selecionada(s)</b><small>Você poderá conferir tudo antes do pagamento.</small></div><div id="cartTotal" class="cart-total">R$ 0,00</div><button class="primary" onclick="continuarCarrinho()">CONTINUAR</button></div></div>
+<dialog id="alteracaoModal"><div class="modal-head"><h3>Solicitar alteração cadastral</h3><button class="close" onclick="fecharAlteracaoModal()">×</button></div><div class="modal-body request-box"><p>Descreva objetivamente qual informação está incorreta e qual deve ser a correção.</p><textarea id="alteracaoTexto" maxlength="1000" placeholder="Ex.: Minha unidade está incorreta. O correto é BC."></textarea><div id="alteracaoMsg"></div></div><div class="modal-actions"><button class="secondary" onclick="fecharAlteracaoModal()">CANCELAR</button><button id="enviarAlteracaoBtn" class="primary" onclick="enviarSolicitacaoAlteracao()">ENVIAR SOLICITAÇÃO</button></div></dialog>
+<dialog id="modal"><div class="modal-head"><h3 id="modalTitle">Detalhes</h3><button class="close" onclick="fecharModal()">×</button></div><div id="modalBody" class="modal-body"></div><div id="modalActions" class="modal-actions"></div></dialog>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="./config.js"></script><script src="./student-bridge-client.js"></script><script src="./portal.js" defer></script>
 </body>
 </html>

@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex,nofollow">
+  <meta name="referrer" content="no-referrer">
+  <title>Coordenação — IDEAL OLÍMPICO</title>
+  <link rel="stylesheet" href="coordenador.css">
+</head>
+<body>
+  <header><div class="head"><img class="mark" src="../assets/ideal.jpg" alt=""><div class="brand"><h1>IDEAL OLÍMPICO — Coordenação</h1><p>Área restrita do coordenador</p></div><a class="back" href="../">Voltar ao portal</a></div></header>
+  <main>
+    <div class="test-banner"><b>Acesso restrito:</b> painel privado da coordenação. Confira o comprovante e realize a inscrição no site da competição antes de confirmar.</div>
+    <p id="status" class="status" role="status" aria-live="polite">Conectando à área segura…</p>
+    <div id="fallback" class="message error hidden">Se a autenticação do Google não funcionar nesta janela, <a id="fallbackLink" href="#" target="_blank" rel="noopener noreferrer">abra a conexão segura</a>, conclua a autorização e recarregue esta página.</div>
+    <section id="app" class="hidden" aria-live="polite">
+      <div id="msg"></div>
+      <div class="toolbar"><button class="button" id="refresh">Atualizar comprovantes</button><label for="competition">Baixar inscritos:</label><select id="competition"><option value="">Selecione uma competição</option></select><button class="button download" id="download">Baixar CSV</button><span id="stamp" class="status"></span></div>
+      <h2 class="section-title">Valores por competição</h2>
+      <p class="status">O valor atualizado vale para novos pedidos. Pedidos já criados mantêm o total original.</p>
+      <section id="prices" aria-label="Valores por competição"></section>
+      <h2 class="section-title">Comprovantes aguardando conferência</h2>
+      <section id="list"><div class="empty">Conectando ao backend…</div></section>
+    </section>
+  </main>
+  <iframe id="backendBridge" title="Conexão segura com o backend" aria-hidden="true" tabindex="-1"></iframe>
+  <script src="config.js"></script>
+  <script src="coordenador.js"></script>
+</body>
+</html>
