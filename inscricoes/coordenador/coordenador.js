@@ -12,6 +12,15 @@
   function trustedBridgeOrigin(origin){
     try{const u=new URL(origin);return u.protocol==='https:'&&(u.hostname==='script.google.com'||u.hostname==='script.googleusercontent.com'||u.hostname.endsWith('-script.googleusercontent.com'));}catch{return false;}
   }
+  function trustedBridgeFrame(source){
+    if(!source)return false;
+    let current=source;
+    for(let depth=0;depth<8&&current&&current!==window;depth++){
+      if(current===bridgeFrame.contentWindow)return true;
+      try{const parent=current.parent;if(!parent||parent===current)return false;current=parent;}catch{return false;}
+    }
+    return current===bridgeFrame.contentWindow;
+  }
   function setStatus(text){statusEl.textContent=text;}
   function escapeHtml(value){return String(value??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));}
   function showMessage(text,kind='ok'){
@@ -28,7 +37,7 @@
     });
   }
   window.addEventListener('message',event=>{
-    if(event.source!==bridgeFrame.contentWindow||!trustedBridgeOrigin(event.origin)||!event.data)return;
+    if(!trustedBridgeFrame(event.source)||!trustedBridgeOrigin(event.origin)||!event.data)return;
     const data=event.data;
     if(data.type==='ideal-coord-ready'&&typeof data.nonce==='string'&&data.nonce.length>=24){
       bridgeSource=event.source;bridgeOrigin=event.origin;
