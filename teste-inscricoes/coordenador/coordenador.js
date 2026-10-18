@@ -57,7 +57,8 @@
     const literature=(data.competicoes||[]).filter(item=>String(item.nome||'').trim().toLocaleUpperCase('pt-BR').startsWith('LITERATURA'));
     literatureCompetitionIds=literature.map(item=>item.id);
     const otherCompetitions=(data.competicoes||[]).filter(item=>!String(item.nome||'').trim().toLocaleUpperCase('pt-BR').startsWith('LITERATURA'));
-    select.innerHTML='<option value="">Selecione uma competição</option>'+(literature.length?'<option value="'+LITERATURE_ALL_ID+'">LITERATURA</option>':'')+otherCompetitions.map(item=>'<option value="'+escapeHtml(item.id)+'">'+escapeHtml(item.nome)+'</option>').join('');
+    const orderedOtherCompetitions=[...otherCompetitions.filter(item=>String(item.nome||'').trim().toLocaleUpperCase('pt-BR').startsWith('SELETA')),...otherCompetitions.filter(item=>!String(item.nome||'').trim().toLocaleUpperCase('pt-BR').startsWith('SELETA'))];
+    select.innerHTML='<option value="">Selecione uma competição</option>'+(literature.length?'<option value="'+LITERATURE_ALL_ID+'">LITERATURA</option>':'')+orderedOtherCompetitions.map(item=>'<option value="'+escapeHtml(item.id)+'">'+escapeHtml(item.nome)+'</option>').join('');
     if(old)select.value=old;
     const prices=document.getElementById('prices');
     prices.innerHTML=(data.competicoes||[]).map(item=>{
