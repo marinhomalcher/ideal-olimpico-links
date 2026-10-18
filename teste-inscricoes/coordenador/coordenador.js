@@ -5,6 +5,7 @@
   const appEl=document.getElementById('app');
   const pending=new Map();
   let bridgeSource=null,bridgeOrigin='',connected=false,sequence=0,busy=false;
+  const LITERATURE_ALL_ID='__literatura_todas_as_obras__';
   const allowedMethods=new Set(['coordenadorDados','coordenadorAprovarPagamentoEInscricao','coordenadorRejeitarComprovante','coordenadorCsvInscritos','coordenadorSalvarValorCompeticao']);
   function trustedBridgeOrigin(origin){
     try{const u=new URL(origin);return u.protocol==='https:'&&(u.hostname==='script.google.com'||u.hostname==='script.googleusercontent.com'||u.hostname.endsWith('-script.googleusercontent.com'));}catch{return false;}
@@ -52,7 +53,8 @@
     listEl.querySelectorAll('.approve').forEach(button=>button.addEventListener('click',()=>aprovar(button.dataset.id)));
     listEl.querySelectorAll('.reject').forEach(button=>button.addEventListener('click',()=>rejeitar(button.dataset.id)));
     const select=document.getElementById('competition'),old=select.value;
-    select.innerHTML='<option value="">Selecione uma competição</option>'+(data.competicoes||[]).map(item=>'<option value="'+escapeHtml(item.id)+'">'+escapeHtml(item.nome)+'</option>').join('');
+    const literature=(data.competicoes||[]).filter(item=>String(item.nome||'').trim().toLocaleUpperCase('pt-BR').startsWith('LITERATURA'));
+    select.innerHTML='<option value="">Selecione uma competição</option>'+(literature.length?'<option value="'+LITERATURE_ALL_ID+'">LITERATURA — Todas as obras</option>':'')+(data.competicoes||[]).map(item=>'<option value="'+escapeHtml(item.id)+'">'+escapeHtml(item.nome)+'</option>').join('');
     if(old)select.value=old;
     const prices=document.getElementById('prices');
     prices.innerHTML=(data.competicoes||[]).map(item=>{
@@ -89,9 +91,36 @@
     const id=document.getElementById('competition').value;
     if(!id){showMessage('Selecione uma competição.','error');return;}
     setBusy(true);showMessage('');
-    try{const result=await call('coordenadorCsvInscritos',id);const blob=new Blob(['\ufeff'+String(result.csv||'').replace(/^\ufeff/,'')],{type:'text/csv;charset=utf-8'}),url=URL.createObjectURL(blob),anchor=document.createElement('a');anchor.href=url;anchor.download=result.nomeArquivo;anchor.click();setTimeout(()=>URL.revokeObjectURL(url),1500);showMessage('CSV gerado com '+result.quantidade+' inscrito(s).');}
+    try{
+      let csv='',quantity=0,filename='';
+      if(id===LITERATURE_ALL_ID){
+        const competitions=[...document.getElementById('competition').options].filter(option=>option.value&&option.textContent.trim().toLocaleUpperCase('pt-BR').startsWith('LITERATURA')).map(option=>option.value);
+        if(!competitions.length)throw new Error('Nenhuma obra de Literatura está disponível para exportação.');
+        const results=new Array(competitions.length);let next=0;
+        const batches=await Promise.allSettled(Array.from({length:Math.min(4,competitions.length)},async()=>{while(next<competitions.length){const index=next++;results[index]=await call('coordenadorCsvInscritos',competitions[index]);}}));
+        const failure=batches.find(result=>result.status==='rejected');if(failure)throw failure.reason;
+        const records=results.map(result=>csvRecords(result.csv)),header=records.find(rows=>rows.length)?.[0];
+        if(!header)throw new Error('O backend não retornou o cabeçalho do CSV de Literatura.');
+        if(records.some(rows=>rows.length&&rows[0]!==header))throw new Error('As obras retornaram formatos de CSV diferentes. Baixe cada obra separadamente.');
+        csv=[header,...records.flatMap(rows=>rows.slice(1))].join('\r\n');
+        quantity=results.reduce((sum,result)=>sum+Number(result.quantidade||0),0);
+        filename='inscritos-literatura-todas-as-obras.csv';
+      }else{
+        const result=await call('coordenadorCsvInscritos',id);csv=String(result.csv||'').replace(/^\ufeff/,'');quantity=result.quantidade;filename=result.nomeArquivo;
+      }
+      const blob=new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8'}),url=URL.createObjectURL(blob),anchor=document.createElement('a');anchor.href=url;anchor.download=filename;anchor.click();setTimeout(()=>URL.revokeObjectURL(url),1500);showMessage('CSV gerado com '+quantity+' inscrição(ões).');
+    }
     catch(error){showMessage(error.message,'error');}
     finally{setBusy(false);}
+  }
+  function csvRecords(value){
+    const text=String(value||'').replace(/^\ufeff/,''),rows=[];let start=0,quoted=false;
+    for(let index=0;index<text.length;index++){
+      const char=text[index];
+      if(char==='"'){if(quoted&&text[index+1]==='"'){index++;continue;}quoted=!quoted;}
+      else if(!quoted&&(char==='\n'||char==='\r')){const row=text.slice(start,index);if(row.trim())rows.push(row);if(char==='\r'&&text[index+1]==='\n')index++;start=index+1;}
+    }
+    const tail=text.slice(start);if(tail.trim())rows.push(tail);return rows;
   }
   async function salvarPreco(button){
     const row=button.closest('.price-row'),input=row&&row.querySelector('input'),id=row&&row.dataset.id;
