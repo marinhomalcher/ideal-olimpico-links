@@ -1,4 +1,4 @@
 window.COORD_CONFIG=Object.freeze({
-  bridgeUrl:'https://script.google.com/macros/s/AKfycbzPCsDQmLWOmC7N4h-_vWhui3ndxLXxRPXNR_bfWpjVeakYV0fHK4uaLFHQkSO6I83daQ/exec?bridge=coordenador',
-  standaloneUrl:'https://script.google.com/macros/s/AKfycbzPCsDQmLWOmC7N4h-_vWhui3ndxLXxRPXNR_bfWpjVeakYV0fHK4uaLFHQkSO6I83daQ/exec?bridge=coordenador'
+  bridgeUrl:'https://script.google.com/macros/s/AKfycbxUsFqnnv3JyD8yfKmM6G1BU5wG2oPZgepLjaUbFJHgh5kvd9EIjFJzUymkCfWfx3yeww/exec?bridge=coordenador',
+  standaloneUrl:'https://script.google.com/macros/s/AKfycbxUsFqnnv3JyD8yfKmM6G1BU5wG2oPZgepLjaUbFJHgh5kvd9EIjFJzUymkCfWfx3yeww/exec?bridge=coordenador'
 });
