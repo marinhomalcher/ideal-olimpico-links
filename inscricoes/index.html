@@ -128,12 +128,11 @@
     <div id="pedidosLista" class="pedidos-list"></div>
   </section>
 </main>
-<footer class="coordinator-entry"><a href="./coordenador/">Área da coordenação</a></footer>
 <div id="cart" class="cart hidden"><div class="cart-inner"><div class="cart-main"><b id="cartQtd">0 inscrição(ões) selecionada(s)</b><small>Você poderá conferir tudo antes do pagamento.</small></div><div id="cartTotal" class="cart-total">R$ 0,00</div><button class="primary" onclick="continuarCarrinho()">CONTINUAR</button></div></div>
 <dialog id="alteracaoModal"><div class="modal-head"><h3>Solicitar alteração cadastral</h3><button class="close" onclick="fecharAlteracaoModal()">×</button></div><div class="modal-body request-box"><p>Descreva objetivamente qual informação está incorreta e qual deve ser a correção.</p><textarea id="alteracaoTexto" maxlength="1000" placeholder="Ex.: Minha unidade está incorreta. O correto é BC."></textarea><div id="alteracaoMsg"></div></div><div class="modal-actions"><button class="secondary" onclick="fecharAlteracaoModal()">CANCELAR</button><button id="enviarAlteracaoBtn" class="primary" onclick="enviarSolicitacaoAlteracao()">ENVIAR SOLICITAÇÃO</button></div></dialog>
 <dialog id="modal"><div class="modal-head"><h3 id="modalTitle">Detalhes</h3><button class="close" onclick="fecharModal()">×</button></div><div id="modalBody" class="modal-body"></div><div id="modalActions" class="modal-actions"></div></dialog>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-<script src="./config.js"></script><script src="./student-bridge-client.js"></script><script src="./portal.js" defer></script>
+<script src="./config.js"></script><script src="./student-bridge-client.js?v=20261019-1"></script><script src="./portal.js" defer></script>
 </body>
 </html>

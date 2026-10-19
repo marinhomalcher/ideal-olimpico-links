@@ -30,10 +30,14 @@
     }catch{return false;}
   }
   function isBridgeFrameSource(source){
-    if(source===frame.contentWindow)return true;
-    // Apps Script serves HtmlService content in a nested iframe. Its
-    // postMessage source is the nested window, whose parent is this frame.
-    try{return !!source&&source.parent===frame.contentWindow;}catch{return false;}
+    // Apps Script may add more than one internal HtmlService frame. Walk up
+    // the sender's frame ancestry instead of assuming a fixed nesting depth.
+    let current=source;
+    for(let depth=0;current&&depth<8;depth++){
+      if(current===frame.contentWindow)return true;
+      try{if(current===current.parent)return false;current=current.parent;}catch{return false;}
+    }
+    return false;
   }
   function dispatch(method,args,success,failure){
     if(!Object.prototype.hasOwnProperty.call(methods,method)||args.length!==methods[method]){

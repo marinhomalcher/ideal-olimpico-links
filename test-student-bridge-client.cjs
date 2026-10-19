@@ -13,24 +13,29 @@ const document = {
   createElement: () => frame,
   body: { appendChild() {} }
 };
+const studentHtml = fs.readFileSync('inscricoes/index.html', 'utf8');
+assert.equal(studentHtml.includes('Área da coordenação'), false, 'student portal must not link to coordinator area');
 vm.runInNewContext(fs.readFileSync('inscricoes/student-bridge-client.js', 'utf8'), { window, document, URL, Map, Object, Error, Date, setTimeout, clearTimeout, console });
 
 const bridgeOrigin = 'https://script.googleusercontent.com';
 const nonce = 'a'.repeat(48);
 let result;
 const calls = [];
+const innerWindow = { parent: null };
 const nestedWindow = { parent: frameWindow, postMessage(message, origin) {
   assert.equal(origin, bridgeOrigin);
   calls.push({ message, origin });
   if (message.type === 'ideal-student-authorize') {
-    listeners.message({ source: nestedWindow, origin, data: { type: 'ideal-student-connected', nonce: message.nonce } });
+    listeners.message({ source: innerWindow, origin, data: { type: 'ideal-student-connected', nonce: message.nonce } });
   } else if (message.type === 'ideal-student-call') {
-    listeners.message({ source: nestedWindow, origin, data: { type: 'ideal-student-result', id: message.id, ok: true, data: { status: 'OK' } } });
+    listeners.message({ source: innerWindow, origin, data: { type: 'ideal-student-result', id: message.id, ok: true, data: { status: 'OK' } } });
   }
 } };
+innerWindow.parent = nestedWindow;
+innerWindow.postMessage = nestedWindow.postMessage;
 
 // Apps Script HtmlService reports its nested sandbox window as the sender.
-listeners.message({ source: nestedWindow, origin: bridgeOrigin, data: { type: 'ideal-student-ready', nonce } });
+listeners.message({ source: innerWindow, origin: bridgeOrigin, data: { type: 'ideal-student-ready', nonce } });
 window.google.script.run.withSuccessHandler(value => { result = value; }).withFailureHandler(error => { throw error; }).autenticarAluno('99999', '2010-01-01');
 assert.deepEqual(JSON.parse(JSON.stringify(result)), { status: 'OK' });
 assert.equal(calls.some(call => call.message.type === 'ideal-student-call'), true);
