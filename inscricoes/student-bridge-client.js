@@ -29,6 +29,12 @@
       return u.protocol==='https:'&&(u.hostname==='script.google.com'||u.hostname==='script.googleusercontent.com'||/^[a-z0-9-]+-script\.googleusercontent\.com$/.test(u.hostname));
     }catch{return false;}
   }
+  function isBridgeFrameSource(source){
+    if(source===frame.contentWindow)return true;
+    // Apps Script serves HtmlService content in a nested iframe. Its
+    // postMessage source is the nested window, whose parent is this frame.
+    try{return !!source&&source.parent===frame.contentWindow;}catch{return false;}
+  }
   function dispatch(method,args,success,failure){
     if(!Object.prototype.hasOwnProperty.call(methods,method)||args.length!==methods[method]){
       failure(new Error('Operação não permitida.'));return;
@@ -40,7 +46,7 @@
     source.postMessage({type:'ideal-student-call',id,method,args},origin);
   }
   window.addEventListener('message',event=>{
-    if(event.source!==frame.contentWindow||!trustedOrigin(event.origin)||!event.data)return;
+    if(!isBridgeFrameSource(event.source)||!trustedOrigin(event.origin)||!event.data)return;
     const data=event.data;
     if(data.type==='ideal-student-ready'&&typeof data.nonce==='string'&&data.nonce.length===48){
       source=event.source;origin=event.origin;nonce=data.nonce;
