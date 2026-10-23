@@ -262,3 +262,34 @@ dialog[open] > .modal-body {
   -webkit-overflow-scrolling: touch;
   touch-action: pan-y;
 }
+/* iOS follow-up: scroll the dialog itself so its final actions cannot be clipped. */
+dialog[open] {
+  display: block;
+  max-height: calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 16px);
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
+  touch-action: pan-y;
+}
+dialog[open] > .modal-head {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+}
+dialog[open] > .modal-body {
+  display: block;
+  min-height: 0;
+  max-height: none;
+  overflow: visible;
+  overscroll-behavior: auto;
+}
+dialog[open] > .modal-actions {
+  position: sticky;
+  bottom: 0;
+  z-index: 3;
+  display: flex;
+  flex-wrap: wrap;
+  background: #fff;
+  padding-bottom: max(16px, env(safe-area-inset-bottom));
+}
