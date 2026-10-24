@@ -1,36 +1,107 @@
 <!doctype html>
-<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="referrer" content="no-referrer"><title>Diagnóstico — IDEAL OLÍMPICO</title>
-<style>body{font:18px system-ui;margin:24px auto;padding:0 20px;max-width:700px;color:#33252a}h1{color:#821a2b;font-size:28px}button{font:inherit;background:#821a2b;color:white;border:0;border-radius:8px;padding:14px;margin:8px 0}button:disabled{opacity:.5}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#f5f3f3;padding:16px;border-radius:8px;font-size:14px}p{line-height:1.5}</style></head>
-<body><h1>Teste de conexão do portal</h1><p>Esta página verifica a conexão com o ambiente de teste. Não solicita dados de aluno e não cria inscrições nem pedidos.</p><p id="status" role="status" aria-live="polite">Preparando diagnóstico…</p><button id="probe" disabled>Testar resposta do servidor</button><p>Se a conexão parar, envie uma captura deste relatório à equipe.</p><pre id="report"></pre>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <meta name="robots" content="noindex,nofollow">
+  <title>Diagnóstico da conexão oficial — IDEAL OLÍMPICO</title>
+  <style>
+    body{font:18px system-ui;margin:24px auto;padding:0 20px;max-width:700px;color:#33252a}
+    h1{color:#821a2b;font-size:28px}p{line-height:1.5}
+    button{font:inherit;background:#821a2b;color:white;border:0;border-radius:8px;padding:14px;margin:8px 0}
+    button:disabled{opacity:.5}
+    pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#f5f3f3;padding:16px;border-radius:8px;font-size:14px}
+  </style>
+</head>
+<body>
+  <h1>Diagnóstico da conexão oficial</h1>
+  <p>Esta página verifica a comunicação entre o site e o Apps Script oficial. Não peça nem informe matrícula, nascimento ou outros dados de aluno. O teste envia somente campos vazios, rejeitados antes de consultar a planilha.</p>
+  <p id="status" role="status" aria-live="polite">Preparando diagnóstico…</p>
+  <button id="probe" disabled>Testar resposta sem dados de aluno</button>
+  <p>Se houver falha, envie à equipe apenas uma captura do relatório abaixo.</p>
+  <pre id="report"></pre>
 <script>
 (()=>{'use strict';
-  const started=Date.now(),report=document.getElementById('report'),status=document.getElementById('status'),button=document.getElementById('probe');
-  let connected=false,finished=false;
+  const started=Date.now();
+  const status=document.getElementById('status');
+  const report=document.getElementById('report');
+  const button=document.getElementById('probe');
   const seen=new Set();
-  const log=text=>{report.textContent+=((Date.now()-started)/1000).toFixed(1)+'s — '+text+'\n';};
-  log('Diagnóstico v20261021-1. Sem dados pessoais.');
+  let connected=false,probeStarted=false;
+  function log(line){report.textContent+=((Date.now()-started)/1000).toFixed(1)+'s — '+line+'\n';}
+  function googleOrigin(origin){
+    try{const u=new URL(origin);return u.protocol==='https:'&&
+      (u.hostname==='script.google.com'||u.hostname==='script.googleusercontent.com'||
+       /^[a-z0-9-]+-script\.googleusercontent\.com$/.test(u.hostname));}
+    catch{return false;}
+  }
+  function relationship(sender){
+    const frame=document.querySelector('iframe[title="Conexão segura com o portal"]');
+    if(!frame)return 'sem iframe';
+    if(sender===frame.contentWindow)return 'direto';
+    let current=sender;
+    for(let depth=0;current&&depth<8;depth++){
+      if(current===frame.contentWindow)return 'ancestral';
+      try{if(current===current.parent)break;current=current.parent;}catch{break;}
+    }
+    const stack=[{window:frame.contentWindow,depth:0}],visited=new Set();
+    while(stack.length&&visited.size<32){
+      const item=stack.pop(),windowRef=item.window;
+      if(windowRef===sender)return 'descendente';
+      if(!windowRef||visited.has(windowRef)||item.depth>=8)continue;
+      visited.add(windowRef);
+      try{const n=Math.min(windowRef.frames.length,20);
+        for(let i=0;i<n;i++)stack.push({window:windowRef.frames[i],depth:item.depth+1});}
+      catch{}
+    }
+    return 'não identificado';
+  }
+  log('Diagnóstico v20261023-1; nenhum dado de aluno informado.');
   log('URLSearchParams.size: '+(new URL('https://example.com/?a=1').searchParams.size===1?'disponível':'indisponível'));
-  log('Proxy: '+(typeof Proxy==='function'?'disponível':'indisponível'));
-  window.addEventListener('error',event=>{log(event.target&&event.target.tagName==='SCRIPT'?'ERRO: arquivo JavaScript não carregou.':'ERRO: execução de JavaScript interrompida.');status.textContent='Falha ao iniciar a página. Envie o relatório.';},true);
-  function originAllowed(origin){try{const u=new URL(origin);return u.protocol==='https:'&&(u.hostname==='script.google.com'||u.hostname==='script.googleusercontent.com'||/^[a-z0-9-]+-script\.googleusercontent\.com$/.test(u.hostname));}catch{return false;}}
-  function belongs(candidate){const f=document.querySelector('iframe[title="Conexão segura com o portal"]');if(!f)return false;const stack=[{w:f.contentWindow,d:0}],visited=new Set();while(stack.length&&visited.size<32){const {w,d}=stack.pop();if(w===candidate)return true;if(!w||visited.has(w)||d>=8)continue;visited.add(w);try{for(let i=0;i<w.frames.length&&i<20;i++)stack.push({w:w.frames[i],d:d+1});}catch{}}return false;}
+  window.addEventListener('error',event=>{
+    const type=event.target&&event.target.tagName==='SCRIPT'?'ARQUIVO_JS_NAO_CARREGOU':'ERRO_JAVASCRIPT';
+    log(type);status.textContent='Falha ao carregar a conexão. Envie o relatório.';
+  },true);
   window.addEventListener('message',event=>{
     const type=event.data&&event.data.type;
     if(!['ideal-student-ready','ideal-student-connected','ideal-student-result'].includes(type))return;
-    const trusted=originAllowed(event.origin),related=belongs(event.source),key=type+trusted+related;
-    if(!seen.has(key)){seen.add(key);log(type+' | origem Google: '+trusted+' | iframe esperado: '+related);}
-    if(type==='ideal-student-connected'&&trusted&&related){connected=true;button.disabled=false;status.textContent='Conexão estabelecida. Toque no botão para testar a resposta do servidor.';}
+    const trusted=googleOrigin(event.origin),relation=relationship(event.source);
+    const key=type+'|'+trusted+'|'+relation;
+    if(!seen.has(key)){seen.add(key);log(type+' | Google: '+trusted+' | origem do iframe: '+relation);}
+    if(type==='ideal-student-connected'&&trusted&&relation!=='não identificado'&&relation!=='sem iframe'){
+      connected=true;button.disabled=false;
+      status.textContent='Conexão estabelecida. Toque no botão para testar a resposta.';
+    }
   });
-  const wait=setTimeout(()=>{if(!connected){status.textContent='A conexão com o Google não foi estabelecida em 25 segundos.';log('TIMEOUT_CONEXAO');}},25000);
+  setTimeout(()=>{if(!connected){log('TIMEOUT_CONEXAO_25S');
+    status.textContent='A conexão não foi estabelecida em 25 segundos. Envie o relatório.';}},25000);
   button.addEventListener('click',()=>{
-    if(!connected||finished)return;button.disabled=true;finished=true;clearTimeout(wait);status.textContent='Verificando resposta do servidor…';log('Enviando matrícula vazia: validação rejeita antes de consultar ou gravar a planilha.');
-    try{window.google.script.run.withSuccessHandler(()=>{status.textContent='Resposta recebida, mas diferente da rejeição esperada. Envie o relatório.';log('RESPOSTA_INESPERADA');}).withFailureHandler(error=>{
-      const expected=String(error&&error.message||'').includes('matrícula deve conter exatamente 5');
-      status.textContent=expected?'O servidor respondeu corretamente. A comunicação de ida e volta funcionou neste navegador.':'O teste recebeu uma falha. Envie o relatório à equipe.';
-      log(expected?'SUCESSO: rejeição esperada recebida do servidor.':'FALHA: resposta diferente da validação esperada.');
-    }).autenticarAluno('','');}catch{log('ERRO_LOCAL: chamada não iniciou.');status.textContent='A chamada não iniciou. Envie o relatório.';}
+    if(probeStarted||!connected)return;
+    probeStarted=true;button.disabled=true;
+    status.textContent='Aguardando resposta sem dados de aluno…';
+    log('CHAMADA_VAZIA_INICIADA');
+    let finished=false;
+    const timer=setTimeout(()=>{if(!finished){log('TIMEOUT_RESPOSTA_25S');
+      status.textContent='O servidor não respondeu em 25 segundos. Envie o relatório.';}},25000);
+    function finish(outcome,message){if(finished)return;finished=true;clearTimeout(timer);log(outcome);status.textContent=message;}
+    try{
+      window.google.script.run.withSuccessHandler(()=>finish('RESPOSTA_INESPERADA','Resposta inesperada. Envie o relatório.'))
+        .withFailureHandler(error=>{
+          const message=String(error&&error.message||'');
+          const expected=message.includes('matrícula deve conter exatamente 5');
+          finish(expected?'RESPOSTA_ESPERADA':'FALHA_DIFERENTE',
+            expected?'A comunicação de ida e volta funcionou neste navegador.':'O teste recebeu outra falha. Envie o relatório.');
+        }).autenticarAluno('','');
+    }catch{finish('ERRO_LOCAL','A chamada não iniciou. Envie o relatório.');}
   });
-  window.addEventListener('load',()=>{log('Página terminou de carregar.');const frame=document.querySelector('iframe[title="Conexão segura com o portal"]');log('Iframe criado: '+!!frame);if(frame)log('Backend: '+(frame.src===window.PORTAL_TEST_CONFIG.bridgeUrl?'homologação configurada':'configuração divergente'));});
-  status.textContent='Aguardando conexão com o Google…';
+  window.addEventListener('load',()=>{
+    log('Página carregada. Iframe criado: '+!!document.querySelector('iframe[title="Conexão segura com o portal"]'));
+  });
+  status.textContent='Aguardando a conexão oficial com o Google…';
 })();
-</script><script src="config.js?v=isolated-bridge-v27"></script><script src="api.js?v=diagnostico-20261021-1"></script></body></html>
+</script>
+<script src="../../inscricoes/config.js"></script>
+<script src="../../inscricoes/student-bridge-client.js?v=20261019-1"></script>
+</body>
+</html>
