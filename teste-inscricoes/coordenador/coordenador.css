@@ -3,3 +3,12 @@
 @media(max-width:650px){header{padding:14px 12px}.head{gap:10px;align-items:flex-start;flex-wrap:wrap}.mark{width:46px;height:46px;flex:0 0 46px}.brand h1{font-size:18px;line-height:1.2}.brand p{font-size:12px}.back{width:100%;text-align:center}main{margin:14px auto;padding:0 11px}.toolbar>*{flex:1 1 100%}.toolbar select{width:100%}.card{padding:14px}.actions>*{flex:1 1 100%;text-align:center}.section-title{font-size:19px}}
 .loading{opacity:.55;pointer-events:none}
 .price-help{color:var(--muted);margin:0 0 10px}.prices{display:grid;gap:8px;margin:12px 0 24px}.price-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap;background:#fff;border:1px solid var(--line);border-radius:10px;padding:12px 14px}.price-name{flex:1 1 280px;min-width:0;display:grid;gap:4px}.price-name strong{color:var(--wine)}.price-name span{color:var(--muted);font-size:13px}.price-row label{display:flex;align-items:center;gap:8px;font-weight:700;white-space:nowrap}.price-row input{width:140px;padding:10px;border:1px solid var(--line);border-radius:8px;font:inherit}.price-save{min-height:40px}
+
+.batch-approval{position:sticky;bottom:10px;z-index:2;display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin:12px 0;padding:13px 15px;background:#fff;border:1px solid var(--line);border-radius:12px;box-shadow:0 5px 20px #2d262326}
+.batch-approval label,.pending-select{display:inline-flex;align-items:center;gap:9px;font-weight:700;color:var(--wine)}
+.batch-approval input[type=checkbox],.pending-select input[type=checkbox]{width:22px;height:22px;accent-color:var(--ok);flex:0 0 auto}
+.batch-approval .selected-summary{flex:1;min-width:180px;margin:0;color:var(--muted);font-weight:700}
+.batch-approval .approve{white-space:normal}
+.pending-select{margin-bottom:10px;cursor:pointer}
+.batch-approval label{cursor:pointer}
+@media(max-width:650px){.batch-approval{bottom:6px;gap:10px;padding:12px}.batch-approval label,.batch-approval .selected-summary,.batch-approval .approve{flex:1 1 100%}.batch-approval .approve{width:100%}}
