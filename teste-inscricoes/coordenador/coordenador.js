@@ -4,6 +4,11 @@
   const msgEl=document.getElementById('msg');
   const appEl=document.getElementById('app');
   const pending=new Map();
+  let pendingApprovalItems=new Map();
+  const batchToolbarEl=document.getElementById('batchApproval');
+  const selectAllPendingEl=document.getElementById('selectAllPending');
+  const selectedSummaryEl=document.getElementById('selectedSummary');
+  const approveSelectedEl=document.getElementById('approveSelected');
   let bridgeSource=null,bridgeOrigin='',connected=false,sequence=0,busy=false;
   const LITERATURE_ALL_ID='__literatura_todas_as_obras__';
   let literatureCompetitionIds=[];
@@ -16,7 +21,7 @@
   function showMessage(text,kind='ok'){
     msgEl.innerHTML=text?'<div class="message '+(kind==='error'?'error':'okmsg')+'">'+escapeHtml(text)+'</div>':'';
   }
-  function setBusy(value){busy=value;appEl.classList.toggle('loading',value);appEl.querySelectorAll('button,select,input').forEach(el=>el.disabled=value);}
+  function setBusy(value){busy=value;appEl.classList.toggle('loading',value);appEl.querySelectorAll('button,select,input').forEach(el=>el.disabled=value);updateBatchControls();}
   function call(method,...args){
     if(!connected||!allowedMethods.has(method))return Promise.reject(new Error('A conexão segura ainda não está pronta.'));
     const id='coord-'+(++sequence)+'-'+Date.now();
@@ -47,12 +52,15 @@
   function money(value){return new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(Number(value||0));}
   function driveUrl(value){try{const u=new URL(value);return u.protocol==='https:'&&u.hostname==='drive.google.com'?u.href:'';}catch{return'';}}
   function render(data){
-    listEl.innerHTML=(data.pendentes||[]).map(item=>{
+    const pendingItems=data.pendentes||[];
+    pendingApprovalItems=new Map(pendingItems.map(item=>[String(item.pagamentoId),item]));
+    listEl.innerHTML=pendingItems.map(item=>{
       const proof=driveUrl(item.link);
-      return '<article class="card"><h2>'+escapeHtml(item.nome)+'</h2><div class="meta">Matrícula: '+escapeHtml(item.matricula)+' · '+escapeHtml(item.unidade)+' · '+escapeHtml(item.serie)+' · Turma '+escapeHtml(item.turma)+'<br>Competição: '+escapeHtml((item.competicoes||[]).join(', '))+'<br>Pedido: '+escapeHtml(item.pedidoId)+' · Pagamento: '+escapeHtml(item.pagamentoId)+'<br>Valor: <b>'+money(item.valor)+'</b> · Enviado: '+escapeHtml(item.enviadoEm)+'<br>Arquivo: '+escapeHtml(item.arquivo)+'</div><div class="actions">'+(proof?'<a class="action open" href="'+escapeHtml(proof)+'" target="_blank" rel="noopener noreferrer">Abrir comprovante no Drive</a>':'')+'<button class="action approve" data-id="'+escapeHtml(item.pagamentoId)+'">Aprovar pagamento + inscrição oficial</button><button class="action reject" data-id="'+escapeHtml(item.pagamentoId)+'">Rejeitar comprovante</button></div></article>';
+      return '<article class="card"><label class="pending-select"><input class="select-pending" type="checkbox" data-id="'+escapeHtml(item.pagamentoId)+'"><span>Selecionar para aprovação em lote</span></label><h2>'+escapeHtml(item.nome)+'</h2><div class="meta">Matrícula: '+escapeHtml(item.matricula)+' · '+escapeHtml(item.unidade)+' · '+escapeHtml(item.serie)+' · Turma '+escapeHtml(item.turma)+'<br>Competição: '+escapeHtml((item.competicoes||[]).join(', '))+'<br>Pedido: '+escapeHtml(item.pedidoId)+' · Pagamento: '+escapeHtml(item.pagamentoId)+'<br>Valor: <b>'+money(item.valor)+'</b> · Enviado: '+escapeHtml(item.enviadoEm)+'<br>Arquivo: '+escapeHtml(item.arquivo)+'</div><div class="actions">'+(proof?'<a class="action open" href="'+escapeHtml(proof)+'" target="_blank" rel="noopener noreferrer">Abrir comprovante no Drive</a>':'')+'<button class="action approve" data-id="'+escapeHtml(item.pagamentoId)+'">Aprovar pagamento + inscrição oficial</button><button class="action reject" data-id="'+escapeHtml(item.pagamentoId)+'">Rejeitar comprovante</button></div></article>';
     }).join('')||'<div class="empty">Nenhum comprovante aguarda conferência.</div>';
     listEl.querySelectorAll('.approve').forEach(button=>button.addEventListener('click',()=>aprovar(button.dataset.id)));
     listEl.querySelectorAll('.reject').forEach(button=>button.addEventListener('click',()=>rejeitar(button.dataset.id)));
+    updateBatchControls();
     const select=document.getElementById('competition'),old=select.value;
     const literature=(data.competicoes||[]).filter(item=>String(item.nome||'').trim().toLocaleUpperCase('pt-BR').startsWith('LITERATURA'));
     literatureCompetitionIds=literature.map(item=>item.id);
@@ -68,6 +76,63 @@
     }).join('')||'<div class="empty">Nenhuma competição disponível.</div>';
     prices.querySelectorAll('.price-save').forEach(button=>button.addEventListener('click',()=>salvarPreco(button)));
     document.getElementById('stamp').textContent='Atualizado '+(data.atualizadoEm||'');
+  }
+  function updateBatchControls(){
+    const checkboxes=[...listEl.querySelectorAll('.select-pending')];
+    const selected=checkboxes.filter(input=>input.checked);
+    const items=selected.map(input=>pendingApprovalItems.get(input.dataset.id)).filter(Boolean);
+    const total=items.reduce((sum,item)=>sum+Number(item.valor||0),0);
+    batchToolbarEl.classList.toggle('hidden',checkboxes.length===0);
+    selectAllPendingEl.checked=checkboxes.length>0&&selected.length===checkboxes.length;
+    selectAllPendingEl.indeterminate=selected.length>0&&selected.length<checkboxes.length;
+    selectAllPendingEl.disabled=busy||checkboxes.length===0;
+    selectedSummaryEl.textContent=items.length?items.length+' selecionado(s) · total '+money(total):'Nenhuma inscrição selecionada.';
+    approveSelectedEl.disabled=busy||items.length===0;
+    approveSelectedEl.textContent=items.length?'Aprovar '+items.length+' selecionada(s)':'Aprovar selecionadas';
+  }
+  async function aprovarSelecionadas(){
+    const selected=[...listEl.querySelectorAll('.select-pending:checked')]
+      .map(input=>pendingApprovalItems.get(input.dataset.id))
+      .filter(item=>item&&String(item.pagamentoId||''));
+    const ids=[...new Set(selected.map(item=>String(item.pagamentoId)))];
+    if(!ids.length)return;
+    const items=ids.map(id=>pendingApprovalItems.get(id)).filter(Boolean);
+    const total=items.reduce((sum,item)=>sum+Number(item.valor||0),0);
+    if(!confirm('Aprovar '+items.length+' comprovante(s) selecionado(s), total '+money(total)+'?\n\nCada aprovação marcará o pagamento e as inscrições correspondentes como concluídos. Confirme somente depois de conferir cada comprovante e confirmar a inscrição no site da competição.'))return;
+    setBusy(true);showMessage('');
+    const approved=[];const failures=[];let emailWarnings=0;let timedOut=false;
+    for(let index=0;index<items.length;index++){
+      const item=items[index],id=String(item.pagamentoId);
+      showMessage('Aprovando '+(index+1)+' de '+items.length+'…');
+      try{
+        const result=await call('coordenadorAprovarPagamentoEInscricao',id);
+        approved.push({id,inscricoes:Number(result&&result.inscricoes)||0});
+        if(result&&typeof result.emailAvisoEnviado==='boolean'&&!result.emailAvisoEnviado)emailWarnings++;
+      }catch(error){
+        const message=error&&error.message?error.message:'A operação falhou.';
+        failures.push({id,message});
+        if(message.includes('O Google não respondeu a tempo')){timedOut=true;break;}
+      }
+    }
+    const notAttempted=timedOut?items.slice(approved.length+failures.length):[];
+    let refreshed=false;
+    if(!timedOut){
+      try{render(await call('coordenadorDados'));refreshed=true;}
+      catch(error){failures.push({id:'fila',message:error&&error.message?error.message:'Não foi possível atualizar a fila.'});}
+    }
+    const enrollmentCount=approved.reduce((sum,item)=>sum+item.inscricoes,0);
+    let summary=approved.length+' de '+items.length+' aprovação(ões) confirmada(s); '+enrollmentCount+' inscrição(ões) correspondente(s) concluída(s).';
+    if(emailWarnings)summary+=' Aviso por e-mail não confirmado em '+emailWarnings+' caso(s).';
+    if(failures.length){
+      const refs=failures.filter(item=>item.id!=='fila').map(item=>item.id);
+      summary+=' Sem confirmação: '+refs.length+' item(ns)'+(refs.length?' ('+refs.join(', ')+')':'')+'.';
+    }
+    if(notAttempted.length)summary+=' Não enviados após a falha: '+notAttempted.length+' item(ns).';
+    if(timedOut)summary+=' A conexão expirou; aguarde e use “Atualizar comprovantes” para conferir o estado antes de tentar novamente.';
+    else if(!refreshed)summary+=' A fila não foi atualizada; use “Atualizar comprovantes” antes de repetir qualquer aprovação.';
+    else if(failures.length)summary+=' Confira quais ainda aparecem pendentes antes de tentar novamente.';
+    showMessage(summary,failures.length||timedOut||!refreshed?'error':'ok');
+    setBusy(false);
   }
   async function carregar(){
     if(busy)return;setBusy(true);showMessage('');
@@ -135,6 +200,9 @@
     catch(error){showMessage(error.message,'error');}
     finally{setBusy(false);}
   }
+  listEl.addEventListener('change',event=>{if(event.target.matches('.select-pending'))updateBatchControls();});
+  selectAllPendingEl.addEventListener('change',()=>{listEl.querySelectorAll('.select-pending').forEach(input=>input.checked=selectAllPendingEl.checked);updateBatchControls();});
+  approveSelectedEl.addEventListener('click',aprovarSelecionadas);
   document.getElementById('refresh').addEventListener('click',carregar);
   document.getElementById('download').addEventListener('click',baixar);
   document.getElementById('fallbackLink').href=window.COORD_CONFIG.standaloneUrl;
