@@ -169,18 +169,44 @@ function enviarSolicitacaoAlteracao(){
   msg.innerHTML='<div class="message warn">Registrando solicitação...</div>';
   google.script.run.withSuccessHandler(r=>{
     btn.disabled=false;
-    const link=r&&r.whatsappUrl?`<a class="whatsapp-link" target="_blank" rel="noopener" href="${esc(r.whatsappUrl)}">ABRIR WHATSAPP</a>`:'';
+    const whatsappBase=whatsappBaseUrl_(r&&r.whatsappUrl);
+    const link=whatsappBase?'<a class="whatsapp-link" target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer" href="'+esc(whatsappBase)+'">ABRIR WHATSAPP</a>':'';
+    const whatsappText=whatsappBase?String(r&&r.mensagemWhatsapp||''):'';
+    const copy=whatsappText?'<div class="whatsapp-copy"><p>Copie a mensagem e cole na conversa do WhatsApp. Os dados não são colocados no endereço do link.</p><label for="whatsappMessageCopy">Mensagem para enviar</label><textarea id="whatsappMessageCopy" readonly>'+esc(whatsappText)+'</textarea><button id="whatsappMessageCopyBtn" class="secondary" type="button">COPIAR MENSAGEM</button><span id="whatsappCopyStatus" aria-live="polite"></span></div>':'';
     const sem=r&&!r.whatsappConfigurado?'<div class="message warn">O número de WhatsApp da equipe ainda não está configurado no portal. A solicitação já ficou registrada para revisão.</div>':'';
     fecharAlteracaoModal();
     alunoAtual.sessao='';
     document.getElementById('confirmarCadastroBtn').disabled=true;
     document.getElementById('solicitarAlteracaoBtn').disabled=true;
-    document.getElementById('cadastroMsg').innerHTML=`<div class="message ok"><b>Solicitação registrada.</b><br>${esc(r&&r.mensagem?r.mensagem:'')}</div>${sem}${link}`;
+    document.getElementById('cadastroMsg').innerHTML=`<div class="message ok"><b>Solicitação registrada.</b><br>${esc(r&&r.mensagem?r.mensagem:'')}</div>${sem}${link}${copy}`;
+    const copyBtn=document.getElementById('whatsappMessageCopyBtn');
+    if(copyBtn)copyBtn.addEventListener('click',copiarMensagemWhatsapp_);
   }).withFailureHandler(e=>{btn.disabled=false;msg.innerHTML=`<div class="message bad">${esc(e&&e.message?e.message:e)}</div>`;}).solicitarAlteracaoCadastral(alunoAtual.sessao,texto);
 }
 
 function mascaraWhatsapp(valor){const d=String(valor||'').replace(/\D/g,'').slice(0,11);if(d.length<=2)return d;if(d.length<=7)return `(${d.slice(0,2)}) ${d.slice(2)}`;return `(${d.slice(0,2)}) ${d.slice(2,7)}-${d.slice(7)}`;}
 function whatsappValidoLocal(valor){const d=String(valor||'').replace(/\D/g,'');return /^\d{2}9\d{8}$/.test(d);}
+function whatsappBaseUrl_(value){
+  try{
+    const u=new URL(String(value||''));
+    const number=u.pathname.replace(/^\\/+/, '');
+    if(u.protocol!=='https:'||u.hostname!=='wa.me'||u.username||u.password||!/^\\d{10,15}$/.test(number))return'';
+    return 'https://wa.me/'+number;
+  }catch{return'';}
+}
+async function copiarMensagemWhatsapp_(){
+  const area=document.getElementById('whatsappMessageCopy');
+  const status=document.getElementById('whatsappCopyStatus');
+  if(!area)return;
+  try{
+    if(navigator.clipboard&&window.isSecureContext)await navigator.clipboard.writeText(area.value);
+    else{area.focus();area.select();area.setSelectionRange(0,area.value.length);if(!document.execCommand('copy'))throw new Error('copy');}
+    if(status)status.textContent='Mensagem copiada. Abra o WhatsApp e cole no campo da conversa.';
+  }catch{
+    area.focus();area.select();area.setSelectionRange(0,area.value.length);
+    if(status)status.textContent='Não foi possível copiar automaticamente. Selecione a mensagem e copie.';
+  }
+}
 function bloquearLogin(on){const b=document.getElementById('loginBtn');if(b)b.disabled=!!on;}
 function limparMensagemLogin(){document.getElementById('matriculaMsg').innerHTML='';}
 function limparMensagemCadastro(){document.getElementById('cadastroMsg').innerHTML='';}
