@@ -189,8 +189,8 @@ function whatsappValidoLocal(valor){const d=String(valor||'').replace(/\D/g,'');
 function whatsappBaseUrl_(value){
   try{
     const u=new URL(String(value||''));
-    const number=u.pathname.replace(/^\\/+/, '');
-    if(u.protocol!=='https:'||u.hostname!=='wa.me'||u.username||u.password||!/^\\d{10,15}$/.test(number))return'';
+    const number=u.pathname.replace(/^\/+/, '');
+    if(u.protocol!=='https:'||u.hostname!=='wa.me'||u.username||u.password||!/^\d{10,15}$/.test(number))return'';
     return 'https://wa.me/'+number;
   }catch{return'';}
 }
