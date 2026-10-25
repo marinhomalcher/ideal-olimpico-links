@@ -399,7 +399,14 @@ function validarSerie(id){
     const c=r.competicao;
     box.className='message ok';
     box.innerHTML=`<b>Disponível para você.</b><br>${r.nivel?`Nível: ${esc(r.nivel)}<br>`:''}${r.aviso?esc(r.aviso):''}`;
-    document.getElementById('modalActions').innerHTML=`<button class="secondary" onclick="fecharModal()">CANCELAR</button><button class="primary" ${r.selecionavel?'':'disabled'} onclick="adicionarCarrinhoSerie('${esc(c.id)}')">${r.valorPendente?'AGUARDANDO VALOR':'ADICIONAR À INSCRIÇÃO'}</button>`;
+    const actions=document.getElementById('modalActions');
+    actions.innerHTML='<button class="secondary" onclick="fecharModal()">CANCELAR</button>';
+    const addButton=document.createElement('button');
+    addButton.className='primary';
+    addButton.disabled=!r.selecionavel;
+    addButton.textContent=r.valorPendente?'AGUARDANDO VALOR':'ADICIONAR À INSCRIÇÃO';
+    addButton.addEventListener('click',()=>adicionarCarrinhoSerie(c.id));
+    actions.appendChild(addButton);
   }).withFailureHandler(e=>{const box=document.getElementById('serieMsg');if(box){box.className='message bad';box.innerHTML=esc(e.message||e);}else falha(e);}).validarCompeticaoSerie(id,alunoAtual.sessao);
 }
 
