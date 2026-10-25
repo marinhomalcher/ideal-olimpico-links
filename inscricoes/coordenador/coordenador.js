@@ -38,7 +38,7 @@
     if(!connected||!allowedMethods.has(method))return Promise.reject(new Error('A conexão segura ainda não está pronta.'));
     const id='coord-'+(++sequence)+'-'+Date.now();
     return new Promise((resolve,reject)=>{
-      const timer=setTimeout(()=>{pending.delete(id);reject(new Error('O Google não respondeu a tempo. Recarregue a página antes de tentar novamente.'));},30000);
+      const timer=setTimeout(()=>{pending.delete(id);const error=new Error('O Google não respondeu a tempo. Recarregue a página antes de tentar novamente.');error.code='COORD_CALL_TIMEOUT';reject(error);},30000);
       pending.set(id,{resolve,reject,timer});
       bridgeSource.postMessage({type:'ideal-coord-call',id,method,args},bridgeOrigin);
     });
@@ -131,7 +131,7 @@
       }catch(error){
         const message=error&&error.message?error.message:'A operação falhou.';
         failures.push({id,message});
-        if(message.includes('O Google não respondeu a tempo')){timedOut=true;break;}
+        if(error&&error.code==='COORD_CALL_TIMEOUT'){timedOut=true;break;}
       }
     }
     const notAttempted=timedOut?items.slice(approved.length+failures.length):[];
