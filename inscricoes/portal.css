@@ -245,3 +245,59 @@
 
 
     }
+/* iOS: keep dialog controls visible and allow touch scrolling inside long content. */
+dialog[open] {
+  display: flex;
+  flex-direction: column;
+}
+dialog[open] > .modal-head,
+dialog[open] > .modal-actions {
+  flex: 0 0 auto;
+}
+dialog[open] > .modal-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: none;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+}
+/* iOS follow-up: scroll the dialog itself so its final actions cannot be clipped. */
+dialog[open] {
+  display: block;
+  max-height: calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 16px);
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
+  touch-action: pan-y;
+}
+dialog[open] > .modal-head {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+}
+dialog[open] > .modal-body {
+  display: block;
+  min-height: 0;
+  max-height: none;
+  overflow: visible;
+  overscroll-behavior: auto;
+}
+dialog[open] > .modal-actions {
+  position: sticky;
+  bottom: 0;
+  z-index: 3;
+  display: flex;
+  flex-wrap: wrap;
+  background: #fff;
+  padding-bottom: max(16px, env(safe-area-inset-bottom));
+}
+
+/* Keep personal correction details out of WhatsApp URLs; copy them explicitly from the page. */
+.whatsapp-copy{display:grid;gap:10px;margin:16px 0;max-width:100%}
+.whatsapp-copy p{margin:0;color:var(--muted);font-size:14px;line-height:1.45}
+.whatsapp-copy textarea{box-sizing:border-box;width:100%;max-width:100%;min-height:160px;padding:12px;border:1px solid var(--borda);border-radius:12px;background:var(--creme);color:var(--texto);font:inherit;font-size:14px;line-height:1.5;resize:vertical;overflow-wrap:anywhere}
+.whatsapp-copy button{width:100%}
+.whatsapp-copy [aria-live]{min-height:1.25em;color:var(--muted);font-size:13px}
+@media(max-width:640px){.whatsapp-copy textarea{min-height:180px;font-size:16px}}
