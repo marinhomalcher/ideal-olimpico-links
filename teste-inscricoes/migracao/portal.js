@@ -171,8 +171,8 @@ function enviarSolicitacaoAlteracao(){
     btn.disabled=false;
     const whatsappBase=whatsappBaseUrl_(r&&r.whatsappUrl);
     const link=whatsappBase?'<a class="whatsapp-link" target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer" href="'+esc(whatsappBase)+'">ABRIR WHATSAPP</a>':'';
-    const whatsappText=whatsappBase?String(r&&r.mensagemWhatsapp||''):'';
-    const copy=whatsappText?'<div class="whatsapp-copy"><p>Copie a mensagem e cole na conversa do WhatsApp. Os dados não são colocados no endereço do link.</p><label for="whatsappMessageCopy">Mensagem para enviar</label><textarea id="whatsappMessageCopy" readonly>'+esc(whatsappText)+'</textarea><button id="whatsappMessageCopyBtn" class="secondary" type="button">COPIAR MENSAGEM</button><span id="whatsappCopyStatus" aria-live="polite"></span></div>':'';
+    const whatsappText=String(r&&r.mensagemWhatsapp||'');
+    const copy=whatsappText?'<div class="whatsapp-copy"><p>Copie a mensagem e cole na conversa da equipe. Os dados ficam no texto copiado e não entram no endereço do link.</p><label for="whatsappMessageCopy">Mensagem para enviar</label><textarea id="whatsappMessageCopy" readonly>'+esc(whatsappText)+'</textarea><button id="whatsappMessageCopyBtn" class="secondary" type="button">COPIAR MENSAGEM</button><span id="whatsappCopyStatus" aria-live="polite"></span></div>':'';
     const sem=r&&!r.whatsappConfigurado?'<div class="message warn">O número de WhatsApp da equipe ainda não está configurado no portal. A solicitação já ficou registrada para revisão.</div>':'';
     fecharAlteracaoModal();
     alunoAtual.sessao='';
