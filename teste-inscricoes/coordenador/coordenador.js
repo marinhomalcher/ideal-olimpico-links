@@ -123,14 +123,14 @@
     const enrollmentCount=approved.reduce((sum,item)=>sum+item.inscricoes,0);
     let summary=approved.length+' de '+items.length+' aprovação(ões) confirmada(s); '+enrollmentCount+' inscrição(ões) correspondente(s) concluída(s).';
     if(emailWarnings)summary+=' Aviso por e-mail não confirmado em '+emailWarnings+' caso(s).';
-    if(failures.length){
+    if(failures.some(item=>item.id!=='fila')){
       const refs=failures.filter(item=>item.id!=='fila').map(item=>item.id);
       summary+=' Sem confirmação: '+refs.length+' item(ns)'+(refs.length?' ('+refs.join(', ')+')':'')+'.';
     }
     if(notAttempted.length)summary+=' Não enviados após a falha: '+notAttempted.length+' item(ns).';
     if(timedOut)summary+=' A conexão expirou; aguarde e use “Atualizar comprovantes” para conferir o estado antes de tentar novamente.';
     else if(!refreshed)summary+=' A fila não foi atualizada; use “Atualizar comprovantes” antes de repetir qualquer aprovação.';
-    else if(failures.length)summary+=' Confira quais ainda aparecem pendentes antes de tentar novamente.';
+    else if(failures.some(item=>item.id!=='fila'))summary+=' Confira quais ainda aparecem pendentes antes de tentar novamente.';
     showMessage(summary,failures.length||timedOut||!refreshed?'error':'ok');
     setBusy(false);
   }
