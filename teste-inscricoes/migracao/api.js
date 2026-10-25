@@ -1,4 +1,4 @@
-/* Test-only adapter: website -> Cloudflare Worker -> test Apps Script. */
+/* Test route adapter. Mirrors the production migration client; points only to the configured test Worker. */
 (() => {
   'use strict';
   const methods=Object.freeze({
@@ -32,7 +32,7 @@
       .then(success)
       .catch(error=>failure(new Error(error&&error.name==='AbortError'
         ?'O servidor não respondeu a tempo. Confira o estado do pedido antes de repetir.'
-        :String(error&&error.message||'Falha na conexão de teste.'))))
+        :String(error&&error.message||'Falha na conexão de homologação.'))))
       .finally(()=>clearTimeout(timeout));
   }
   function runner(success=()=>{},failure=error=>console.error(error)){
@@ -46,3 +46,4 @@
   }
   window.google={script:{get run(){return runner();}}};
 })();
+
