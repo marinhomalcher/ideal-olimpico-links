@@ -245,23 +245,6 @@
 
 
     }
-/* iOS: keep dialog controls visible and allow touch scrolling inside long content. */
-dialog[open] {
-  display: flex;
-  flex-direction: column;
-}
-dialog[open] > .modal-head,
-dialog[open] > .modal-actions {
-  flex: 0 0 auto;
-}
-dialog[open] > .modal-body {
-  flex: 1 1 auto;
-  min-height: 0;
-  max-height: none;
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
-  touch-action: pan-y;
-}
 /* iOS follow-up: scroll the dialog itself so its final actions cannot be clipped. */
 dialog[open] {
   display: block;
