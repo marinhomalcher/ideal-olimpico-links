@@ -186,13 +186,19 @@
         const competitions=[...literatureCompetitionIds];
         if(!competitions.length)throw new Error('Nenhuma obra de Literatura está disponível para exportação.');
         const results=new Array(competitions.length);let next=0;
-        const batches=await Promise.allSettled(Array.from({length:Math.min(4,competitions.length)},async()=>{while(next<competitions.length){const index=next++;results[index]=await call('coordenadorCsvInscritos',competitions[index]);}}));
+        const batches=await Promise.allSettled(Array.from({length:Math.min(4,competitions.length)},async()=>{while(next<competitions.length){
+          const index=next++;
+          try{results[index]=await call('coordenadorCsvInscritos',competitions[index]);}
+          catch(error){if(!exportacaoVazia(error))throw error;results[index]=null;}
+        }}));
         const failure=batches.find(result=>result.status==='rejected');if(failure)throw failure.reason;
-        const records=results.map(result=>csvRecords(result.csv)),header=records.find(rows=>rows.length)?.[0];
+        const available=results.filter(Boolean);
+        if(!available.length)throw new Error('Literatura ainda não possui inscrições oficiais concluídas.');
+        const records=available.map(result=>csvRecords(result.csv)),header=records.find(rows=>rows.length)?.[0];
         if(!header)throw new Error('O backend não retornou o cabeçalho do CSV de Literatura.');
         if(records.some(rows=>rows.length&&rows[0]!==header))throw new Error('As obras retornaram formatos de CSV diferentes. Baixe cada obra separadamente.');
         csv=[header,...records.flatMap(rows=>rows.slice(1))].join('\r\n');
-        quantity=results.reduce((sum,result)=>sum+Number(result.quantidade||0),0);
+        quantity=available.reduce((sum,result)=>sum+Number(result.quantidade||0),0);
         filename='inscritos-literatura-todas-as-obras.csv';
       }else{
         const result=await call('coordenadorCsvInscritos',id);csv=String(result.csv||'').replace(/^\ufeff/, '');quantity=result.quantidade;filename=result.nomeArquivo;
@@ -201,6 +207,10 @@
     }
     catch(error){showMessage(error.message,'error');}
     finally{setBusy(false);}
+  }
+  function exportacaoVazia(error){
+    const message=String(error&&error.message||'');
+    return message==='Esta competição ainda não possui inscrições oficiais concluídas.'||message==='Não existem inscrições para exportar.';
   }
   function csvRecords(value){
     const text=String(value||'').replace(/^\ufeff/,''),rows=[];let start=0,quoted=false;
