@@ -245,4 +245,3 @@
     setTimeout(()=>{if(!connected){setStatus('Não foi possível concluir a conexão. Entre com a conta Google autorizada e tente novamente.');document.getElementById('fallback').classList.remove('hidden');}},10000);
   });
 })();
-
