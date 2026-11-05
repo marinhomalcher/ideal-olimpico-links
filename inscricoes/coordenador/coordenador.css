@@ -15,4 +15,3 @@
 .pending-select{margin-bottom:10px;cursor:pointer}
 .batch-approval label{cursor:pointer}
 @media(max-width:650px){.batch-approval{bottom:6px;gap:10px;padding:12px}.batch-approval label,.batch-approval .selected-summary,.batch-approval .approve{flex:1 1 100%}.batch-approval .approve{width:100%}}
-
