@@ -13,7 +13,7 @@
   const bridgeUrl=new URL(configured);
   if(bridgeUrl.protocol!=='https:'||bridgeUrl.hostname!=='script.google.com'||
       !/^\/macros\/s\/[A-Za-z0-9_-]+\/exec$/.test(bridgeUrl.pathname)||
-      bridgeUrl.hash||bridgeUrl.searchParams.size!==1||bridgeUrl.searchParams.get('bridge')!=='aluno'){
+      bridgeUrl.hash||Array.from(bridgeUrl.searchParams).length!==1||bridgeUrl.searchParams.get('bridge')!=='aluno'){
     throw new Error('Endereço da conexão segura inválido.');
   }
   const frame=document.createElement('iframe');
@@ -23,34 +23,47 @@
   frame.style.cssText='position:absolute;width:1px;height:1px;left:-10000px;top:auto;border:0';
   let source=null,origin='',nonce='',ready=false,sequence=0;
   const pending=new Map();
+  const queued=[];
+  function isBridgeFrame(candidate){
+    const stack=[{frame:frame.contentWindow,depth:0}],seen=new Set();
+    while(stack.length&&seen.size<32){
+      const item=stack.pop(),current=item.frame;
+      if(current===candidate)return true;
+      if(!current||seen.has(current)||item.depth>=8)continue;
+      seen.add(current);
+      try{
+        const children=current.frames,count=children.length;
+        if(!Number.isInteger(count)||count<0||count>20)continue;
+        for(let i=0;i<count;i++)stack.push({frame:children[i],depth:item.depth+1});
+      }catch{}
+    }
+    return false;
+  }
   function trustedOrigin(value){
     try{
       const u=new URL(value);
       return u.protocol==='https:'&&(u.hostname==='script.google.com'||u.hostname==='script.googleusercontent.com'||/^[a-z0-9-]+-script\.googleusercontent\.com$/.test(u.hostname));
     }catch{return false;}
   }
-  function isBridgeFrameSource(source){
-    // Apps Script may add more than one internal HtmlService frame. Walk up
-    // the sender's frame ancestry instead of assuming a fixed nesting depth.
-    let current=source;
-    for(let depth=0;current&&depth<8;depth++){
-      if(current===frame.contentWindow)return true;
-      try{if(current===current.parent)return false;current=current.parent;}catch{return false;}
-    }
-    return false;
-  }
   function dispatch(method,args,success,failure){
     if(!Object.prototype.hasOwnProperty.call(methods,method)||args.length!==methods[method]){
       failure(new Error('Operação não permitida.'));return;
     }
-    if(!ready||!source){failure(new Error('A conexão segura ainda está carregando. Tente novamente.'));return;}
+    if(!ready||!source){
+      const call={method,args,success,failure};
+      call.timer=setTimeout(()=>{const i=queued.indexOf(call);if(i>=0){queued.splice(i,1);failure(new Error('Não foi possível conectar ao Google para validar seus dados. Atualize a página e tente novamente.'));}},20000);
+      queued.push(call);return;
+    }
+    sendCall(method,args,success,failure);
+  }
+  function sendCall(method,args,success,failure){
     const id='student-'+(++sequence)+'-'+Date.now();
     const timer=setTimeout(()=>{pending.delete(id);failure(new Error('O Google não respondeu a tempo. Se você enviou um comprovante ou criou um pedido, confira Meus Pedidos antes de repetir.'));},90000);
     pending.set(id,{success,failure,timer});
     source.postMessage({type:'ideal-student-call',id,method,args},origin);
   }
   window.addEventListener('message',event=>{
-    if(!isBridgeFrameSource(event.source)||!trustedOrigin(event.origin)||!event.data)return;
+    if(!isBridgeFrame(event.source)||!trustedOrigin(event.origin)||!event.data)return;
     const data=event.data;
     if(data.type==='ideal-student-ready'&&typeof data.nonce==='string'&&data.nonce.length===48){
       source=event.source;origin=event.origin;nonce=data.nonce;
@@ -59,7 +72,10 @@
     }
     if(event.source!==source||event.origin!==origin)return;
     if(data.type==='ideal-student-connected'){
-      if(data.nonce===nonce)ready=true;
+      if(data.nonce===nonce){
+        ready=true;
+        while(queued.length){const call=queued.shift();clearTimeout(call.timer);sendCall(call.method,call.args,call.success,call.failure);}
+      }
       return;
     }
     if(data.type!=='ideal-student-result'||typeof data.id!=='string')return;

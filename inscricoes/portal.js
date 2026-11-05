@@ -5,7 +5,7 @@ let grupos={},grupoAtual=null,catalogoAtual=[],carrinho={},alunoAtual=null,pedid
 const money=v=>new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(Number(v||0));
 const esc=s=>String(s??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
 
-window.addEventListener('load',()=>{
+document.addEventListener('DOMContentLoaded',()=>{
   const mat=document.getElementById('matriculaInput');
   const nasc=document.getElementById('nascimentoInput');
   mat.addEventListener('input',()=>{mat.value=mat.value.replace(/\D/g,'').slice(0,5);limparMensagemLogin();});
@@ -122,11 +122,11 @@ function confirmarCadastro(){
   const seg=String(alunoAtual.segmento||'').toUpperCase();
   const waAluno=document.getElementById('cadWhatsappAluno').value;
   const emailPessoal=document.getElementById('cadEmailPessoal').value.trim();
+  const msg=document.getElementById('cadastroMsg');
+  if(!emailPessoal||emailPessoal.length>254||!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailPessoal)){msg.innerHTML='<div class="message bad">Informe um e-mail pessoal válido. Ele pode ser do aluno ou do responsável.</div>';return;}
   const respNome=document.getElementById('cadRespNome').value.trim();
   const respVinculo=document.getElementById('cadRespVinculo').value;
   const respWa=document.getElementById('cadRespWhatsapp').value;
-  const msg=document.getElementById('cadastroMsg');
-  if(!emailPessoal||emailPessoal.length>254||!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailPessoal)){msg.innerHTML='<div class="message bad">Informe um e-mail pessoal válido. Ele pode ser do aluno ou do responsável.</div>';return;}
 
   if(seg==='EF1'){
     if(!respNome||!respVinculo||!whatsappValidoLocal(respWa)){msg.innerHTML='<div class="message bad">Preencha corretamente nome, vínculo e WhatsApp do responsável.</div>';return;}
@@ -169,18 +169,44 @@ function enviarSolicitacaoAlteracao(){
   msg.innerHTML='<div class="message warn">Registrando solicitação...</div>';
   google.script.run.withSuccessHandler(r=>{
     btn.disabled=false;
-    const link=r&&r.whatsappUrl?`<a class="whatsapp-link" target="_blank" rel="noopener" href="${esc(r.whatsappUrl)}">ABRIR WHATSAPP</a>`:'';
+    const whatsappBase=whatsappBaseUrl_(r&&r.whatsappUrl);
+    const link=whatsappBase?'<a class="whatsapp-link" target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer" href="'+esc(whatsappBase)+'">ABRIR WHATSAPP</a>':'';
+    const whatsappText=String(r&&r.mensagemWhatsapp||'');
+    const copy=whatsappText?'<div class="whatsapp-copy"><p>Copie a mensagem e cole na conversa da equipe. Os dados ficam no texto copiado e não entram no endereço do link.</p><label for="whatsappMessageCopy">Mensagem para enviar</label><textarea id="whatsappMessageCopy" readonly>'+esc(whatsappText)+'</textarea><button id="whatsappMessageCopyBtn" class="secondary" type="button">COPIAR MENSAGEM</button><span id="whatsappCopyStatus" aria-live="polite"></span></div>':'';
     const sem=r&&!r.whatsappConfigurado?'<div class="message warn">O número de WhatsApp da equipe ainda não está configurado no portal. A solicitação já ficou registrada para revisão.</div>':'';
     fecharAlteracaoModal();
     alunoAtual.sessao='';
     document.getElementById('confirmarCadastroBtn').disabled=true;
     document.getElementById('solicitarAlteracaoBtn').disabled=true;
-    document.getElementById('cadastroMsg').innerHTML=`<div class="message ok"><b>Solicitação registrada.</b><br>${esc(r&&r.mensagem?r.mensagem:'')}</div>${sem}${link}`;
+    document.getElementById('cadastroMsg').innerHTML=`<div class="message ok"><b>Solicitação registrada.</b><br>${esc(r&&r.mensagem?r.mensagem:'')}</div>${sem}${link}${copy}`;
+    const copyBtn=document.getElementById('whatsappMessageCopyBtn');
+    if(copyBtn)copyBtn.addEventListener('click',copiarMensagemWhatsapp_);
   }).withFailureHandler(e=>{btn.disabled=false;msg.innerHTML=`<div class="message bad">${esc(e&&e.message?e.message:e)}</div>`;}).solicitarAlteracaoCadastral(alunoAtual.sessao,texto);
 }
 
 function mascaraWhatsapp(valor){const d=String(valor||'').replace(/\D/g,'').slice(0,11);if(d.length<=2)return d;if(d.length<=7)return `(${d.slice(0,2)}) ${d.slice(2)}`;return `(${d.slice(0,2)}) ${d.slice(2,7)}-${d.slice(7)}`;}
 function whatsappValidoLocal(valor){const d=String(valor||'').replace(/\D/g,'');return /^\d{2}9\d{8}$/.test(d);}
+function whatsappBaseUrl_(value){
+  try{
+    const u=new URL(String(value||''));
+    const number=u.pathname.replace(/^\/+/, '');
+    if(u.protocol!=='https:'||u.hostname!=='wa.me'||u.username||u.password||!/^\d{10,15}$/.test(number))return'';
+    return 'https://wa.me/'+number;
+  }catch{return'';}
+}
+async function copiarMensagemWhatsapp_(){
+  const area=document.getElementById('whatsappMessageCopy');
+  const status=document.getElementById('whatsappCopyStatus');
+  if(!area)return;
+  try{
+    if(navigator.clipboard&&window.isSecureContext)await navigator.clipboard.writeText(area.value);
+    else{area.focus();area.select();area.setSelectionRange(0,area.value.length);if(!document.execCommand('copy'))throw new Error('copy');}
+    if(status)status.textContent='Mensagem copiada. Abra o WhatsApp e cole no campo da conversa.';
+  }catch{
+    area.focus();area.select();area.setSelectionRange(0,area.value.length);
+    if(status)status.textContent='Não foi possível copiar automaticamente. Selecione a mensagem e copie.';
+  }
+}
 function bloquearLogin(on){const b=document.getElementById('loginBtn');if(b)b.disabled=!!on;}
 function limparMensagemLogin(){document.getElementById('matriculaMsg').innerHTML='';}
 function limparMensagemCadastro(){document.getElementById('cadastroMsg').innerHTML='';}
@@ -373,7 +399,14 @@ function validarSerie(id){
     const c=r.competicao;
     box.className='message ok';
     box.innerHTML=`<b>Disponível para você.</b><br>${r.nivel?`Nível: ${esc(r.nivel)}<br>`:''}${r.aviso?esc(r.aviso):''}`;
-    document.getElementById('modalActions').innerHTML=`<button class="secondary" onclick="fecharModal()">CANCELAR</button><button class="primary" ${r.selecionavel?'':'disabled'} onclick="adicionarCarrinhoSerie('${esc(c.id)}')">${r.valorPendente?'AGUARDANDO VALOR':'ADICIONAR À INSCRIÇÃO'}</button>`;
+    const actions=document.getElementById('modalActions');
+    actions.innerHTML='<button class="secondary" onclick="fecharModal()">CANCELAR</button>';
+    const addButton=document.createElement('button');
+    addButton.className='primary';
+    addButton.disabled=!r.selecionavel;
+    addButton.textContent=r.valorPendente?'AGUARDANDO VALOR':'ADICIONAR À INSCRIÇÃO';
+    addButton.addEventListener('click',()=>adicionarCarrinhoSerie(c.id));
+    actions.appendChild(addButton);
   }).withFailureHandler(e=>{const box=document.getElementById('serieMsg');if(box){box.className='message bad';box.innerHTML=esc(e.message||e);}else falha(e);}).validarCompeticaoSerie(id,alunoAtual.sessao);
 }
 
@@ -417,7 +450,7 @@ function continuarCarrinho(){
     const linhas=itens.map(c=>`<div class="details"><div><b>Competição</b>${esc(c.competicao)}</div><div><b>Valor</b>${money(c.valor)}</div></div>`).join('');
     const total=itens.reduce((s,c)=>s+Number(c.valor||0),0);
     document.getElementById('modalTitle').textContent='Confira suas inscrições';
-    document.getElementById('modalBody').innerHTML=`<div class="message ok"><b>Identidade e duplicidade conferidas.</b><br>Confira as inscrições antes de continuar.</div><div class="details"><div><b>Aluno</b>${esc(alunoAtual.nome)}</div><div><b>E-mail</b>${esc(alunoAtual.email)}</div></div>${linhas}<p><b>Total das inscrições: ${money(total)}</b></p><div class="message warn"><b>Os pagamentos serão separados.</b><br>Cada competição gerará seu próprio pedido e seu próprio Pix de R$ 15,00 ou R$ 25,00. Os valores nunca serão somados em um único Pix.</div>`;
+    document.getElementById('modalBody').innerHTML=`<div class="message ok"><b>Identidade e duplicidade conferidas.</b><br>Confira as inscrições antes de continuar.</div><div class="details"><div><b>Aluno</b>${esc(alunoAtual.nome)}</div><div><b>E-mail</b>${esc(alunoAtual.email)}</div></div>${linhas}<p><b>Total das inscrições: ${money(total)}</b></p><div class="message warn"><b>Os pagamentos serão separados.</b><br>Cada competição gera seu próprio pedido e cobrança pelo valor exibido. Os valores nunca serão somados em um único Pix.</div>`;
     document.getElementById('modalActions').innerHTML=`<button class="secondary" onclick="fecharModal()">VOLTAR</button><button id="confirmarPedidoBtn" class="primary" onclick="confirmarPedidoCarrinho()">CONFIRMAR INSCRIÇÕES</button>`;
     document.getElementById('modal').showModal();
   }).withFailureHandler(falha).verificarCarrinhoAluno(alunoAtual.sessao,itens.map(c=>c.id));
@@ -466,11 +499,14 @@ function abrirFilaPagamentosNovos(totalGeral){
   dlg.classList.add('wide');
   document.getElementById('modalTitle').textContent=pedidos.length>1?'Pagamentos das suas inscrições':'Pagamento da sua inscrição';
   const emailCount=window.emailAvisosEnviados==null?null:Number(window.emailAvisosEnviados);
-  const emailNote=emailCount==null?'':emailCount===pedidos.length
-    ?'<div class="message ok">Enviamos os avisos desta inscrição para o e-mail pessoal cadastrado.</div>'
-    :'<div class="message warn">Não foi possível confirmar o envio de todos os avisos por e-mail. Acompanhe cada pedido em Meus Pedidos no portal.</div>';
   window.emailAvisosEnviados=null;
-  document.getElementById('modalBody').innerHTML=`<div class="message ok"><b>Inscrições registradas com sucesso.</b><br>${pedidos.length>1?`Foram criados ${pedidos.length} pagamentos separados.`:'Foi criado 1 pagamento.'}</div>${emailNote}<div class="payment-queue">${cards}</div><div class="payment-queue-note"><b>Total das inscrições: ${money(total)}</b><br>${pendentes?`Ainda falta${pendentes>1?'m':''} ${pendentes} pagamento${pendentes>1?'s':''}. Pague um de cada vez e anexe o comprovante correspondente.`:'Todos os comprovantes deste conjunto já foram enviados.'}</div>`;
+  document.getElementById('modalBody').innerHTML=`<div class="message ok"><b>Inscrições registradas com sucesso.</b><br>${pedidos.length>1?`Foram criados ${pedidos.length} pagamentos separados.`:'Foi criado 1 pagamento.'}</div><div class="payment-queue">${cards}</div><div class="payment-queue-note"><b>Total das inscrições: ${money(total)}</b><br>${pendentes?`Ainda falta${pendentes>1?'m':''} ${pendentes} pagamento${pendentes>1?'s':''}. Pague um de cada vez e anexe o comprovante correspondente.`:'Todos os comprovantes deste conjunto já foram enviados.'}</div>`;
+  if(emailCount!=null){
+    const emailNotice=document.createElement('div');
+    emailNotice.className=emailCount===pedidos.length?'message ok':'message warn';
+    emailNotice.textContent=emailCount===pedidos.length?'Enviamos os avisos desta inscrição para o e-mail pessoal cadastrado.':'Não foi possível confirmar o envio de todos os avisos por e-mail. Acompanhe cada pedido em Meus Pedidos no portal.';
+    document.getElementById('modalBody').prepend(emailNotice);
+  }
   document.getElementById('modalActions').innerHTML=`<button class="secondary" onclick="fecharModal()">FECHAR</button><button class="secondary" onclick="fecharModal();abrirMeusPedidos()">🛒 MEUS PEDIDOS</button>`;
   if(!dlg.open)dlg.showModal();
 }

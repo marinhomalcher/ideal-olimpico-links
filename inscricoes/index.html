@@ -20,7 +20,7 @@
   <meta name="twitter:title" content="Portal de Inscrições — IDEAL OLÍMPICO">
   <meta name="twitter:description" content="Inscrições em competições acadêmicas. Consulte as competições e acompanhe seus pedidos.">
   <meta name="twitter:image" content="https://idealolimpico.com.br/logo-ideal-olimpico.png?v=20261018">
-  <link rel="stylesheet" href="./portal.css">
+  <link rel="stylesheet" href="./portal.css?v=ios-dialog-20261025-1">
 </head>
 
 <body>
@@ -77,9 +77,9 @@
               <input id="cadWhatsappAluno" type="text" inputmode="numeric" maxlength="15" placeholder="(91) 99999-9999">
             </label>
           </div>
-          <label class="field email-pessoal-field">E-mail pessoal <span aria-hidden="true">(obrigatório)</span>
-            <input id="cadEmailPessoal" type="email" maxlength="254" autocomplete="email" inputmode="email" placeholder="voce@exemplo.com" required>
-            <small>Informe o e-mail do aluno ou do responsável. Todos os avisos e links de prova serão enviados para ele. Use um e-mail diferente para cada aluno.</small>
+          <label class="field email-pessoal-field">E-mail pessoal <span aria-hidden="true">*</span>
+            <input id="cadEmailPessoal" type="email" maxlength="254" autocomplete="email" inputmode="email" placeholder="voce@exemplo.com" required aria-required="true">
+            <small>Obrigatório. Pode ser o e-mail do aluno ou do responsável. Os comunicados e as informações das olimpíadas serão enviados para este endereço. O mesmo e-mail não pode ser usado por alunos diferentes.</small>
           </label>
           <div id="responsavelBox" class="resp-grid">
             <label class="field">Nome do responsável <span id="respObrigatorio"></span>
@@ -132,7 +132,7 @@
 <dialog id="alteracaoModal"><div class="modal-head"><h3>Solicitar alteração cadastral</h3><button class="close" onclick="fecharAlteracaoModal()">×</button></div><div class="modal-body request-box"><p>Descreva objetivamente qual informação está incorreta e qual deve ser a correção.</p><textarea id="alteracaoTexto" maxlength="1000" placeholder="Ex.: Minha unidade está incorreta. O correto é BC."></textarea><div id="alteracaoMsg"></div></div><div class="modal-actions"><button class="secondary" onclick="fecharAlteracaoModal()">CANCELAR</button><button id="enviarAlteracaoBtn" class="primary" onclick="enviarSolicitacaoAlteracao()">ENVIAR SOLICITAÇÃO</button></div></dialog>
 <dialog id="modal"><div class="modal-head"><h3 id="modalTitle">Detalhes</h3><button class="close" onclick="fecharModal()">×</button></div><div id="modalBody" class="modal-body"></div><div id="modalActions" class="modal-actions"></div></dialog>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-<script src="./config.js"></script><script src="./student-bridge-client.js?v=20261019-1"></script><script src="./portal.js" defer></script>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="./config.js?v=worker-prod-pending-20261025"></script><script src="./worker-client.js?v=worker-prod-pending-20261025"></script><script src="./portal.js?v=privacy-whatsapp-20261025-1" defer></script>
 </body>
 </html>
