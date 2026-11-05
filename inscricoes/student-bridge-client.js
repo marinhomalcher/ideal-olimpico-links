@@ -45,7 +45,7 @@
     }
     if(!ready||!source){failure(new Error('A conexão segura ainda está carregando. Tente novamente.'));return;}
     const id='student-'+(++sequence)+'-'+Date.now();
-    const timer=setTimeout(()=>{pending.delete(id);failure(new Error('O Google não respondeu a tempo. Se você enviou um comprovante ou criou um pedido, confira Meus Pedidos antes de repetir.'));},90000);
+    const timer=setTimeout(()=>{pending.delete(id);failure(new Error('O Google não respondeu a tempo. Se você enviou um comprovante ou criou um pedido, confira Meus Pedidos antes de repetir.'));},method==='autenticarAluno'?30000:method==='enviarComprovantePedido'?120000:90000);
     pending.set(id,{success,failure,timer});
     source.postMessage({type:'ideal-student-call',id,method,args},origin);
   }
