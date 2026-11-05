@@ -6,7 +6,7 @@
   <meta name="robots" content="noindex,nofollow">
   <meta name="referrer" content="no-referrer">
   <title>Coordenação — IDEAL OLÍMPICO</title>
-  <link rel="stylesheet" href="coordenador.css?v=literature-csv-20261018">
+  <link rel="stylesheet" href="coordenador.css?v=bulk-approval-20261025">
 </head>
 <body>
   <header><div class="head"><img class="mark" src="../assets/ideal.jpg" alt=""><div class="brand"><h1>IDEAL OLÍMPICO — Coordenação</h1><p>Área restrita do coordenador</p></div><a class="back" href="../">Voltar ao portal</a></div></header>
@@ -21,11 +21,16 @@
       <p class="status">Literatura e SELETA usam um valor único por grupo. Outras competições continuam com valor individual. A alteração vale para novos pedidos; pedidos já criados mantêm o total original.</p>
       <section id="prices" aria-label="Valores por grupo de competição"></section>
       <h2 class="section-title">Comprovantes aguardando conferência</h2>
+      <div id="batchApproval" class="batch-approval hidden" aria-label="Aprovação em lote">
+        <label for="selectAllPending"><input id="selectAllPending" type="checkbox"> Selecionar todos os comprovantes pendentes</label>
+        <p id="selectedSummary" class="selected-summary" aria-live="polite">Nenhuma inscrição selecionada.</p>
+        <button id="approveSelected" class="action approve" type="button" disabled>Aprovar selecionadas</button>
+      </div>
       <section id="list"><div class="empty">Conectando ao backend…</div></section>
     </section>
   </main>
   <iframe id="backendBridge" title="Conexão segura com o backend" aria-hidden="true" tabindex="-1"></iframe>
   <script src="config.js?v=literature-csv-20261018"></script>
-  <script src="coordenador.js?v=literature-seleta-order-20261018"></script>
+  <script src="coordenador.js?v=literature-export-20261030"></script>
 </body>
 </html>
