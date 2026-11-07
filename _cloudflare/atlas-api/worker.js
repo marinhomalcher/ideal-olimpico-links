@@ -374,11 +374,11 @@ async function usuarioDaSessao(request, env) {
 
 const SQL_RESUMO_ITEM =
   'SELECT i.id, i.codigo, i.disciplina, i.situacao, i.versao_atual, i.criado_em, i.atualizado_em, ' +
-  'u.nome AS autor, json_extract(v.dados, \'$.assunto\') AS assunto, (v.autor_id <> i.autor_id) AS editada_supervisor, ' +
+  'u.nome AS autor, json_extract(v.dados, \'$.assunto\') AS assunto, (v.autor_id <> i.autor_id AND ue.papel = \'supervisor\') AS editada_supervisor, (v.autor_id <> i.autor_id AND ue.papel = \'adm\') AS corrigida_adm, ' +
   '(SELECT r.motivo FROM revisoes r WHERE r.item_id = i.id ORDER BY r.id DESC LIMIT 1) AS ultimo_motivo, ' +
   '(SELECT r.decisao FROM revisoes r WHERE r.item_id = i.id ORDER BY r.id DESC LIMIT 1) AS ultima_decisao ' +
   'FROM itens i JOIN usuarios u ON u.id = i.autor_id ' +
-  'JOIN item_versoes v ON v.item_id = i.id AND v.versao = i.versao_atual ';
+  'JOIN item_versoes v ON v.item_id = i.id AND v.versao = i.versao_atual JOIN usuarios ue ON ue.id = v.autor_id ';
 
 async function itemPorCodigo(env, codigo) {
   if (!/^[A-Z]\d{7}$/.test(codigo)) throw new HttpError(404, 'Questão não encontrada.');
@@ -435,10 +435,13 @@ async function rotasItens(request, env, path) {
       'SELECT r.versao, r.decisao, r.motivo, r.criado_em, u.nome AS supervisor FROM revisoes r JOIN usuarios u ON u.id = r.supervisor_id WHERE r.item_id = ? ORDER BY r.id'
     ).bind(item.id).all();
     const { results: versoes } = await env.DB.prepare(
-      'SELECT v.versao, v.criado_em, u.nome AS autor, (v.autor_id <> ?) AS pelo_supervisor FROM item_versoes v JOIN usuarios u ON u.id = v.autor_id WHERE v.item_id = ? ORDER BY v.versao'
+      'SELECT v.versao, v.criado_em, u.nome AS autor, u.papel AS papel_autor, (v.autor_id <> ?) AS pelo_supervisor FROM item_versoes v JOIN usuarios u ON u.id = v.autor_id WHERE v.item_id = ? ORDER BY v.versao'
     ).bind(autorId, item.id).all();
+    const { results: consertos } = await env.DB.prepare(
+      'SELECT c.motivo, c.situacao, c.resposta, c.criado_em, c.resolvido_em, u.nome AS solicitante FROM consertos c JOIN usuarios u ON u.id = c.solicitante_id WHERE c.item_id = ? ORDER BY c.id'
+    ).bind(item.id).all();
     const { id, ...resumo } = item;
-    return { ok: true, item: { ...resumo, dados: JSON.parse(versao.dados), revisoes, versoes, e_autor: autorId === user.id } };
+    return { ok: true, item: { ...resumo, dados: JSON.parse(versao.dados), revisoes, versoes, consertos, e_autor: autorId === user.id } };
   }
 
   // Reenviar após pedido de ajuste (só o autor; gera nova versão)
@@ -505,6 +508,27 @@ async function rotasSupervisor(request, env, path, url) {
     return { ok: true, item: { codigo: item.codigo, situacao: 'analise', versao: nova } };
   }
 
+  // Pedir conserto ao ADM (questão já aprovada).
+  const pedido = path.match(/^\/api\/supervisor\/itens\/([A-Z]\d{7})\/conserto$/);
+  if (pedido && request.method === 'POST') {
+    const item = await itemPorCodigo(env, pedido[1]);
+    if (item.disciplina !== user.disciplina) throw new HttpError(404, 'Questão não encontrada.');
+    if (item.situacao !== 'aprovado') throw new HttpError(409, 'Pedidos de conserto valem só para questões aprovadas.');
+    const body = await readJson(request);
+    const motivo = String(body.motivo ?? '').trim();
+    if (motivo.length < 3 || motivo.length > 2000) throw new HttpError(400, 'Descreva o conserto necessário.');
+    const aberto = await env.DB.prepare("SELECT id FROM consertos WHERE item_id = ? AND situacao = 'pendente'").bind(item.id).first();
+    if (aberto) throw new HttpError(409, 'Já existe um pedido de conserto aguardando o administrador.');
+    await env.DB.batch([
+      env.DB.prepare('INSERT INTO consertos (item_id, solicitante_id, motivo) VALUES (?, ?, ?)').bind(item.id, user.id, motivo),
+      env.DB.prepare("INSERT INTO eventos (usuario_id, acao, item_id, detalhe) VALUES (?, 'conserto_solicitado', ?, ?)")
+        .bind(user.id, item.id, JSON.stringify({ codigo: item.codigo }))
+    ]);
+    avisar(env, env.ADMIN_EMAIL, 'ATLAS: pedido de conserto da questão ' + item.codigo,
+      user.nome + ' (Supervisor de ' + user.disciplina + ') pediu um conserto na questão ' + item.codigo + ':\n\n' + motivo + '\n\n' + LINK_ATLAS + 'admin-questoes.html');
+    return { ok: true };
+  }
+
   const match = path.match(/^\/api\/supervisor\/itens\/([A-Z]\d{7})\/decisao$/);
   if (match && request.method === 'POST') {
     const item = await itemPorCodigo(env, match[1]);
@@ -530,7 +554,163 @@ async function rotasSupervisor(request, env, path, url) {
       env.DB.prepare('INSERT INTO eventos (usuario_id, acao, item_id, detalhe) VALUES (?, ?, ?, ?)')
         .bind(user.id, { aprovar: 'item_aprovado', ajuste: 'item_ajuste_solicitado', descartar: 'item_descartado' }[decisao], item.id, JSON.stringify({ codigo: item.codigo, versao: item.versao_atual }))
     ]);
+    const autorInfo = await emailDoAutor(env, item.id);
+    const frase = { aprovar: 'foi aprovada pelo Supervisor', ajuste: 'precisa de ajuste', descartar: 'foi descartada pelo Supervisor' }[decisao];
+    avisar(env, autorInfo.email, 'ATLAS: a questão ' + item.codigo + ' ' + frase,
+      'Olá, ' + (autorInfo.nome || 'professor(a)') + '.\n\nA sua questão ' + item.codigo + ' ' + frase + '.' +
+      (motivo ? '\n\nMotivo: ' + motivo : '') + (decisao === 'ajuste' ? '\n\nAbra o ATLAS, vá em "Minhas questões" e clique em "Corrigir".' : '') +
+      '\n\n' + LINK_ATLAS);
     return { ok: true, item: { codigo: item.codigo, situacao: nova } };
+  }
+  throw new HttpError(404, 'Rota indisponível.');
+}
+
+// ---------- avisos por e-mail ----------
+// Só envia quando ATLAS_AVISOS_ATIVOS = "1" (o Apps Script precisa aceitar o tipo "aviso").
+// Uma falha no envio nunca desfaz a ação que gerou o aviso.
+function avisar(env, para, assunto, texto) {
+  if (env.ATLAS_AVISOS_ATIVOS !== '1' || !env.ATLAS_MAILER_URL || !env.ATLAS_MAILER_SECRET || !para) return;
+  const envio = fetch(env.ATLAS_MAILER_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ segredo: env.ATLAS_MAILER_SECRET, tipo: 'aviso', email: para, assunto, texto })
+  }).catch(() => {});
+  if (env.__ctx && typeof env.__ctx.waitUntil === 'function') env.__ctx.waitUntil(envio);
+}
+const LINK_ATLAS = 'https://idealolimpico.com.br/atlas/';
+
+async function emailDoAutor(env, itemId) {
+  const row = await env.DB.prepare('SELECT u.email, u.nome FROM itens i JOIN usuarios u ON u.id = i.autor_id WHERE i.id = ?').bind(itemId).first();
+  return row || {};
+}
+async function supervisorDaDisciplina(env, disciplina) {
+  return await env.DB.prepare("SELECT id, nome, email FROM usuarios WHERE papel = 'supervisor' AND ativo = 1 AND disciplina = ?").bind(disciplina).first();
+}
+
+// ---------- questões na Administração ----------
+const DIAS_DESFAZER_DESCARTE = 30;
+
+async function admUsuarioId(env) {
+  // O ADM entra com Google e não tem cadastro de professor; este registro serve de "autor" das correções.
+  await env.DB.prepare("INSERT OR IGNORE INTO usuarios (nome, email, disciplina, papel, ativo) VALUES ('Administrador', ?, NULL, 'adm', 1)")
+    .bind(String(env.ADMIN_EMAIL).toLowerCase()).run();
+  const row = await env.DB.prepare("SELECT id FROM usuarios WHERE email = ? AND papel = 'adm'").bind(String(env.ADMIN_EMAIL).toLowerCase()).first();
+  if (!row) throw new HttpError(500, 'Cadastro do administrador indisponível.');
+  return row.id;
+}
+
+async function dataDescarte(env, itemId) {
+  const row = await env.DB.prepare("SELECT criado_em FROM revisoes WHERE item_id = ? AND decisao = 'descartar' ORDER BY id DESC LIMIT 1").bind(itemId).first();
+  return row ? row.criado_em : null;
+}
+function diasDesde(iso) {
+  return (Date.now() - Date.parse(iso)) / 86400000;
+}
+
+async function detalheCompleto(env, item) {
+  const autor = await env.DB.prepare('SELECT autor_id FROM itens WHERE id = ?').bind(item.id).first();
+  const versao = await env.DB.prepare('SELECT dados FROM item_versoes WHERE item_id = ? AND versao = ?').bind(item.id, item.versao_atual).first();
+  const { results: revisoes } = await env.DB.prepare(
+    'SELECT r.versao, r.decisao, r.motivo, r.criado_em, u.nome AS supervisor FROM revisoes r JOIN usuarios u ON u.id = r.supervisor_id WHERE r.item_id = ? ORDER BY r.id'
+  ).bind(item.id).all();
+  const { results: versoes } = await env.DB.prepare(
+    'SELECT v.versao, v.criado_em, u.nome AS autor, u.papel AS papel_autor, (v.autor_id <> ?) AS pelo_supervisor FROM item_versoes v JOIN usuarios u ON u.id = v.autor_id WHERE v.item_id = ? ORDER BY v.versao'
+  ).bind(autor.autor_id, item.id).all();
+  const { results: consertos } = await env.DB.prepare(
+    'SELECT c.id, c.motivo, c.situacao, c.resposta, c.criado_em, c.resolvido_em, u.nome AS solicitante FROM consertos c JOIN usuarios u ON u.id = c.solicitante_id WHERE c.item_id = ? ORDER BY c.id'
+  ).bind(item.id).all();
+  const { id, ...resumo } = item;
+  return { ...resumo, dados: JSON.parse(versao.dados), revisoes, versoes, consertos, autor_id: autor.autor_id };
+}
+
+async function rotasAdmItens(request, env, path, sessao) {
+  if (path === '/api/adm/consertos' && request.method === 'GET') {
+    const { results } = await env.DB.prepare(
+      "SELECT c.id, c.motivo, c.criado_em, i.codigo, i.disciplina, u.nome AS solicitante FROM consertos c " +
+      "JOIN itens i ON i.id = c.item_id JOIN usuarios u ON u.id = c.solicitante_id WHERE c.situacao = 'pendente' ORDER BY c.id"
+    ).all();
+    return { ok: true, consertos: results };
+  }
+  const recusa = path.match(/^\/api\/adm\/consertos\/(\d+)\/recusar$/);
+  if (recusa && request.method === 'POST') {
+    const body = await readJson(request);
+    const resposta = String(body.resposta ?? '').trim();
+    if (resposta.length < 3 || resposta.length > 2000) throw new HttpError(400, 'Explique ao Supervisor por que o conserto não será feito.');
+    const c = await env.DB.prepare(
+      "UPDATE consertos SET situacao = 'recusado', resposta = ?, resolvido_em = strftime('%Y-%m-%dT%H:%M:%SZ','now') WHERE id = ? AND situacao = 'pendente' RETURNING item_id, solicitante_id"
+    ).bind(resposta, Number(recusa[1])).first();
+    if (!c) throw new HttpError(409, 'Este pedido já foi resolvido.');
+    await registrar(env, 'conserto_recusado', { adm: sessao.email, conserto: Number(recusa[1]) });
+    const sup = await env.DB.prepare('SELECT u.email, i.codigo FROM usuarios u, itens i WHERE u.id = ? AND i.id = ?').bind(c.solicitante_id, c.item_id).first();
+    if (sup) avisar(env, sup.email, 'ATLAS: pedido de conserto da questão ' + sup.codigo + ' não atendido',
+      'O administrador respondeu ao seu pedido de conserto da questão ' + sup.codigo + ':\n\n' + resposta + '\n\n' + LINK_ATLAS);
+    return { ok: true };
+  }
+
+  const m = path.match(/^\/api\/adm\/itens\/([A-Z]\d{7})(\/desfazer-descarte)?$/);
+  if (!m) return null;
+  const item = await itemPorCodigo(env, m[1]);
+
+  if (!m[2] && request.method === 'GET') {
+    const det = await detalheCompleto(env, item);
+    const descartadoEm = item.situacao === 'descartado' ? await dataDescarte(env, item.id) : null;
+    return { ok: true, item: { ...det, descartado_em: descartadoEm,
+      pode_desfazer: !!descartadoEm && diasDesde(descartadoEm) <= DIAS_DESFAZER_DESCARTE,
+      prazo_dias: DIAS_DESFAZER_DESCARTE } };
+  }
+
+  if (m[2] && request.method === 'POST') {
+    if (item.situacao !== 'descartado') throw new HttpError(409, 'Esta questão não está descartada.');
+    const descartadoEm = await dataDescarte(env, item.id);
+    if (!descartadoEm || diasDesde(descartadoEm) > DIAS_DESFAZER_DESCARTE) {
+      throw new HttpError(409, 'O prazo de ' + DIAS_DESFAZER_DESCARTE + ' dias para desfazer este descarte já terminou.');
+    }
+    const alterado = await env.DB.prepare(
+      "UPDATE itens SET situacao = 'analise', atualizado_em = strftime('%Y-%m-%dT%H:%M:%SZ','now') WHERE id = ? AND situacao = 'descartado' RETURNING id"
+    ).bind(item.id).first();
+    if (!alterado) throw new HttpError(409, 'Esta questão acabou de ser alterada.');
+    const admId = await admUsuarioId(env);
+    await env.DB.prepare("INSERT INTO eventos (usuario_id, acao, item_id, detalhe) VALUES (?, 'descarte_desfeito', ?, ?)")
+      .bind(admId, item.id, JSON.stringify({ adm: sessao.email, codigo: item.codigo })).run();
+    const sup = await supervisorDaDisciplina(env, item.disciplina);
+    if (sup) avisar(env, sup.email, 'ATLAS: questão ' + item.codigo + ' voltou para análise',
+      'O administrador desfez o descarte da questão ' + item.codigo + '. Ela voltou para a sua fila de análise.\n\n' + LINK_ATLAS);
+    return { ok: true, item: { codigo: item.codigo, situacao: 'analise' } };
+  }
+
+  // Correção pelo ADM de questão aprovada (nova versão; continua aprovada).
+  if (!m[2] && request.method === 'PUT') {
+    if (item.situacao !== 'aprovado') throw new HttpError(409, 'Só questões aprovadas são corrigidas pela Administração.');
+    const body = await readJson(request, MAX_ITEM_BYTES + 64 * 1024);
+    if (body.versao !== item.versao_atual) throw new HttpError(409, 'A questão mudou desde que você a abriu. Busque de novo.');
+    const dados = validarDados(body.dados);
+    const consertoId = body.conserto_id === undefined || body.conserto_id === null ? null : Number(body.conserto_id);
+    let conserto = null;
+    if (consertoId !== null) {
+      conserto = await env.DB.prepare("SELECT id, solicitante_id FROM consertos WHERE id = ? AND item_id = ? AND situacao = 'pendente'").bind(consertoId, item.id).first();
+      if (!conserto) throw new HttpError(409, 'Pedido de conserto não encontrado ou já resolvido.');
+    }
+    const admId = await admUsuarioId(env);
+    const nova = item.versao_atual + 1;
+    const ops = [
+      env.DB.prepare('INSERT INTO item_versoes (item_id, versao, dados, autor_id) VALUES (?, ?, ?, ?)').bind(item.id, nova, dados, admId),
+      env.DB.prepare("UPDATE itens SET versao_atual = ?, atualizado_em = strftime('%Y-%m-%dT%H:%M:%SZ','now') WHERE id = ? AND versao_atual = ? AND situacao = 'aprovado'")
+        .bind(nova, item.id, item.versao_atual),
+      env.DB.prepare("INSERT INTO eventos (usuario_id, acao, item_id, detalhe) VALUES (?, 'item_corrigido_adm', ?, ?)")
+        .bind(admId, item.id, JSON.stringify({ adm: sessao.email, codigo: item.codigo, versao: nova, conserto: consertoId }))
+    ];
+    if (conserto) ops.push(env.DB.prepare("UPDATE consertos SET situacao = 'feito', resolvido_em = strftime('%Y-%m-%dT%H:%M:%SZ','now') WHERE id = ? AND situacao = 'pendente'").bind(conserto.id));
+    try { await env.DB.batch(ops); }
+    catch (error) {
+      if (/UNIQUE|PRIMARY/i.test(String(error && error.message))) throw new HttpError(409, 'A questão acabou de ser alterada. Busque de novo.');
+      throw error;
+    }
+    if (conserto) {
+      const sup = await env.DB.prepare('SELECT email FROM usuarios WHERE id = ?').bind(conserto.solicitante_id).first();
+      if (sup) avisar(env, sup.email, 'ATLAS: conserto da questão ' + item.codigo + ' realizado',
+        'O administrador fez o conserto que você pediu na questão ' + item.codigo + ' (agora na versão ' + nova + ').\n\n' + LINK_ATLAS);
+    }
+    return { ok: true, item: { codigo: item.codigo, situacao: 'aprovado', versao: nova } };
   }
   throw new HttpError(404, 'Rota indisponível.');
 }
@@ -551,6 +731,8 @@ async function rotasAdm(request, env, path) {
   }
 
   const sessao = await sessaoAtual(request, env, 'adm');
+  const itensAdm = await rotasAdmItens(request, env, path, sessao);
+  if (itensAdm) return itensAdm;
 
   if (path === '/api/adm/sessao' && request.method === 'GET') {
     return { ok: true, email: sessao.email, expira_em: sessao.expira_em };
@@ -614,7 +796,8 @@ async function rotasAdm(request, env, path) {
 }
 
 export default {
-  async fetch(request, env) {
+  async fetch(request, envOriginal, ctx) {
+    const env = Object.assign(Object.create(envOriginal || {}), { __ctx: ctx });
     const origin = request.headers.get('Origin');
     const url = new URL(request.url);
     if (request.method === 'OPTIONS') return reply(null, 204, origin);

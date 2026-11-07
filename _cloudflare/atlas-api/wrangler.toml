@@ -14,6 +14,8 @@ enabled = true
 GOOGLE_CLIENT_ID = "432003570373-cscu1nvoldack2luihm9lnlsi9q2p115.apps.googleusercontent.com"
 ADMIN_EMAIL = "marinhomalcher@gmail.com"
 ATLAS_MAILER_URL = "https://script.google.com/macros/s/AKfycbwM3QE2lKUst-rl4qMR_tF7P7mGewmXImPlBcCpqyRpxGndZNOX9mM_yCAmPJU_VmE00A/exec"
+# Avisos por e-mail (aprovação, ajuste, descarte, consertos). Mude para "1" só depois de atualizar o Apps Script.
+ATLAS_AVISOS_ATIVOS = "0"
 
 [[d1_databases]]
 binding = "DB"
