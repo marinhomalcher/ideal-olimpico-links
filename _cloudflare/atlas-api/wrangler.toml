@@ -1,4 +1,4 @@
-# Servidor do ATLAS (banco de questões). Modo de teste: sem login, só /api/saude.
+# Servidor do ATLAS (banco de questões).
 name = "atlas-api"
 main = "worker.js"
 compatibility_date = "2026-11-07"
@@ -7,6 +7,11 @@ preview_urls = false
 
 [observability]
 enabled = true
+
+# Valores públicos (não são segredos).
+[vars]
+GOOGLE_CLIENT_ID = "432003570373-cscu1nvoldack2luihm9lnlsi9q2p115.apps.googleusercontent.com"
+ADMIN_EMAIL = "marinhomalcher@gmail.com"
 
 [[d1_databases]]
 binding = "DB"
