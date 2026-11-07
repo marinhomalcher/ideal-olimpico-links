@@ -46,3 +46,29 @@ window.ATLAS_SAIR = async function () {
   }
   location.href = 'index.html';
 };
+
+// Chamada ao servidor do ATLAS com a sessão do usuário. Sessão vencida volta para o login.
+window.ATLAS_API = async function (path, { method = 'GET', body } = {}) {
+  const perfil = location.pathname.endsWith('supervisor.html') ? 'Supervisor' : 'Professor';
+  let saved;
+  try { saved = JSON.parse(sessionStorage.getItem('atlas_user_auth') || localStorage.getItem('atlas_user_auth') || 'null'); } catch {}
+  const headers = {};
+  if (saved?.token) headers.Authorization = 'Bearer ' + saved.token;
+  if (body !== undefined) headers['Content-Type'] = 'application/json';
+  let response;
+  try {
+    response = await fetch('https://atlas-api.marinhomalcher.workers.dev' + path, {
+      method, headers, body: body === undefined ? undefined : JSON.stringify(body), cache: 'no-store'
+    });
+  } catch { throw new Error('Sem conexão com o servidor do ATLAS. Seus dados continuam na tela; tente novamente.'); }
+  const data = await response.json().catch(() => ({}));
+  if (response.status === 401) {
+    try { if (typeof window.ATLAS_ANTES_DE_SAIR === 'function') window.ATLAS_ANTES_DE_SAIR(); } catch {}
+    sessionStorage.removeItem('atlas_user_auth');
+    localStorage.removeItem('atlas_user_auth');
+    location.replace('index.html?perfil=' + encodeURIComponent(perfil));
+    throw new Error('Sessão expirada. Entre novamente.');
+  }
+  if (!response.ok || data.ok !== true) throw new Error(data.error || 'A operação falhou. Tente novamente.');
+  return data;
+};

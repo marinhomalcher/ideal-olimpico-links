@@ -1,6 +1,7 @@
 // ATLAS — servidor (Cloudflare Worker).
 // Administração: login "Entrar com Google", liberado SOMENTE para o e-mail em ADMIN_EMAIL.
 // Professores e Supervisores: login por código no e-mail institucional.
+// Questões: enviadas pelo Professor e analisadas pelo Supervisor da disciplina (tabelas itens/item_versoes/revisoes).
 // Nenhum segredo neste arquivo: o token de sessão é aleatório e só o hash dele fica no banco.
 const ALLOWED_ORIGINS = Object.freeze(['https://idealolimpico.com.br', 'https://www.idealolimpico.com.br']);
 const DISCIPLINAS = Object.freeze(['Artes', 'Biologia', 'Filosofia', 'Física', 'Geografia', 'História',
@@ -55,12 +56,12 @@ function isoDaqui(horas) {
 }
 function agoraIso() { return new Date().toISOString().replace(/\.\d{3}Z$/, 'Z'); }
 
-async function readJson(request) {
+async function readJson(request, maxBytes = MAX_BODY_BYTES) {
   if (!request.headers.get('Content-Type')?.toLowerCase().startsWith('application/json')) {
     throw new HttpError(415, 'Formato inválido.');
   }
   const text = await request.text();
-  if (text.length > MAX_BODY_BYTES) throw new HttpError(413, 'Dados grandes demais.');
+  if (text.length > maxBytes) throw new HttpError(413, 'Dados grandes demais.');
   let data;
   try { data = JSON.parse(text); } catch { throw new HttpError(400, 'Dados inválidos.'); }
   if (!data || typeof data !== 'object' || Array.isArray(data)) throw new HttpError(400, 'Dados inválidos.');
@@ -305,6 +306,204 @@ async function verificarCodigoAcesso(request, env) {
   };
 }
 
+// ---------- questões (itens) ----------
+// Código oficial: letra da disciplina + 7 dígitos aleatórios (sem zero à esquerda, nunca todos iguais).
+const LETRA_DISCIPLINA = Object.freeze({
+  'Artes': 'A', 'Biologia': 'B', 'Filosofia': 'F', 'Física': 'Y', 'Geografia': 'G', 'História': 'H',
+  'Inglês': 'I', 'Literatura': 'L', 'Matemática': 'M', 'Português': 'P', 'Química': 'Q', 'Sociologia': 'S'
+});
+const MAX_ITEM_BYTES = 1500 * 1024;          // limite por questão (o D1 aceita até 2 MB por linha)
+const CAMPOS_TEXTO = Object.freeze(['etapa', 'ano', 'origem', 'fonte', 'dificuldade', 'assunto', 'subtema',
+  'nivel4', 'nivel5', 'bloom', 'referencia', 'gabarito']);
+const CAMPOS_RICOS = Object.freeze(['texto-base', 'comando', 'alt-a', 'alt-b', 'alt-c', 'alt-d', 'alt-e', 'resolucao']);
+const HTML_PROIBIDO = /<\s*\/?\s*(script|iframe|object|embed|style|link|meta|form|base)\b|\son[a-z]+\s*=|javascript\s*:|vbscript\s*:/i;
+
+function gerarCodigoItem(disciplina) {
+  const letra = LETRA_DISCIPLINA[disciplina];
+  if (!letra) throw new HttpError(400, 'Disciplina sem letra definida.');
+  const buf = new Uint32Array(8);
+  for (;;) {
+    crypto.getRandomValues(buf);
+    let digitos = String(1 + (buf[0] % 9));
+    for (let i = 1; i < 7; i++) digitos += String(buf[i] % 10);
+    if (!/^(\d)\1{6}$/.test(digitos)) return letra + digitos;
+  }
+}
+
+function validarDados(input) {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) throw new HttpError(400, 'Dados da questão inválidos.');
+  const d = { rich: true };
+  for (const campo of CAMPOS_TEXTO) {
+    const v = input[campo] === undefined || input[campo] === null ? '' : input[campo];
+    if (typeof v !== 'string') throw new HttpError(400, 'Campo inválido: ' + campo + '.');
+    const limite = campo === 'referencia' ? 1000 : 300;
+    if (v.length > limite) throw new HttpError(400, 'Campo grande demais: ' + campo + '.');
+    d[campo] = v.trim();
+  }
+  for (const campo of CAMPOS_RICOS) {
+    const v = input[campo] === undefined || input[campo] === null ? '' : input[campo];
+    if (typeof v !== 'string') throw new HttpError(400, 'Campo inválido: ' + campo + '.');
+    if (HTML_PROIBIDO.test(v)) throw new HttpError(400, 'O campo "' + campo + '" contém conteúdo não permitido.');
+    d[campo] = v;
+  }
+  const vazio = v => !String(v).replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim() && !/<img\b/i.test(v);
+  if (!['em', 'ef2'].includes(d.etapa)) throw new HttpError(400, 'Escolha a etapa.');
+  if (!['autoral', 'enem', 'outros'].includes(d.origem)) throw new HttpError(400, 'Escolha a origem da questão.');
+  if (!['Fácil', 'Média', 'Difícil'].includes(d.dificuldade)) throw new HttpError(400, 'Escolha a dificuldade prevista.');
+  if (!['Lembrar', 'Compreender', 'Aplicar', 'Analisar', 'Avaliar'].includes(d.bloom)) throw new HttpError(400, 'Escolha o nível cognitivo.');
+  if (!d.assunto) throw new HttpError(400, 'Escolha o assunto principal.');
+  if (!['A', 'B', 'C', 'D', 'E'].includes(d.gabarito)) throw new HttpError(400, 'Escolha o gabarito (A a E).');
+  if (vazio(d.comando)) throw new HttpError(400, 'Preencha o comando da questão.');
+  for (const l of 'abcde') if (vazio(d['alt-' + l])) throw new HttpError(400, 'Preencha a alternativa ' + l.toUpperCase() + '.');
+  d.fonte = d.origem === 'outros' ? d.fonte.toLocaleUpperCase('pt-BR') : '';
+  const json = JSON.stringify(d);
+  if (new TextEncoder().encode(json).length > MAX_ITEM_BYTES) {
+    throw new HttpError(413, 'A questão ficou grande demais (imagens pesadas). Use imagens menores ou recortes.');
+  }
+  return json;
+}
+
+async function usuarioDaSessao(request, env) {
+  const sessao = await sessaoAtual(request, env, 'usuario');
+  const user = await env.DB.prepare(
+    "SELECT id, nome, email, disciplina, papel FROM usuarios WHERE id = ? AND ativo = 1 AND papel IN ('professor','supervisor')"
+  ).bind(sessao.usuario_id).first();
+  if (!user) throw new HttpError(401, 'Acesso desativado. Entre novamente.');
+  return user;
+}
+
+const SQL_RESUMO_ITEM =
+  'SELECT i.id, i.codigo, i.disciplina, i.situacao, i.versao_atual, i.criado_em, i.atualizado_em, ' +
+  'u.nome AS autor, json_extract(v.dados, \'$.assunto\') AS assunto, ' +
+  '(SELECT r.motivo FROM revisoes r WHERE r.item_id = i.id ORDER BY r.id DESC LIMIT 1) AS ultimo_motivo, ' +
+  '(SELECT r.decisao FROM revisoes r WHERE r.item_id = i.id ORDER BY r.id DESC LIMIT 1) AS ultima_decisao ' +
+  'FROM itens i JOIN usuarios u ON u.id = i.autor_id ' +
+  'JOIN item_versoes v ON v.item_id = i.id AND v.versao = i.versao_atual ';
+
+async function itemPorCodigo(env, codigo) {
+  if (!/^[A-Z]\d{7}$/.test(codigo)) throw new HttpError(404, 'Questão não encontrada.');
+  const item = await env.DB.prepare(SQL_RESUMO_ITEM + 'WHERE i.codigo = ?').bind(codigo).first();
+  if (!item) throw new HttpError(404, 'Questão não encontrada.');
+  return item;
+}
+
+function podeVer(user, item, autorId) {
+  return autorId === user.id || (user.papel === 'supervisor' && user.disciplina === item.disciplina);
+}
+
+async function rotasItens(request, env, path) {
+  const user = await usuarioDaSessao(request, env);
+
+  // Enviar questão nova
+  if (path === '/api/itens' && request.method === 'POST') {
+    const body = await readJson(request, MAX_ITEM_BYTES + 64 * 1024);
+    const dados = validarDados(body.dados);
+    for (let tentativa = 0; tentativa < 10; tentativa++) {
+      const codigo = gerarCodigoItem(user.disciplina);
+      try {
+        await env.DB.batch([
+          env.DB.prepare("INSERT INTO itens (codigo, disciplina, autor_id, situacao, versao_atual) VALUES (?, ?, ?, 'analise', 1)")
+            .bind(codigo, user.disciplina, user.id),
+          env.DB.prepare('INSERT INTO item_versoes (item_id, versao, dados, autor_id) SELECT id, 1, ?, ? FROM itens WHERE codigo = ?')
+            .bind(dados, user.id, codigo),
+          env.DB.prepare("INSERT INTO eventos (usuario_id, acao, item_id, detalhe) SELECT ?, 'item_enviado', id, ? FROM itens WHERE codigo = ?")
+            .bind(user.id, JSON.stringify({ codigo, versao: 1 }), codigo)
+        ]);
+        return { ok: true, item: { codigo, situacao: 'analise', versao: 1, disciplina: user.disciplina } };
+      } catch (error) {
+        if (!/UNIQUE/i.test(String(error && error.message))) throw error;   // código repetido: sorteia outro
+      }
+    }
+    throw new HttpError(503, 'Não foi possível gerar o código da questão. Tente novamente.');
+  }
+
+  // Minhas questões
+  if (path === '/api/itens/meus' && request.method === 'GET') {
+    const { results } = await env.DB.prepare(SQL_RESUMO_ITEM + 'WHERE i.autor_id = ? ORDER BY i.atualizado_em DESC, i.id DESC LIMIT 300')
+      .bind(user.id).all();
+    return { ok: true, itens: results.map(({ id, ...r }) => r) };
+  }
+
+  const match = path.match(/^\/api\/itens\/([A-Z]\d{7})$/);
+  if (match && request.method === 'GET') {
+    const item = await itemPorCodigo(env, match[1]);
+    const autorId = (await env.DB.prepare('SELECT autor_id FROM itens WHERE id = ?').bind(item.id).first()).autor_id;
+    if (!podeVer(user, item, autorId)) throw new HttpError(404, 'Questão não encontrada.');
+    const versao = await env.DB.prepare('SELECT dados, criado_em FROM item_versoes WHERE item_id = ? AND versao = ?')
+      .bind(item.id, item.versao_atual).first();
+    const { results: revisoes } = await env.DB.prepare(
+      'SELECT r.versao, r.decisao, r.motivo, r.criado_em, u.nome AS supervisor FROM revisoes r JOIN usuarios u ON u.id = r.supervisor_id WHERE r.item_id = ? ORDER BY r.id'
+    ).bind(item.id).all();
+    const { id, ...resumo } = item;
+    return { ok: true, item: { ...resumo, dados: JSON.parse(versao.dados), revisoes, e_autor: autorId === user.id } };
+  }
+
+  // Reenviar após pedido de ajuste (só o autor; gera nova versão)
+  if (match && request.method === 'PUT') {
+    const item = await itemPorCodigo(env, match[1]);
+    const autorId = (await env.DB.prepare('SELECT autor_id FROM itens WHERE id = ?').bind(item.id).first()).autor_id;
+    if (autorId !== user.id) throw new HttpError(404, 'Questão não encontrada.');
+    if (item.situacao !== 'ajustes') throw new HttpError(409, 'Esta questão não está aguardando ajuste.');
+    const body = await readJson(request, MAX_ITEM_BYTES + 64 * 1024);
+    if (body.versao !== item.versao_atual) throw new HttpError(409, 'A questão mudou desde que você a abriu. Recarregue a página.');
+    const dados = validarDados(body.dados);
+    const nova = item.versao_atual + 1;
+    try {
+      await env.DB.batch([
+        env.DB.prepare('INSERT INTO item_versoes (item_id, versao, dados, autor_id) VALUES (?, ?, ?, ?)').bind(item.id, nova, dados, user.id),
+        env.DB.prepare("UPDATE itens SET versao_atual = ?, situacao = 'analise', atualizado_em = strftime('%Y-%m-%dT%H:%M:%SZ','now') WHERE id = ? AND versao_atual = ? AND situacao = 'ajustes'")
+          .bind(nova, item.id, item.versao_atual),
+        env.DB.prepare("INSERT INTO eventos (usuario_id, acao, item_id, detalhe) VALUES (?, 'item_reenviado', ?, ?)")
+          .bind(user.id, item.id, JSON.stringify({ codigo: item.codigo, versao: nova }))
+      ]);
+    } catch (error) {
+      if (/UNIQUE|PRIMARY/i.test(String(error && error.message))) throw new HttpError(409, 'Esta questão já foi reenviada.');
+      throw error;
+    }
+    return { ok: true, item: { codigo: item.codigo, situacao: 'analise', versao: nova } };
+  }
+  throw new HttpError(404, 'Rota indisponível.');
+}
+
+async function rotasSupervisor(request, env, path, url) {
+  const user = await usuarioDaSessao(request, env);
+  if (user.papel !== 'supervisor') throw new HttpError(403, 'Área restrita ao Supervisor da disciplina.');
+
+  if (path === '/api/supervisor/fila' && request.method === 'GET') {
+    const situacao = url.searchParams.get('situacao') || 'analise';
+    if (!['analise', 'ajustes', 'aprovado'].includes(situacao)) throw new HttpError(400, 'Situação inválida.');
+    const { results } = await env.DB.prepare(SQL_RESUMO_ITEM + 'WHERE i.disciplina = ? AND i.situacao = ? ORDER BY i.atualizado_em ASC, i.id ASC LIMIT 300')
+      .bind(user.disciplina, situacao).all();
+    return { ok: true, disciplina: user.disciplina, itens: results.map(({ id, ...r }) => r) };
+  }
+
+  const match = path.match(/^\/api\/supervisor\/itens\/([A-Z]\d{7})\/decisao$/);
+  if (match && request.method === 'POST') {
+    const item = await itemPorCodigo(env, match[1]);
+    if (item.disciplina !== user.disciplina) throw new HttpError(404, 'Questão não encontrada.');
+    const body = await readJson(request);
+    const decisao = body.decisao;
+    if (!['aprovar', 'ajuste'].includes(decisao)) throw new HttpError(400, 'Decisão inválida.');
+    const motivo = String(body.motivo ?? '').trim();
+    if (decisao === 'ajuste' && (motivo.length < 3 || motivo.length > 2000)) throw new HttpError(400, 'Descreva o ajuste necessário.');
+    if (body.versao !== item.versao_atual) throw new HttpError(409, 'A questão mudou desde que você a abriu. Volte à fila e abra de novo.');
+    // Muda a situação primeiro e só se ela ainda estiver "em análise" nesta versão (evita decisão dupla).
+    const nova = decisao === 'aprovar' ? 'aprovado' : 'ajustes';
+    const alterado = await env.DB.prepare(
+      "UPDATE itens SET situacao = ?, atualizado_em = strftime('%Y-%m-%dT%H:%M:%SZ','now') WHERE id = ? AND situacao = 'analise' AND versao_atual = ? RETURNING id"
+    ).bind(nova, item.id, item.versao_atual).first();
+    if (!alterado) throw new HttpError(409, 'Esta questão já foi analisada.');
+    await env.DB.batch([
+      env.DB.prepare('INSERT INTO revisoes (item_id, versao, supervisor_id, decisao, motivo) VALUES (?, ?, ?, ?, ?)')
+        .bind(item.id, item.versao_atual, user.id, decisao, decisao === 'ajuste' ? motivo : (motivo || null)),
+      env.DB.prepare('INSERT INTO eventos (usuario_id, acao, item_id, detalhe) VALUES (?, ?, ?, ?)')
+        .bind(user.id, decisao === 'aprovar' ? 'item_aprovado' : 'item_ajuste_solicitado', item.id, JSON.stringify({ codigo: item.codigo, versao: item.versao_atual }))
+    ]);
+    return { ok: true, item: { codigo: item.codigo, situacao: nova } };
+  }
+  throw new HttpError(404, 'Rota indisponível.');
+}
+
 // ---------- rotas da Administração ----------
 async function rotasAdm(request, env, path) {
   if (path === '/api/adm/login' && request.method === 'POST') {
@@ -416,12 +615,20 @@ export default {
         await env.DB.prepare('DELETE FROM sessoes WHERE token_hash = ?').bind(sessao.token_hash).run();
         return reply({ ok: true }, 200, origin);
       }
+      if (url.pathname === '/api/itens' || url.pathname.startsWith('/api/itens/')) {
+        if (!ALLOWED_ORIGINS.includes(origin)) throw new HttpError(403, 'Origem não permitida.');
+        return reply(await rotasItens(request, env, url.pathname), 200, origin);
+      }
+      if (url.pathname.startsWith('/api/supervisor/')) {
+        if (!ALLOWED_ORIGINS.includes(origin)) throw new HttpError(403, 'Origem não permitida.');
+        return reply(await rotasSupervisor(request, env, url.pathname, url), 200, origin);
+      }
       if (url.pathname.startsWith('/api/adm/')) {
         if (!ALLOWED_ORIGINS.includes(origin)) throw new HttpError(403, 'Origem não permitida.');
         return reply(await rotasAdm(request, env, url.pathname), 200, origin);
       }
       if (url.pathname.startsWith('/api/')) {
-        throw new HttpError(503, 'Recurso ainda não liberado (aguardando login dos professores).');
+        throw new HttpError(404, 'Rota indisponível.');
       }
       throw new HttpError(404, 'Rota indisponível.');
     } catch (error) {
