@@ -269,6 +269,9 @@ async function verificarCodigoAcesso(request, env) {
     "WHERE email = ? COLLATE NOCASE AND ativo = 1 AND papel IN ('professor','supervisor')"
   ).bind(email).first();
   if (!user) throw new HttpError(401, 'Código inválido ou expirado.');
+  if (body.perfil === 'supervisor' && user.papel !== 'supervisor') {
+    throw new HttpError(403, 'Este cadastro não tem acesso de Supervisor. Entre como Professor.');
+  }
 
   const agora = Math.floor(Date.now() / 1000);
   const registro = await env.DB.prepare(
