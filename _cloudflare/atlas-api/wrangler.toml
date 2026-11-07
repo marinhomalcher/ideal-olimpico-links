@@ -1,0 +1,14 @@
+# Servidor do ATLAS (banco de questões). Modo de teste: sem login, só /api/saude.
+name = "atlas-api"
+main = "worker.js"
+compatibility_date = "2026-11-07"
+workers_dev = true
+preview_urls = false
+
+[observability]
+enabled = true
+
+[[d1_databases]]
+binding = "DB"
+database_name = "atlas-teste"
+database_id = "10ee40e4-fcc3-466a-ad9b-b4f25a95d0f1"
