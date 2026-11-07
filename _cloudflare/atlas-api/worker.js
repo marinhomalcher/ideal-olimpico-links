@@ -5,7 +5,8 @@
 const ALLOWED_ORIGINS = Object.freeze(['https://idealolimpico.com.br', 'https://www.idealolimpico.com.br']);
 const DISCIPLINAS = Object.freeze(['Artes', 'Biologia', 'Filosofia', 'Física', 'Geografia', 'História',
   'Inglês', 'Literatura', 'Matemática', 'Português', 'Química', 'Sociologia']);
-const EMAIL_INSTITUCIONAL = /^[a-z0-9._-]+@([a-z0-9-]+\.)*grupoideal\.com\.br$/;
+// Regra da escola: somente @grupoideal.com.br (sem subdomínios, sem exceções).
+const EMAIL_INSTITUCIONAL = /^[a-z0-9._-]+@grupoideal\.com\.br$/;
 const EMAIL_LOGIN_ATLAS = /^[a-z0-9._+-]+@grupoideal\.com\.br$/;
 const GOOGLE_CERTS_URL = 'https://www.googleapis.com/oauth2/v3/certs';
 const GOOGLE_ISSUERS = Object.freeze(['accounts.google.com', 'https://accounts.google.com']);
@@ -141,7 +142,7 @@ function limparNome(value) {
 function limparEmail(value) {
   let email = String(value ?? '').trim().toLowerCase();
   if (email && !email.includes('@')) email += '@grupoideal.com.br';
-  if (!EMAIL_INSTITUCIONAL.test(email) || email.length > 120) throw new HttpError(400, 'Use um e-mail institucional do Grupo Ideal.');
+  if (!EMAIL_INSTITUCIONAL.test(email) || email.length > 120) throw new HttpError(400, 'Use um e-mail @grupoideal.com.br.');
   return email;
 }
 function limparDisciplina(value) {
@@ -269,9 +270,8 @@ async function verificarCodigoAcesso(request, env) {
     "WHERE email = ? COLLATE NOCASE AND ativo = 1 AND papel IN ('professor','supervisor')"
   ).bind(email).first();
   if (!user) throw new HttpError(401, 'Código inválido ou expirado.');
-  if (body.perfil === 'supervisor' && user.papel !== 'supervisor') {
-    throw new HttpError(403, 'Este cadastro não tem acesso de Supervisor. Entre como Professor.');
-  }
+  // O perfil NÃO é escolhido pelo navegador: a área de destino vem do papel no banco
+  // (e só é revelada depois de o código ser conferido).
 
   const agora = Math.floor(Date.now() / 1000);
   const registro = await env.DB.prepare(

@@ -76,12 +76,13 @@ codeStep.addEventListener('submit',async event=>{
   event.preventDefault();if(!/^\d{6}$/.test(code.value)){setStatus('Digite os 6 dígitos do código.');code.focus();return}
   const button=document.querySelector('#verifyButton');button.disabled=true;setStatus('Confirmando código…',true);
   try{
-    const data=await api('/api/login/verificar',{email:requestedEmail,codigo:code.value,lembrar:document.querySelector('#remember').checked,perfil:role.toLowerCase()});
-    if(role==='Supervisor'&&data.usuario?.papel!=='supervisor'){setStatus('Seu cadastro não tem acesso de Supervisor.');return}
+    const data=await api('/api/login/verificar',{email:requestedEmail,codigo:code.value,lembrar:document.querySelector('#remember').checked});
+    const isSupervisor=data.usuario?.papel==='supervisor';
     const remember=document.querySelector('#remember').checked;
     sessionStorage.removeItem('atlas_user_auth');localStorage.removeItem('atlas_user_auth');
     (remember?localStorage:sessionStorage).setItem('atlas_user_auth',JSON.stringify({token:data.token,expira_em:data.expira_em,usuario:data.usuario}));
-    location.href=role==='Supervisor'?'supervisor.html':'professor.html';
+    if(role==='Supervisor'&&!isSupervisor){setStatus('Seu cadastro é de Professor. Abrindo a área do Professor…',true);setTimeout(()=>location.href='professor.html',1600);return}
+    location.href=(role==='Supervisor'&&isSupervisor)?'supervisor.html':'professor.html';
   }catch(error){setStatus(error.message)}
   finally{button.disabled=false}
 });
