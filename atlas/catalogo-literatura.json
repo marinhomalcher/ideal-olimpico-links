@@ -1,0 +1,240 @@
+{
+  "source": "Proposta Claude (Cowork), 06/11/2026: organizada por assuntos, a partir da matriz de Literatura do ENEM e da recorrência de conteúdos em ENEM, FUVEST e UNICAMP. Sujeita à revisão dos professores de Literatura.",
+  "scope": "Ensino Médio; disciplina Literatura",
+  "disciplines": {
+    "Literatura": {
+      "Teoria Literária": {
+        "Linguagem Literária e Não Literária": {
+          "Denotação e Conotação": {},
+          "Função Poética da Linguagem": {},
+          "Licença Poética e Neologismos": {}
+        },
+        "Gêneros Literários": {
+          "Gênero Lírico": {},
+          "Gênero Épico": {},
+          "Gênero Narrativo": {
+            "Romance": {},
+            "Novela": {},
+            "Conto": {},
+            "Crônica": {}
+          },
+          "Gênero Dramático": {
+            "Tragédia": {},
+            "Comédia": {},
+            "Drama": {}
+          },
+          "Mescla de Gêneros e Gêneros Híbridos": {}
+        },
+        "Foco Narrativo e Tipos de Narrador": {
+          "Narrador em Primeira Pessoa": {},
+          "Narrador em Terceira Pessoa": {},
+          "Discurso Direto, Indireto e Indireto Livre": {}
+        },
+        "Elementos da Narrativa": {
+          "Enredo e Estrutura Narrativa": {},
+          "Personagem": {},
+          "Tempo Cronológico e Psicológico": {},
+          "Espaço e Ambiente": {}
+        },
+        "Figuras de Linguagem e Recursos Expressivos": {
+          "Figuras de Palavras": {},
+          "Figuras de Pensamento": {},
+          "Figuras de Sintaxe e de Som": {},
+          "Ironia, Humor e Sátira": {}
+        },
+        "Versificação e Poesia": {
+          "Métrica e Escansão": {},
+          "Rima e Ritmo": {},
+          "Estrofes": {},
+          "Formas Fixas (Soneto, Haicai, Balada)": {},
+          "Verso Livre e Poesia Visual": {}
+        },
+        "Intertextualidade, Paródia e Paráfrase": {
+          "Intertextualidade e Interdiscursividade": {},
+          "Paródia": {},
+          "Paráfrase": {},
+          "Citação e Alusão": {}
+        },
+        "Literatura e Outras Linguagens": {
+          "Literatura e Artes Plásticas": {},
+          "Literatura e Música": {},
+          "Literatura, Cinema e Teatro": {},
+          "Literatura e Histórias em Quadrinhos": {}
+        }
+      },
+      "Periodização e Contexto Histórico": {
+        "Linha do Tempo da Literatura Brasileira": {},
+        "Linha do Tempo da Literatura Portuguesa": {},
+        "Contexto Histórico, Social e Estético das Escolas Literárias": {},
+        "Relação entre Escolas e Autores de Diferentes Épocas": {}
+      },
+      "Trovadorismo": {
+        "Cantigas Líricas": {
+          "Cantiga de Amor": {},
+          "Cantiga de Amigo": {}
+        },
+        "Cantigas Satíricas": {
+          "Cantiga de Escárnio": {},
+          "Cantiga de Maldizer": {}
+        },
+        "Novelas de Cavalaria": {},
+        "Contexto Histórico Medieval": {}
+      },
+      "Humanismo": {
+        "Crônica Histórica (Fernão Lopes)": {},
+        "Teatro de Gil Vicente": {
+          "Auto da Barca do Inferno": {},
+          "Sátira Social e Religiosa": {}
+        },
+        "Poesia Palaciana": {},
+        "Contexto Histórico (Transição Medieval-Renascentista)": {}
+      },
+      "Classicismo / Quinhentismo": {
+        "Classicismo": {
+          "Características e Contexto Renascentista": {},
+          "Lírica de Camões": {},
+          "Épica de Camões (Os Lusíadas)": {}
+        },
+        "Quinhentismo": {
+          "Literatura de Informação": {},
+          "Literatura de Catequese": {}
+        }
+      },
+      "Barroco": {
+        "Características do Barroco": {
+          "Cultismo": {},
+          "Conceptismo": {},
+          "Dualismo e Contrastes": {}
+        },
+        "Barroco no Brasil": {
+          "Poesia de Gregório de Matos": {},
+          "Sermões de Padre Antônio Vieira": {}
+        },
+        "Barroco em Portugal e na Europa": {},
+        "Contexto Histórico (Contrarreforma)": {}
+      },
+      "Arcadismo": {
+        "Características do Arcadismo": {
+          "Bucolismo e Pastoralismo": {},
+          "Fugere Urbem, Locus Amoenus e Aurea Mediocritas": {},
+          "Carpe Diem": {}
+        },
+        "Arcadismo no Brasil": {
+          "Lírica Árcade": {},
+          "Épica Árcade": {},
+          "Sátira Árcade (Cartas Chilenas)": {}
+        },
+        "Arcadismo em Portugal": {},
+        "Contexto Histórico (Iluminismo e Inconfidência Mineira)": {}
+      },
+      "Romantismo": {
+        "Contexto e Características do Romantismo": {
+          "Subjetivismo, Idealização e Escapismo": {},
+          "Nacionalismo e Indianismo": {},
+          "Romantismo Europeu": {}
+        },
+        "Poesia Romântica no Brasil": {
+          "Primeira Geração (Nacionalista e Indianista)": {},
+          "Segunda Geração (Ultrarromântica)": {},
+          "Terceira Geração (Condoreira)": {}
+        },
+        "Prosa Romântica no Brasil": {
+          "Romance Indianista": {},
+          "Romance Urbano": {},
+          "Romance Regionalista": {},
+          "Romance Histórico": {},
+          "Romance de Costumes": {}
+        },
+        "Romantismo em Portugal": {},
+        "Teatro Romântico": {}
+      },
+      "Realismo / Naturalismo / Parnasianismo": {
+        "Contexto (Positivismo, Cientificismo e Determinismo)": {},
+        "Realismo em Portugal": {
+          "Questão Coimbrã": {},
+          "Prosa Realista Portuguesa": {}
+        },
+        "Realismo no Brasil": {
+          "Prosa Realista de Machado de Assis": {},
+          "Romance Psicológico e Crítica Social": {}
+        },
+        "Naturalismo": {
+          "Características do Naturalismo": {},
+          "Naturalismo no Brasil": {}
+        },
+        "Parnasianismo": {
+          "Arte pela Arte e Culto à Forma": {},
+          "Poesia Parnasiana no Brasil": {},
+          "Parnasianismo em Portugal e na França": {}
+        }
+      },
+      "Simbolismo": {
+        "Características do Simbolismo": {
+          "Musicalidade e Sugestão": {},
+          "Misticismo e Subjetivismo": {},
+          "Sinestesia": {}
+        },
+        "Simbolismo no Brasil": {},
+        "Simbolismo em Portugal": {},
+        "Simbolismo Europeu e Contexto": {}
+      },
+      "Pré-modernismo": {
+        "Regionalismo e Denúncia Social": {},
+        "Crítica Social e Realidade Urbana": {},
+        "Poesia Pré-Modernista": {},
+        "Contexto Histórico (República Velha)": {}
+      },
+      "Vanguardas Europeias": {
+        "Futurismo": {},
+        "Cubismo": {},
+        "Dadaísmo": {},
+        "Surrealismo": {},
+        "Expressionismo": {}
+      },
+      "Modernismo": {
+        "Primeira Fase": {
+          "Semana de Arte Moderna e Contexto": {},
+          "Manifestos e Antropofagia": {},
+          "Poesia da Primeira Fase": {},
+          "Prosa da Primeira Fase": {}
+        },
+        "Segunda Fase": {
+          "Poesia da Segunda Fase": {},
+          "Romance Regionalista de 30": {},
+          "Romance Intimista e Psicológico": {},
+          "Romance Urbano e Social": {}
+        },
+        "Terceira Fase": {
+          "Poesia da Geração de 45": {},
+          "Prosa Intimista e Introspectiva": {},
+          "Prosa Regionalista Renovada": {},
+          "Teatro Brasileiro Moderno": {}
+        },
+        "Modernismo em Portugal": {
+          "Orpheu e Fernando Pessoa": {},
+          "Heterônimos de Pessoa": {},
+          "Presença e Neorrealismo": {}
+        }
+      },
+      "Contemporânea": {
+        "Poesia Contemporânea": {
+          "Concretismo e Poesia Visual": {},
+          "Poesia Marginal": {},
+          "Poesia Falada, Slam e Letra de Canção": {}
+        },
+        "Prosa Contemporânea": {
+          "Conto e Romance Urbano": {},
+          "Crônica Contemporânea": {},
+          "Narrativas Memorialísticas e de Testemunho": {}
+        },
+        "Literatura de Autoria Feminina": {},
+        "Literatura Afro-brasileira e Periférica": {},
+        "Literatura Indígena": {},
+        "Literaturas Africanas de Língua Portuguesa": {},
+        "Literatura Hispano-americana": {
+          "Realismo Fantástico e Realismo Mágico": {}
+        }
+      }
+    }
+  }
+}
