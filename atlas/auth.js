@@ -23,7 +23,11 @@ window.ATLAS_AUTH_READY = (async () => {
     throw new Error('Sem conexão');
   }
   if (!response.ok || data?.ok !== true || !data.usuario) return fail();
-  if (perfil === 'Supervisor' && data.usuario.papel !== 'supervisor') return fail();
+  // Professor que tentar abrir a área do Supervisor vai para a sua própria área (sem perder o login).
+  if (perfil === 'Supervisor' && data.usuario.papel !== 'supervisor') {
+    location.replace('professor.html');
+    throw new Error('Área restrita ao Supervisor');
+  }
   window.ATLAS_USER = data.usuario;
   document.documentElement.style.visibility = '';
   return data.usuario;
