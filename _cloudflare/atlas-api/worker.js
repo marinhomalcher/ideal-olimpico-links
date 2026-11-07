@@ -1,6 +1,6 @@
 // ATLAS — servidor (Cloudflare Worker).
 // Administração: login "Entrar com Google", liberado SOMENTE para o e-mail em ADMIN_EMAIL.
-// Professores: login por código no e-mail institucional (próxima etapa; rotas ainda fechadas).
+// Professores e Supervisores: login por código no e-mail institucional.
 // Nenhum segredo neste arquivo: o token de sessão é aleatório e só o hash dele fica no banco.
 const ALLOWED_ORIGINS = Object.freeze(['https://idealolimpico.com.br', 'https://www.idealolimpico.com.br']);
 const DISCIPLINAS = Object.freeze(['Artes', 'Biologia', 'Filosofia', 'Física', 'Geografia', 'História',
@@ -397,6 +397,21 @@ export default {
       if (url.pathname === '/api/login/verificar' && request.method === 'POST') {
         if (!ALLOWED_ORIGINS.includes(origin)) throw new HttpError(403, 'Origem não permitida.');
         return reply(await verificarCodigoAcesso(request, env), 200, origin);
+      }
+      if (url.pathname === '/api/login/sessao' && request.method === 'GET') {
+        if (!ALLOWED_ORIGINS.includes(origin)) throw new HttpError(403, 'Origem não permitida.');
+        const sessao = await sessaoAtual(request, env, 'usuario');
+        const usuario = await env.DB.prepare(
+          "SELECT id, nome, email, disciplina, papel FROM usuarios WHERE id = ? AND ativo = 1 AND papel IN ('professor','supervisor')"
+        ).bind(sessao.usuario_id).first();
+        if (!usuario) throw new HttpError(401, 'Acesso desativado. Entre novamente.');
+        return reply({ ok: true, usuario, expira_em: sessao.expira_em }, 200, origin);
+      }
+      if (url.pathname === '/api/login/sair' && request.method === 'POST') {
+        if (!ALLOWED_ORIGINS.includes(origin)) throw new HttpError(403, 'Origem não permitida.');
+        const sessao = await sessaoAtual(request, env, 'usuario');
+        await env.DB.prepare('DELETE FROM sessoes WHERE token_hash = ?').bind(sessao.token_hash).run();
+        return reply({ ok: true }, 200, origin);
       }
       if (url.pathname.startsWith('/api/adm/')) {
         if (!ALLOWED_ORIGINS.includes(origin)) throw new HttpError(403, 'Origem não permitida.');
