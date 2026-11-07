@@ -64,3 +64,15 @@ CREATE TABLE IF NOT EXISTS meta (
   valor  TEXT NOT NULL
 );
 INSERT OR IGNORE INTO meta (chave, valor) VALUES ('schema_versao', '1');
+
+-- ===== Versão 2: sessões de login (administrador via Google; professores via código no e-mail) =====
+CREATE TABLE IF NOT EXISTS sessoes (
+  token_hash  TEXT PRIMARY KEY,                      -- SHA-256 do token; o token em si nunca é guardado
+  tipo        TEXT NOT NULL CHECK (tipo IN ('adm','usuario')),
+  email       TEXT NOT NULL COLLATE NOCASE,
+  usuario_id  INTEGER REFERENCES usuarios(id),
+  criado_em   TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ','now')),
+  expira_em   TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_sessoes_expira ON sessoes(expira_em);
+UPDATE meta SET valor = '2' WHERE chave = 'schema_versao';
