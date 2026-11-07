@@ -6,6 +6,7 @@ const ALLOWED_ORIGINS = Object.freeze(['https://idealolimpico.com.br', 'https://
 const DISCIPLINAS = Object.freeze(['Artes', 'Biologia', 'Filosofia', 'Física', 'Geografia', 'História',
   'Inglês', 'Literatura', 'Matemática', 'Português', 'Química', 'Sociologia']);
 const EMAIL_INSTITUCIONAL = /^[a-z0-9._-]+@([a-z0-9-]+\.)*grupoideal\.com\.br$/;
+const EMAIL_LOGIN_ATLAS = /^[a-z0-9._+-]+@grupoideal\.com\.br$/;
 const GOOGLE_CERTS_URL = 'https://www.googleapis.com/oauth2/v3/certs';
 const GOOGLE_ISSUERS = Object.freeze(['accounts.google.com', 'https://accounts.google.com']);
 const SESSAO_ADM_HORAS = 8;
@@ -140,7 +141,7 @@ function limparNome(value) {
 function limparEmail(value) {
   let email = String(value ?? '').trim().toLowerCase();
   if (email && !email.includes('@')) email += '@grupoideal.com.br';
-  if (!EMAIL_INSTITUCIONAL.test(email) || email.length > 120) throw new HttpError(400, 'Use um e-mail institucional do Grupo Ideal.');
+  if (!EMAIL_LOGIN_ATLAS.test(email) || email.length > 120) throw new HttpError(400, 'Use um e-mail institucional do Grupo Ideal.');
   return email;
 }
 function limparDisciplina(value) {
@@ -209,7 +210,7 @@ async function solicitarCodigoAcesso(request, env) {
   }
   const body = await readJson(request);
   const email = String(body.email || '').trim().toLowerCase();
-  if (email.length > 120 || !EMAIL_INSTITUCIONAL.test(email)) {
+  if (email.length > 120 || !EMAIL_LOGIN_ATLAS.test(email)) {
     throw new HttpError(400, 'Informe um e-mail institucional válido.');
   }
 
@@ -217,7 +218,7 @@ async function solicitarCodigoAcesso(request, env) {
   const ip = request.headers.get('CF-Connecting-IP') || 'indisponivel';
   const ipKey = await hmacHex(env.ATLAS_MAILER_SECRET, 'ip:' + ip);
   const permitEmail = await contarTentativaLogin(env, emailKey, 3600, 5);
-  const permitIp = await contarTentativaLogin(env, ipKey, 3600, 20);
+  const permitIp = await contarTentativaLogin(env, ipKey, 3600, 120);
   if (!permitEmail || !permitIp) return { ok: true };
 
   const user = await env.DB.prepare(
@@ -247,10 +248,11 @@ async function solicitarCodigoAcesso(request, env) {
   return { ok: true };
 }
 async function verificarCodigoAcesso(request, env) {
+  if (!env.ATLAS_MAILER_SECRET) throw new HttpError(503, 'O login ainda não está configurado.');
   const body = await readJson(request);
   const email = String(body.email || '').trim().toLowerCase();
   const codigo = body.codigo;
-  if (email.length > 120 || !EMAIL_INSTITUCIONAL.test(email) ||
+  if (email.length > 120 || !EMAIL_LOGIN_ATLAS.test(email) ||
       typeof codigo !== 'string' || !/^\d{6}$/.test(codigo)) {
     throw new HttpError(400, 'E-mail ou código inválido.');
   }
@@ -258,7 +260,7 @@ async function verificarCodigoAcesso(request, env) {
   const ip = request.headers.get('CF-Connecting-IP') || 'indisponivel';
   const ipKey = await hmacHex(env.ATLAS_MAILER_SECRET || '', 'verify-ip:' + ip);
   const emailKey = await hmacHex(env.ATLAS_MAILER_SECRET || '', 'verify-email:' + email);
-  const permitIp = await contarTentativaLogin(env, ipKey, 3600, 30);
+  const permitIp = await contarTentativaLogin(env, ipKey, 3600, 150);
   const permitEmail = await contarTentativaLogin(env, emailKey, 3600, 10);
   if (!permitIp || !permitEmail) throw new HttpError(429, 'Muitas tentativas. Aguarde e tente novamente.');
 
