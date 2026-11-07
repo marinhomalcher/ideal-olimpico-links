@@ -6,6 +6,7 @@ const ALLOWED_ORIGINS = Object.freeze(['https://idealolimpico.com.br', 'https://
 const DISCIPLINAS = Object.freeze(['Artes', 'Biologia', 'Filosofia', 'Física', 'Geografia', 'História',
   'Inglês', 'Literatura', 'Matemática', 'Português', 'Química', 'Sociologia']);
 const EMAIL_INSTITUCIONAL = /^[a-z0-9._-]+@([a-z0-9-]+\.)*grupoideal\.com\.br$/;
+const EMAIL_LOGIN_ATLAS = /^[a-z0-9._+-]+@grupoideal\.com\.br$/;
 const GOOGLE_CERTS_URL = 'https://www.googleapis.com/oauth2/v3/certs';
 const GOOGLE_ISSUERS = Object.freeze(['accounts.google.com', 'https://accounts.google.com']);
 const SESSAO_ADM_HORAS = 8;
@@ -160,6 +161,147 @@ async function emailEmUso(env, email, exceptId = null) {
   return row && row.id !== exceptId;
 }
 
+
+async function hmacHex(secret, text) {
+  const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(secret),
+    { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+  const signature = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(text));
+  return Array.from(new Uint8Array(signature), b => b.toString(16).padStart(2, '0')).join('');
+}
+function secureEqual(a, b) {
+  if (typeof a !== 'string' || typeof b !== 'string' || a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return diff === 0;
+}
+function gerarCodigoAcesso() {
+  const value = new Uint32Array(1);
+  crypto.getRandomValues(value);
+  return String(value[0] % 1000000).padStart(6, '0');
+}
+async function contarTentativaLogin(env, key, windowSeconds, maxRequests) {
+  const now = Math.floor(Date.now() / 1000);
+  const sql = 'INSERT INTO login_rate_limits (chave, janela_inicio, quantidade) VALUES (?, ?, 1) ' +
+    'ON CONFLICT(chave) DO UPDATE SET ' +
+    'janela_inicio = CASE WHEN login_rate_limits.janela_inicio + ? <= excluded.janela_inicio ' +
+    'THEN excluded.janela_inicio ELSE login_rate_limits.janela_inicio END, ' +
+    'quantidade = CASE WHEN login_rate_limits.janela_inicio + ? <= excluded.janela_inicio ' +
+    'THEN 1 ELSE login_rate_limits.quantidade + 1 END RETURNING quantidade';
+  const row = await env.DB.prepare(sql).bind(key, now, windowSeconds, windowSeconds).first();
+  await env.DB.prepare('DELETE FROM login_rate_limits WHERE janela_inicio < ?')
+    .bind(now - 172800).run();
+  return Number(row?.quantidade || 0) <= maxRequests;
+}
+async function enviarCodigoAcesso(env, email, codigo) {
+  const response = await fetch(env.ATLAS_MAILER_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ segredo: env.ATLAS_MAILER_SECRET, email, codigo })
+  });
+  let result = null;
+  try { result = await response.json(); } catch {}
+  if (!response.ok || result?.ok !== true) {
+    throw new HttpError(502, 'Não foi possível enviar o código. Tente novamente mais tarde.');
+  }
+}
+async function solicitarCodigoAcesso(request, env) {
+  if (!env.ATLAS_MAILER_URL || !env.ATLAS_MAILER_SECRET) {
+    throw new HttpError(503, 'O envio de códigos ainda não está configurado.');
+  }
+  const body = await readJson(request);
+  const email = String(body.email || '').trim().toLowerCase();
+  if (email.length > 120 || !EMAIL_LOGIN_ATLAS.test(email)) {
+    throw new HttpError(400, 'Informe um e-mail institucional válido.');
+  }
+
+  const emailKey = await hmacHex(env.ATLAS_MAILER_SECRET, 'email:' + email);
+  const ip = request.headers.get('CF-Connecting-IP') || 'indisponivel';
+  const ipKey = await hmacHex(env.ATLAS_MAILER_SECRET, 'ip:' + ip);
+  const permitEmail = await contarTentativaLogin(env, emailKey, 3600, 5);
+  const permitIp = await contarTentativaLogin(env, ipKey, 3600, 120);
+  if (!permitEmail || !permitIp) return { ok: true };
+
+  const user = await env.DB.prepare(
+    "SELECT id, nome, email, disciplina, papel FROM usuarios " +
+    "WHERE email = ? COLLATE NOCASE AND ativo = 1 AND papel IN ('professor','supervisor')"
+  ).bind(email).first();
+  if (!user) return { ok: true };
+
+  const cooldownKey = await hmacHex(env.ATLAS_MAILER_SECRET, 'cooldown:' + email);
+  if (!await contarTentativaLogin(env, cooldownKey, 60, 1)) return { ok: true };
+
+  const codigo = gerarCodigoAcesso();
+  const codigoHash = await hmacHex(env.ATLAS_MAILER_SECRET, 'codigo:' + user.id + ':' + codigo);
+  const expira = Math.floor(Date.now() / 1000) + 600;
+  await env.DB.prepare(
+    'INSERT INTO login_codigos (usuario_id, codigo_hash, expira_em, tentativas) VALUES (?, ?, ?, 0) ' +
+    'ON CONFLICT(usuario_id) DO UPDATE SET codigo_hash = excluded.codigo_hash, ' +
+    'expira_em = excluded.expira_em, tentativas = 0'
+  ).bind(user.id, codigoHash, expira).run();
+
+  try {
+    await enviarCodigoAcesso(env, email, codigo);
+  } catch (error) {
+    await env.DB.prepare('DELETE FROM login_codigos WHERE usuario_id = ?').bind(user.id).run();
+    throw error;
+  }
+  return { ok: true };
+}
+async function verificarCodigoAcesso(request, env) {
+  if (!env.ATLAS_MAILER_SECRET) throw new HttpError(503, 'O login ainda não está configurado.');
+  const body = await readJson(request);
+  const email = String(body.email || '').trim().toLowerCase();
+  const codigo = body.codigo;
+  if (email.length > 120 || !EMAIL_LOGIN_ATLAS.test(email) ||
+      typeof codigo !== 'string' || !/^\d{6}$/.test(codigo)) {
+    throw new HttpError(400, 'E-mail ou código inválido.');
+  }
+
+  const ip = request.headers.get('CF-Connecting-IP') || 'indisponivel';
+  const ipKey = await hmacHex(env.ATLAS_MAILER_SECRET || '', 'verify-ip:' + ip);
+  const emailKey = await hmacHex(env.ATLAS_MAILER_SECRET || '', 'verify-email:' + email);
+  const permitIp = await contarTentativaLogin(env, ipKey, 3600, 150);
+  const permitEmail = await contarTentativaLogin(env, emailKey, 3600, 10);
+  if (!permitIp || !permitEmail) throw new HttpError(429, 'Muitas tentativas. Aguarde e tente novamente.');
+
+  const user = await env.DB.prepare(
+    "SELECT id, nome, email, disciplina, papel FROM usuarios " +
+    "WHERE email = ? COLLATE NOCASE AND ativo = 1 AND papel IN ('professor','supervisor')"
+  ).bind(email).first();
+  if (!user) throw new HttpError(401, 'Código inválido ou expirado.');
+
+  const agora = Math.floor(Date.now() / 1000);
+  const registro = await env.DB.prepare(
+    'UPDATE login_codigos SET tentativas = tentativas + 1 ' +
+    'WHERE usuario_id = ? AND expira_em > ? AND tentativas < 5 ' +
+    'RETURNING codigo_hash, tentativas'
+  ).bind(user.id, agora).first();
+  if (!registro) throw new HttpError(401, 'Código inválido ou expirado.');
+
+  const codigoHash = await hmacHex(env.ATLAS_MAILER_SECRET || '', 'codigo:' + user.id + ':' + codigo);
+  if (!secureEqual(registro.codigo_hash, codigoHash)) {
+    if (registro.tentativas >= 5) {
+      await env.DB.prepare('DELETE FROM login_codigos WHERE usuario_id = ?').bind(user.id).run();
+    }
+    throw new HttpError(401, 'Código inválido ou expirado.');
+  }
+
+  const consumido = await env.DB.prepare(
+    'DELETE FROM login_codigos WHERE usuario_id = ? AND codigo_hash = ? AND expira_em > ? ' +
+    'RETURNING usuario_id'
+  ).bind(user.id, codigoHash, agora).first();
+  if (!consumido) throw new HttpError(401, 'Código inválido ou expirado.');
+
+  const lembrar = body.lembrar === true;
+  const sessao = await criarSessao(env, 'usuario', user.email.toLowerCase(), user.id, lembrar ? 24 * 7 : 8);
+  await registrar(env, 'login_codigo_confirmado', { papel: user.papel }, user.id);
+  return {
+    ok: true,
+    ...sessao,
+    usuario: { id: user.id, nome: user.nome, email: user.email, disciplina: user.disciplina, papel: user.papel }
+  };
+}
+
 // ---------- rotas da Administração ----------
 async function rotasAdm(request, env, path) {
   if (path === '/api/adm/login' && request.method === 'POST') {
@@ -247,6 +389,14 @@ export default {
       if (url.pathname === '/api/saude' && request.method === 'GET') {
         const row = await env.DB.prepare("SELECT valor FROM meta WHERE chave = 'schema_versao'").first();
         return reply({ ok: true, modo: 'teste', banco: 'conectado', schema: row ? row.valor : null }, 200, origin);
+      }
+      if (url.pathname === '/api/login/codigo' && request.method === 'POST') {
+        if (!ALLOWED_ORIGINS.includes(origin)) throw new HttpError(403, 'Origem não permitida.');
+        return reply(await solicitarCodigoAcesso(request, env), 200, origin);
+      }
+      if (url.pathname === '/api/login/verificar' && request.method === 'POST') {
+        if (!ALLOWED_ORIGINS.includes(origin)) throw new HttpError(403, 'Origem não permitida.');
+        return reply(await verificarCodigoAcesso(request, env), 200, origin);
       }
       if (url.pathname.startsWith('/api/adm/')) {
         if (!ALLOWED_ORIGINS.includes(origin)) throw new HttpError(403, 'Origem não permitida.');
