@@ -141,7 +141,7 @@ function limparNome(value) {
 function limparEmail(value) {
   let email = String(value ?? '').trim().toLowerCase();
   if (email && !email.includes('@')) email += '@grupoideal.com.br';
-  if (!EMAIL_LOGIN_ATLAS.test(email) || email.length > 120) throw new HttpError(400, 'Use um e-mail institucional do Grupo Ideal.');
+  if (!EMAIL_INSTITUCIONAL.test(email) || email.length > 120) throw new HttpError(400, 'Use um e-mail institucional do Grupo Ideal.');
   return email;
 }
 function limparDisciplina(value) {
