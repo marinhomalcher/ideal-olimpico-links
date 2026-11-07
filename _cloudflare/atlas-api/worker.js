@@ -374,7 +374,7 @@ async function usuarioDaSessao(request, env) {
 
 const SQL_RESUMO_ITEM =
   'SELECT i.id, i.codigo, i.disciplina, i.situacao, i.versao_atual, i.criado_em, i.atualizado_em, ' +
-  'u.nome AS autor, json_extract(v.dados, \'$.assunto\') AS assunto, ' +
+  'u.nome AS autor, json_extract(v.dados, \'$.assunto\') AS assunto, (v.autor_id <> i.autor_id) AS editada_supervisor, ' +
   '(SELECT r.motivo FROM revisoes r WHERE r.item_id = i.id ORDER BY r.id DESC LIMIT 1) AS ultimo_motivo, ' +
   '(SELECT r.decisao FROM revisoes r WHERE r.item_id = i.id ORDER BY r.id DESC LIMIT 1) AS ultima_decisao ' +
   'FROM itens i JOIN usuarios u ON u.id = i.autor_id ' +
@@ -434,8 +434,11 @@ async function rotasItens(request, env, path) {
     const { results: revisoes } = await env.DB.prepare(
       'SELECT r.versao, r.decisao, r.motivo, r.criado_em, u.nome AS supervisor FROM revisoes r JOIN usuarios u ON u.id = r.supervisor_id WHERE r.item_id = ? ORDER BY r.id'
     ).bind(item.id).all();
+    const { results: versoes } = await env.DB.prepare(
+      'SELECT v.versao, v.criado_em, u.nome AS autor, (v.autor_id <> ?) AS pelo_supervisor FROM item_versoes v JOIN usuarios u ON u.id = v.autor_id WHERE v.item_id = ? ORDER BY v.versao'
+    ).bind(autorId, item.id).all();
     const { id, ...resumo } = item;
-    return { ok: true, item: { ...resumo, dados: JSON.parse(versao.dados), revisoes, e_autor: autorId === user.id } };
+    return { ok: true, item: { ...resumo, dados: JSON.parse(versao.dados), revisoes, versoes, e_autor: autorId === user.id } };
   }
 
   // Reenviar após pedido de ajuste (só o autor; gera nova versão)
@@ -471,10 +474,35 @@ async function rotasSupervisor(request, env, path, url) {
 
   if (path === '/api/supervisor/fila' && request.method === 'GET') {
     const situacao = url.searchParams.get('situacao') || 'analise';
-    if (!['analise', 'ajustes', 'aprovado'].includes(situacao)) throw new HttpError(400, 'Situação inválida.');
+    if (!['analise', 'ajustes', 'aprovado', 'descartado'].includes(situacao)) throw new HttpError(400, 'Situação inválida.');
     const { results } = await env.DB.prepare(SQL_RESUMO_ITEM + 'WHERE i.disciplina = ? AND i.situacao = ? ORDER BY i.atualizado_em ASC, i.id ASC LIMIT 300')
       .bind(user.disciplina, situacao).all();
     return { ok: true, disciplina: user.disciplina, itens: results.map(({ id, ...r }) => r) };
+  }
+
+  // Editar (correção pequena): nova versão feita pelo Supervisor; a questão continua em análise.
+  const edicao = path.match(/^\/api\/supervisor\/itens\/([A-Z]\d{7})$/);
+  if (edicao && request.method === 'PUT') {
+    const item = await itemPorCodigo(env, edicao[1]);
+    if (item.disciplina !== user.disciplina) throw new HttpError(404, 'Questão não encontrada.');
+    if (item.situacao !== 'analise') throw new HttpError(409, 'Só é possível editar questões em análise.');
+    const body = await readJson(request, MAX_ITEM_BYTES + 64 * 1024);
+    if (body.versao !== item.versao_atual) throw new HttpError(409, 'A questão mudou desde que você a abriu. Volte à fila e abra de novo.');
+    const dados = validarDados(body.dados);
+    const nova = item.versao_atual + 1;
+    try {
+      await env.DB.batch([
+        env.DB.prepare('INSERT INTO item_versoes (item_id, versao, dados, autor_id) VALUES (?, ?, ?, ?)').bind(item.id, nova, dados, user.id),
+        env.DB.prepare("UPDATE itens SET versao_atual = ?, atualizado_em = strftime('%Y-%m-%dT%H:%M:%SZ','now') WHERE id = ? AND versao_atual = ? AND situacao = 'analise'")
+          .bind(nova, item.id, item.versao_atual),
+        env.DB.prepare("INSERT INTO eventos (usuario_id, acao, item_id, detalhe) VALUES (?, 'item_editado_supervisor', ?, ?)")
+          .bind(user.id, item.id, JSON.stringify({ codigo: item.codigo, versao: nova }))
+      ]);
+    } catch (error) {
+      if (/UNIQUE|PRIMARY/i.test(String(error && error.message))) throw new HttpError(409, 'A questão acabou de ser alterada. Abra de novo.');
+      throw error;
+    }
+    return { ok: true, item: { codigo: item.codigo, situacao: 'analise', versao: nova } };
   }
 
   const match = path.match(/^\/api\/supervisor\/itens\/([A-Z]\d{7})\/decisao$/);
@@ -483,21 +511,24 @@ async function rotasSupervisor(request, env, path, url) {
     if (item.disciplina !== user.disciplina) throw new HttpError(404, 'Questão não encontrada.');
     const body = await readJson(request);
     const decisao = body.decisao;
-    if (!['aprovar', 'ajuste'].includes(decisao)) throw new HttpError(400, 'Decisão inválida.');
+    if (!['aprovar', 'ajuste', 'descartar'].includes(decisao)) throw new HttpError(400, 'Decisão inválida.');
     const motivo = String(body.motivo ?? '').trim();
     if (decisao === 'ajuste' && (motivo.length < 3 || motivo.length > 2000)) throw new HttpError(400, 'Descreva o ajuste necessário.');
+    if (decisao === 'descartar' && (motivo.length < 3 || motivo.length > 2000)) throw new HttpError(400, 'Informe o motivo do descarte.');
     if (body.versao !== item.versao_atual) throw new HttpError(409, 'A questão mudou desde que você a abriu. Volte à fila e abra de novo.');
     // Muda a situação primeiro e só se ela ainda estiver "em análise" nesta versão (evita decisão dupla).
-    const nova = decisao === 'aprovar' ? 'aprovado' : 'ajustes';
+    const nova = { aprovar: 'aprovado', ajuste: 'ajustes', descartar: 'descartado' }[decisao];
+    // Descartar vale para questões em análise ou aguardando ajuste; aprovar/ajuste só para "em análise".
+    const situacoesValidas = decisao === 'descartar' ? "('analise','ajustes')" : "('analise')";
     const alterado = await env.DB.prepare(
-      "UPDATE itens SET situacao = ?, atualizado_em = strftime('%Y-%m-%dT%H:%M:%SZ','now') WHERE id = ? AND situacao = 'analise' AND versao_atual = ? RETURNING id"
+      "UPDATE itens SET situacao = ?, atualizado_em = strftime('%Y-%m-%dT%H:%M:%SZ','now') WHERE id = ? AND situacao IN " + situacoesValidas + " AND versao_atual = ? RETURNING id"
     ).bind(nova, item.id, item.versao_atual).first();
     if (!alterado) throw new HttpError(409, 'Esta questão já foi analisada.');
     await env.DB.batch([
       env.DB.prepare('INSERT INTO revisoes (item_id, versao, supervisor_id, decisao, motivo) VALUES (?, ?, ?, ?, ?)')
-        .bind(item.id, item.versao_atual, user.id, decisao, decisao === 'ajuste' ? motivo : (motivo || null)),
+        .bind(item.id, item.versao_atual, user.id, decisao, motivo || null),
       env.DB.prepare('INSERT INTO eventos (usuario_id, acao, item_id, detalhe) VALUES (?, ?, ?, ?)')
-        .bind(user.id, decisao === 'aprovar' ? 'item_aprovado' : 'item_ajuste_solicitado', item.id, JSON.stringify({ codigo: item.codigo, versao: item.versao_atual }))
+        .bind(user.id, { aprovar: 'item_aprovado', ajuste: 'item_ajuste_solicitado', descartar: 'item_descartado' }[decisao], item.id, JSON.stringify({ codigo: item.codigo, versao: item.versao_atual }))
     ]);
     return { ok: true, item: { codigo: item.codigo, situacao: nova } };
   }
