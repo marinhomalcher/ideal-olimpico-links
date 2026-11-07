@@ -1,0 +1,12 @@
+# Worker de homologação (testes, só dados fictícios) do Portal IDEAL OLÍMPICO.
+# Valores secretos ficam só no painel do Cloudflare:
+#   APPS_SCRIPT_TEST_EXEC_URL  (texto)   URL /exec do Apps Script de teste
+#   PORTAL_TEST_PROXY_SECRET   (segredo) senha compartilhada com o Apps Script
+name = "ideal-olimpico-homologacao"
+main = "worker.js"
+compatibility_date = "2026-10-22"
+workers_dev = true
+preview_urls = false
+
+[observability]
+enabled = true
