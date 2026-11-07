@@ -1,6 +1,7 @@
 # Servidor do ATLAS (banco de questões).
 name = "atlas-api"
 main = "worker.js"
+migrations_dir = "migrations"
 compatibility_date = "2026-11-07"
 workers_dev = true
 preview_urls = false
