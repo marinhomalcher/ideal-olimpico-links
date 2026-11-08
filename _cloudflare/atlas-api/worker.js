@@ -1146,6 +1146,65 @@ async function rotasSelecoesAdm(request, env, path, url, sessao) {
   throw new HttpError(404, 'Rota indisponível.');
 }
 
+// ---------- cópias de segurança (banco D1 -> R2, pasta "backups/") ----------
+// Automática todo dia de madrugada (cron no wrangler.toml) e manual pela Administração.
+// Guarda as tabelas de conteúdo e cadastro; não guarda sessões nem códigos de login.
+// As imagens já ficam no R2 e não são copiadas de novo.
+const TABELAS_BACKUP = ['meta', 'usuarios', 'itens', 'item_versoes', 'revisoes', 'consertos', 'selecoes', 'selecao_itens', 'eventos'];
+const MANTER_BACKUPS = 60;
+
+async function fazerBackup(env, origem) {
+  if (!env.IMAGENS) throw new HttpError(503, 'Armazenamento indisponível para a cópia de segurança.');
+  const copia = { atlas_backup: 1, criado_em: agoraIso(), origem, tabelas: {} };
+  for (const tabela of TABELAS_BACKUP) {
+    const linhas = [];
+    for (let ultimo = -1; ;) {
+      const { results } = await env.DB.prepare('SELECT rowid AS _rowid, * FROM ' + tabela + ' WHERE rowid > ? ORDER BY rowid LIMIT 500').bind(ultimo).all();
+      for (const r of results) { ultimo = r._rowid; const { _rowid, ...resto } = r; linhas.push(resto); }
+      if (results.length < 500) break;
+    }
+    copia.tabelas[tabela] = linhas;
+  }
+  const nome = 'backups/atlas-' + copia.criado_em.replace(/[:]/g, '-') + '.json';
+  const texto = JSON.stringify(copia);
+  await env.IMAGENS.put(nome, texto, { httpMetadata: { contentType: 'application/json' }, customMetadata: { origem } });
+  // Mantém só as mais recentes.
+  const lista = await listarBackups(env);
+  for (const velho of lista.slice(MANTER_BACKUPS)) await env.IMAGENS.delete(velho.chave);
+  await registrar(env, 'backup_feito', { origem, arquivo: nome, bytes: texto.length, itens: copia.tabelas.itens.length });
+  return { nome: nome.slice('backups/'.length), bytes: texto.length, itens: copia.tabelas.itens.length };
+}
+async function listarBackups(env) {
+  const todos = [];
+  let cursor;
+  do {
+    const r = await env.IMAGENS.list({ prefix: 'backups/', cursor });
+    for (const o of r.objects) todos.push({ chave: o.key, nome: o.key.slice('backups/'.length), bytes: o.size, criado_em: o.uploaded instanceof Date ? o.uploaded.toISOString() : String(o.uploaded || '') });
+    cursor = r.truncated ? r.cursor : undefined;
+  } while (cursor);
+  return todos.sort((a, b) => (a.nome < b.nome ? 1 : -1));
+}
+async function rotasBackupAdm(request, env, path, sessao) {
+  if (!path.startsWith('/api/adm/backups')) return null;
+  if (!env.IMAGENS) throw new HttpError(503, 'Armazenamento indisponível.');
+  if (path === '/api/adm/backups' && request.method === 'GET') {
+    const lista = await listarBackups(env);
+    return { ok: true, backups: lista.map(({ chave, ...b }) => b) };
+  }
+  if (path === '/api/adm/backups' && request.method === 'POST') {
+    const permitido = await contarTentativaLogin(env, 'adm-backup-manual', 60, 1);
+    if (!permitido) throw new HttpError(429, 'Aguarde um minuto antes de fazer outra cópia.');
+    return { ok: true, backup: await fazerBackup(env, 'manual:' + sessao.email) };
+  }
+  const m = path.match(/^\/api\/adm\/backups\/(atlas-[0-9TZ-]+\.json)$/);
+  if (m && request.method === 'GET') {
+    const obj = await env.IMAGENS.get('backups/' + m[1]);
+    if (!obj) throw new HttpError(404, 'Cópia não encontrada.');
+    return { __arquivo: true, nome: m[1], corpo: obj.body };
+  }
+  throw new HttpError(404, 'Rota indisponível.');
+}
+
 // ---------- rotas da Administração ----------
 async function rotasAdm(request, env, path) {
   if (path === '/api/adm/login' && request.method === 'POST') {
@@ -1199,6 +1258,8 @@ async function rotasAdm(request, env, path) {
     const r = await env.DB.prepare("SELECT COUNT(*) AS n FROM item_versoes WHERE dados LIKE '%data:image/%'").first();
     return { ok: true, versoes_com_imagem_antiga: r.n, r2: !!env.IMAGENS };
   }
+  const backupAdm = await rotasBackupAdm(request, env, path, sessao);
+  if (backupAdm) return backupAdm;
   const selecoesAdm = await rotasSelecoesAdm(request, env, path, new URL(request.url), sessao);
   if (selecoesAdm) return selecoesAdm;
   const itensAdm = await rotasAdmItens(request, env, path, sessao);
@@ -1266,6 +1327,10 @@ async function rotasAdm(request, env, path) {
 }
 
 export default {
+  async scheduled(event, envOriginal, ctx) {
+    const env = Object.assign(Object.create(envOriginal || {}), { __ctx: ctx });
+    ctx.waitUntil(fazerBackup(env, 'automatico').catch(error => console.error('ATLAS backup automático falhou:', error && error.message)));
+  },
   async fetch(request, envOriginal, ctx) {
     const env = Object.assign(Object.create(envOriginal || {}), { __ctx: ctx });
     const origin = request.headers.get('Origin');
@@ -1331,7 +1396,14 @@ export default {
       }
       if (url.pathname.startsWith('/api/adm/')) {
         if (!ALLOWED_ORIGINS.includes(origin)) throw new HttpError(403, 'Origem não permitida.');
-        return await replyAssinado(env, await rotasAdm(request, env, url.pathname), 200, origin);
+        const resultado = await rotasAdm(request, env, url.pathname);
+        if (resultado && resultado.__arquivo) {
+          const headers = { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store',
+            'Content-Disposition': 'attachment; filename="' + resultado.nome + '"', 'X-Content-Type-Options': 'nosniff', 'Vary': 'Origin',
+            'Access-Control-Allow-Origin': origin };
+          return new Response(resultado.corpo, { status: 200, headers });
+        }
+        return await replyAssinado(env, resultado, 200, origin);
       }
       if (url.pathname.startsWith('/api/')) {
         throw new HttpError(404, 'Rota indisponível.');

@@ -26,3 +26,7 @@ database_id = "10ee40e4-fcc3-466a-ad9b-b4f25a95d0f1"
 [[r2_buckets]]
 binding = "IMAGENS"
 bucket_name = "atlas-imagens"
+
+# Cópia de segurança automática do banco, todo dia às 03h17 (horário de Brasília = 06h17 UTC).
+[triggers]
+crons = ["17 6 * * *"]
