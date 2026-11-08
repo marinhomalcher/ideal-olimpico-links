@@ -569,12 +569,24 @@ async function rotasSupervisor(request, env, path, url) {
 // Só envia quando ATLAS_AVISOS_ATIVOS = "1" (o Apps Script precisa aceitar o tipo "aviso").
 // Uma falha no envio nunca desfaz a ação que gerou o aviso.
 function avisar(env, para, assunto, texto) {
-  if (env.ATLAS_AVISOS_ATIVOS !== '1' || !env.ATLAS_MAILER_URL || !env.ATLAS_MAILER_SECRET || !para) return;
+  if (env.ATLAS_AVISOS_ATIVOS !== '1') return;
+  if (!env.ATLAS_MAILER_URL || !env.ATLAS_MAILER_SECRET || !para) {
+    console.warn('ATLAS aviso não enviado: configuração ou destinatário ausente.');
+    return;
+  }
   const envio = fetch(env.ATLAS_MAILER_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ segredo: env.ATLAS_MAILER_SECRET, tipo: 'aviso', email: para, assunto, texto })
-  }).catch(() => {});
+  }).then(async response => {
+    let resultado = null;
+    try { resultado = await response.json(); } catch {}
+    if (!response.ok || resultado?.ok !== true) {
+      console.warn('ATLAS aviso recusado pelo mailer:', response.status, resultado?.erro || 'resposta inválida');
+    }
+  }).catch(() => {
+    console.warn('ATLAS aviso não enviado: falha de conexão com o mailer.');
+  });
   if (env.__ctx && typeof env.__ctx.waitUntil === 'function') env.__ctx.waitUntil(envio);
 }
 const LINK_ATLAS = 'https://idealolimpico.com.br/atlas/';
@@ -804,7 +816,7 @@ export default {
     try {
       if (url.pathname === '/api/saude' && request.method === 'GET') {
         const row = await env.DB.prepare("SELECT valor FROM meta WHERE chave = 'schema_versao'").first();
-        return reply({ ok: true, modo: 'teste', banco: 'conectado', schema: row ? row.valor : null }, 200, origin);
+        return reply({ ok: true, modo: 'teste', banco: 'conectado', schema: row ? row.valor : null, avisos_ativos: env.ATLAS_AVISOS_ATIVOS === '1' }, 200, origin);
       }
       if (url.pathname === '/api/login/codigo' && request.method === 'POST') {
         if (!ALLOWED_ORIGINS.includes(origin)) throw new HttpError(403, 'Origem não permitida.');
