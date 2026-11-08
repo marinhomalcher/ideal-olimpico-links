@@ -21,3 +21,8 @@ ATLAS_AVISOS_ATIVOS = "1"
 binding = "DB"
 database_name = "atlas-teste"
 database_id = "10ee40e4-fcc3-466a-ad9b-b4f25a95d0f1"
+
+# Imagens das questões (bucket privado; entregue só com link assinado pelo servidor).
+[[r2_buckets]]
+binding = "IMAGENS"
+bucket_name = "atlas-imagens"

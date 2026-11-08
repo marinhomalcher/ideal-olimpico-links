@@ -25,11 +25,18 @@ function reply(body, status, origin) {
   };
   if (ALLOWED_ORIGINS.includes(origin)) {
     headers['Access-Control-Allow-Origin'] = origin;
-    headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, OPTIONS';
+    headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS';
     headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization';
     headers['Access-Control-Max-Age'] = '600';
   }
   return new Response(body === null ? null : JSON.stringify(body), { status, headers });
+}
+
+// Resposta JSON com as imagens trocadas por links assinados.
+async function replyAssinado(env, body, status, origin) {
+  const resp = reply(body, status, origin);
+  const texto = await assinarImagensNoTexto(env, await resp.text());
+  return new Response(texto, { status: resp.status, headers: resp.headers });
 }
 
 class HttpError extends Error {
@@ -357,6 +364,12 @@ function validarDados(input) {
     const v = input[campo] === undefined || input[campo] === null ? '' : input[campo];
     if (typeof v !== 'string') throw new HttpError(400, 'Campo inválido: ' + campo + '.');
     if (HTML_PROIBIDO.test(v)) throw new HttpError(400, 'O campo "' + campo + '" contém conteúdo não permitido.');
+    for (const img of v.match(/<img\b[^>]*>/gi) || []) {
+      const src = (img.match(/\ssrc\s*=\s*"([^"]*)"/i) || [])[1] || '';
+      if (!/^data:image\/(png|jpeg|webp);base64,/i.test(src) && !/^atlas:img\/[0-9a-f]{32}$/.test(src)) {
+        throw new HttpError(400, 'O campo "' + campo + '" tem uma imagem de origem não permitida. Cole a imagem de novo.');
+      }
+    }
     d[campo] = v;
   }
   const vazio = v => !String(v).replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim() && !/<img\b/i.test(v);
@@ -374,6 +387,132 @@ function validarDados(input) {
     throw new HttpError(413, 'A questão ficou grande demais (imagens pesadas). Use imagens menores ou recortes.');
   }
   return json;
+}
+
+// ---------- imagens no R2 (bucket privado "atlas-imagens", binding IMAGENS) ----------
+// No banco a imagem fica como  src="atlas:img/<id>"  (id = 32 hexadecimais aleatórios).
+// Nas respostas da API o servidor troca por um link assinado e temporário:
+//   https://atlas-api.../img/<id>?e=<expira>&s=<assinatura>
+// Ao salvar, o link assinado volta a ser "atlas:img/<id>" (a assinatura prova que o id veio do servidor).
+const IMG_VALIDADE_SEG = 24 * 3600;
+const MAX_IMAGEM_BYTES = 3 * 1024 * 1024;
+const TIPOS_IMAGEM = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' };
+const API_PUBLICA = 'https://atlas-api.marinhomalcher.workers.dev';
+const RE_IMG_CANONICA = /atlas:img\/([0-9a-f]{32})/g;
+const RE_IMG_ASSINADA = /https:\/\/[a-z0-9.-]+(?::\d+)?\/img\/([0-9a-f]{32})\?e=(\d{1,12})(?:&amp;|&)s=([0-9a-f]{64})/g;
+
+function segredoImagens(env) {
+  if (!env.ATLAS_MAILER_SECRET) throw new HttpError(503, 'Imagens indisponíveis: configuração ausente.');
+  return env.ATLAS_MAILER_SECRET;
+}
+async function assinaturaImagem(env, id, exp) {
+  return hmacHex(segredoImagens(env), 'img:' + id + ':' + exp);
+}
+async function linkImagem(env, id) {
+  // Expiração arredondada à hora: o mesmo link vale para várias leituras (melhor para o cache do navegador).
+  const exp = (Math.floor(Date.now() / 1000 / 3600) + 1) * 3600 + IMG_VALIDADE_SEG;
+  return API_PUBLICA + '/img/' + id + '?e=' + exp + '&s=' + await assinaturaImagem(env, id, exp);
+}
+// Troca, em todo o JSON de resposta, "atlas:img/<id>" por links assinados.
+async function assinarImagensNoTexto(env, texto) {
+  const ids = [...new Set([...texto.matchAll(RE_IMG_CANONICA)].map(m => m[1]))];
+  if (!ids.length) return texto;
+  const links = new Map();
+  for (const id of ids) links.set(id, await linkImagem(env, id));
+  return texto.replace(RE_IMG_CANONICA, (_, id) => links.get(id));
+}
+// Ao salvar: link assinado válido (mesmo vencido) -> forma canônica. Link adulterado é recusado.
+async function normalizarImagens(env, texto) {
+  const achados = [...String(texto).matchAll(RE_IMG_ASSINADA)];
+  if (!achados.length) return texto;
+  const trocas = new Map();
+  for (const [link, id, exp, sig] of achados) {
+    if (trocas.has(link)) continue;
+    if (await assinaturaImagem(env, id, exp) !== sig) throw new HttpError(400, 'Imagem com endereço inválido. Cole a imagem de novo.');
+    trocas.set(link, 'atlas:img/' + id);
+  }
+  return String(texto).replace(RE_IMG_ASSINADA, link => trocas.get(link));
+}
+async function validarDadosComImagens(env, input) {
+  if (input && typeof input === 'object') {
+    const copia = { ...input };
+    for (const campo of CAMPOS_RICOS) if (typeof copia[campo] === 'string') copia[campo] = await normalizarImagens(env, copia[campo]);
+    return validarDados(copia);
+  }
+  return validarDados(input);
+}
+function idImagemNovo() {
+  const b = new Uint8Array(16); crypto.getRandomValues(b);
+  return [...b].map(x => x.toString(16).padStart(2, '0')).join('');
+}
+async function guardarImagem(env, bytes, tipo, quem) {
+  if (!env.IMAGENS) throw new HttpError(503, 'Armazenamento de imagens indisponível.');
+  if (!TIPOS_IMAGEM[tipo]) throw new HttpError(415, 'Use imagens PNG, JPG ou WebP.');
+  if (!bytes.byteLength) throw new HttpError(400, 'Imagem vazia.');
+  if (bytes.byteLength > MAX_IMAGEM_BYTES) throw new HttpError(413, 'Imagem grande demais (máximo de 3 MB).');
+  const id = idImagemNovo();
+  await env.IMAGENS.put('img/' + id, bytes, { httpMetadata: { contentType: tipo }, customMetadata: { por: String(quem || '') } });
+  return id;
+}
+async function receberImagem(request, env, quem) {
+  const tipo = String(request.headers.get('Content-Type') || '').split(';')[0].trim().toLowerCase();
+  const tamanho = Number(request.headers.get('Content-Length') || 0);
+  if (tamanho > MAX_IMAGEM_BYTES) throw new HttpError(413, 'Imagem grande demais (máximo de 3 MB).');
+  const bytes = new Uint8Array(await request.arrayBuffer());
+  const id = await guardarImagem(env, bytes, tipo, quem);
+  return { ok: true, id, url: await linkImagem(env, id) };
+}
+// Entrega pública da imagem, só com link assinado e dentro do prazo.
+async function entregarImagem(request, env, url) {
+  const m = url.pathname.match(/^\/img\/([0-9a-f]{32})$/);
+  const exp = url.searchParams.get('e') || '';
+  const sig = url.searchParams.get('s') || '';
+  if (!m || !/^\d{1,12}$/.test(exp) || !/^[0-9a-f]{64}$/.test(sig)) return new Response('Não encontrada', { status: 404 });
+  if (Number(exp) < Date.now() / 1000) return new Response('Link vencido. Recarregue a página.', { status: 403 });
+  if (await assinaturaImagem(env, m[1], exp) !== sig) return new Response('Não encontrada', { status: 404 });
+  if (!env.IMAGENS) return new Response('Indisponível', { status: 503 });
+  const obj = await env.IMAGENS.get('img/' + m[1]);
+  if (!obj) return new Response('Não encontrada', { status: 404 });
+  return new Response(obj.body, { headers: {
+    'Content-Type': obj.httpMetadata?.contentType || 'application/octet-stream',
+    'Cache-Control': 'private, max-age=3600',
+    'X-Content-Type-Options': 'nosniff',
+    'Content-Security-Policy': "default-src 'none'",
+    'Cross-Origin-Resource-Policy': 'cross-origin'
+  } });
+}
+// ADM: move as imagens antigas (embutidas como data:) de todas as versões para o R2, aos poucos.
+async function migrarImagensAntigas(env, sessao, lote = 15) {
+  const { results } = await env.DB.prepare(
+    "SELECT item_id, versao, dados FROM item_versoes WHERE dados LIKE '%data:image/%' LIMIT ?"
+  ).bind(lote).all();
+  let imagens = 0;
+  for (const row of results) {
+    const dados = JSON.parse(row.dados);
+    for (const campo of Object.keys(dados)) {
+      if (typeof dados[campo] !== 'string' || !dados[campo].includes('data:image/')) continue;
+      const partes = [];
+      let resto = dados[campo];
+      const re = /data:(image\/(?:png|jpeg|webp));base64,([A-Za-z0-9+/=]+)/;
+      let achado;
+      while ((achado = resto.match(re))) {
+        const bin = atob(achado[2]);
+        const bytes = new Uint8Array(bin.length);
+        for (let k = 0; k < bin.length; k++) bytes[k] = bin.charCodeAt(k);
+        const id = await guardarImagem(env, bytes, achado[1], 'migracao');
+        imagens++;
+        partes.push(resto.slice(0, achado.index), 'atlas:img/' + id);
+        resto = resto.slice(achado.index + achado[0].length);
+      }
+      partes.push(resto);
+      dados[campo] = partes.join('');
+    }
+    await env.DB.prepare('UPDATE item_versoes SET dados = ? WHERE item_id = ? AND versao = ?')
+      .bind(JSON.stringify(dados), row.item_id, row.versao).run();
+  }
+  const faltam = await env.DB.prepare("SELECT COUNT(*) AS n FROM item_versoes WHERE dados LIKE '%data:image/%'").first();
+  if (results.length) await registrar(env, 'imagens_migradas', { adm: sessao.email, versoes: results.length, imagens });
+  return { ok: true, versoes: results.length, imagens, faltam: faltam.n };
 }
 
 async function usuarioDaSessao(request, env) {
@@ -410,7 +549,7 @@ async function rotasItens(request, env, path) {
   // Enviar questão nova
   if (path === '/api/itens' && request.method === 'POST') {
     const body = await readJson(request, MAX_ITEM_BYTES + 64 * 1024);
-    const dados = validarDados(body.dados);
+    const dados = await validarDadosComImagens(env, body.dados);
     for (let tentativa = 0; tentativa < 10; tentativa++) {
       const codigo = gerarCodigoItem(user.disciplina);
       try {
@@ -465,7 +604,7 @@ async function rotasItens(request, env, path) {
     if (item.situacao !== 'ajustes') throw new HttpError(409, 'Esta questão não está aguardando ajuste.');
     const body = await readJson(request, MAX_ITEM_BYTES + 64 * 1024);
     if (body.versao !== item.versao_atual) throw new HttpError(409, 'A questão mudou desde que você a abriu. Recarregue a página.');
-    const dados = validarDados(body.dados);
+    const dados = await validarDadosComImagens(env, body.dados);
     const nova = item.versao_atual + 1;
     try {
       await env.DB.batch([
@@ -506,7 +645,7 @@ async function rotasSupervisor(request, env, path, url) {
     if (item.situacao !== 'analise') throw new HttpError(409, 'Só é possível editar questões em análise.');
     const body = await readJson(request, MAX_ITEM_BYTES + 64 * 1024);
     if (body.versao !== item.versao_atual) throw new HttpError(409, 'A questão mudou desde que você a abriu. Volte à fila e abra de novo.');
-    const dados = validarDados(body.dados);
+    const dados = await validarDadosComImagens(env, body.dados);
     const nova = item.versao_atual + 1;
     try {
       await env.DB.batch([
@@ -710,7 +849,7 @@ async function rotasAdmItens(request, env, path, sessao) {
     if (item.situacao !== 'aprovado') throw new HttpError(409, 'Só questões aprovadas são corrigidas pela Administração.');
     const body = await readJson(request, MAX_ITEM_BYTES + 64 * 1024);
     if (body.versao !== item.versao_atual) throw new HttpError(409, 'A questão mudou desde que você a abriu. Busque de novo.');
-    const dados = validarDados(body.dados);
+    const dados = await validarDadosComImagens(env, body.dados);
     const consertoId = body.conserto_id === undefined || body.conserto_id === null ? null : Number(body.conserto_id);
     let conserto = null;
     if (consertoId !== null) {
@@ -1054,6 +1193,12 @@ async function rotasAdm(request, env, path) {
     }
     return { ok: true, mensagem: 'O serviço de e-mail aceitou o aviso. Confira a caixa de entrada do ADM.' };
   }
+  if (path === '/api/adm/imagens' && request.method === 'POST') return await receberImagem(request, env, sessao.email);
+  if (path === '/api/adm/imagens/migrar' && request.method === 'POST') return await migrarImagensAntigas(env, sessao);
+  if (path === '/api/adm/imagens/situacao' && request.method === 'GET') {
+    const r = await env.DB.prepare("SELECT COUNT(*) AS n FROM item_versoes WHERE dados LIKE '%data:image/%'").first();
+    return { ok: true, versoes_com_imagem_antiga: r.n, r2: !!env.IMAGENS };
+  }
   const selecoesAdm = await rotasSelecoesAdm(request, env, path, new URL(request.url), sessao);
   if (selecoesAdm) return selecoesAdm;
   const itensAdm = await rotasAdmItens(request, env, path, sessao);
@@ -1154,17 +1299,39 @@ export default {
         await env.DB.prepare('DELETE FROM sessoes WHERE token_hash = ?').bind(sessao.token_hash).run();
         return reply({ ok: true }, 200, origin);
       }
+      if (url.pathname.startsWith('/img/') && request.method === 'GET') {
+        return await entregarImagem(request, env, url);
+      }
+      if (url.pathname === '/api/imagens/links' && request.method === 'POST') {
+        // Renova links vencidos (ex.: rascunho guardado no navegador por alguns dias).
+        if (!ALLOWED_ORIGINS.includes(origin)) throw new HttpError(403, 'Origem não permitida.');
+        await usuarioDaSessao(request, env);
+        const body = await readJson(request);
+        const links = Array.isArray(body.links) ? body.links.slice(0, 100).map(String) : [];
+        const novos = {};
+        for (const link of links) {
+          const canon = await normalizarImagens(env, link);
+          const m = canon.match(/^atlas:img\/([0-9a-f]{32})$/);
+          if (m) novos[link] = await linkImagem(env, m[1]);
+        }
+        return reply({ ok: true, links: novos }, 200, origin);
+      }
+      if (url.pathname === '/api/imagens' && request.method === 'POST') {
+        if (!ALLOWED_ORIGINS.includes(origin)) throw new HttpError(403, 'Origem não permitida.');
+        const user = await usuarioDaSessao(request, env);
+        return reply(await receberImagem(request, env, user.email), 200, origin);
+      }
       if (url.pathname === '/api/itens' || url.pathname.startsWith('/api/itens/')) {
         if (!ALLOWED_ORIGINS.includes(origin)) throw new HttpError(403, 'Origem não permitida.');
-        return reply(await rotasItens(request, env, url.pathname), 200, origin);
+        return await replyAssinado(env, await rotasItens(request, env, url.pathname), 200, origin);
       }
       if (url.pathname.startsWith('/api/supervisor/')) {
         if (!ALLOWED_ORIGINS.includes(origin)) throw new HttpError(403, 'Origem não permitida.');
-        return reply(await rotasSupervisor(request, env, url.pathname, url), 200, origin);
+        return await replyAssinado(env, await rotasSupervisor(request, env, url.pathname, url), 200, origin);
       }
       if (url.pathname.startsWith('/api/adm/')) {
         if (!ALLOWED_ORIGINS.includes(origin)) throw new HttpError(403, 'Origem não permitida.');
-        return reply(await rotasAdm(request, env, url.pathname), 200, origin);
+        return await replyAssinado(env, await rotasAdm(request, env, url.pathname), 200, origin);
       }
       if (url.pathname.startsWith('/api/')) {
         throw new HttpError(404, 'Rota indisponível.');
