@@ -743,6 +743,37 @@ async function rotasAdm(request, env, path) {
   }
 
   const sessao = await sessaoAtual(request, env, 'adm');
+  if (path === '/api/adm/avisos/testar' && request.method === 'POST') {
+    if (env.ATLAS_AVISOS_ATIVOS !== '1' || !env.ATLAS_MAILER_URL || !env.ATLAS_MAILER_SECRET) {
+      throw new HttpError(503, 'Os avisos por e-mail não estão configurados nesta versão.');
+    }
+    const permitido = await contarTentativaLogin(env, 'adm-aviso-teste', 60, 1);
+    if (!permitido) throw new HttpError(429, 'Aguarde um minuto antes de repetir o teste.');
+    let response;
+    try {
+      response = await fetch(env.ATLAS_MAILER_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          segredo: env.ATLAS_MAILER_SECRET,
+          tipo: 'aviso',
+          email: String(env.ADMIN_EMAIL).toLowerCase(),
+          assunto: 'ATLAS: teste de aviso por e-mail',
+          texto: 'Este é um teste dos avisos do ATLAS. Enviado em ' + agoraIso() + '.'
+        })
+      });
+    } catch {
+      throw new HttpError(502, 'Não foi possível conectar ao serviço de e-mail.');
+    }
+    let result = null;
+    try { result = await response.json(); } catch {}
+    if (!response.ok || result?.ok !== true) {
+      const erro = /^[a-z0-9_]{1,40}$/.test(result?.erro || '') ? result.erro : 'resposta_invalida';
+      console.warn('ATLAS aviso de teste recusado:', response.status, erro);
+      throw new HttpError(502, 'O serviço de e-mail recusou o teste (' + erro + ').');
+    }
+    return { ok: true, mensagem: 'O serviço de e-mail aceitou o aviso. Confira a caixa de entrada do ADM.' };
+  }
   const itensAdm = await rotasAdmItens(request, env, path, sessao);
   if (itensAdm) return itensAdm;
 
