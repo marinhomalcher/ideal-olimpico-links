@@ -18,7 +18,6 @@
 <div class="shell" id="app-view" hidden><aside><small>ÁREA DO ADM</small><a href="admin.html">Professores e disciplinas</a><a href="admin-questoes.html" style="margin-top:6px;background:transparent">Questões</a><a href="admin-selecoes.html" style="margin-top:6px;background:transparent">Seleções recebidas</a></aside><main>
 <div class="crumb">Administrador / Cadastros</div><h1>Professores e disciplinas</h1><p class="lead">Cadastre os professores, vincule cada um à sua disciplina e escolha o supervisor de cada disciplina.</p>
 <p class="status" id="app-status" role="status"></p>
-<section class="panel"><h2>Avisos por e-mail</h2><p class="hint">Envia uma mensagem de teste somente para o e-mail do administrador.</p><button type="button" class="secondary" id="test-email">Testar aviso por e-mail</button><p class="status" id="test-email-status" role="status"></p></section>
 <section class="panel"><h2>Supervisores por disciplina</h2><p class="hint">Escolha um professor da disciplina ou cadastre um novo. Cada disciplina tem um supervisor.</p><div class="sup-grid" id="supervisors"></div></section>
 <section class="panel"><h2>Professores cadastrados</h2><p class="hint">A disciplina definida aqui será carregada no cadastro de questões. O Professor não escolhe a disciplina.</p><div class="summary" id="summary"></div><div class="toolbar"><input id="search" type="search" placeholder="Buscar por professor, e-mail ou disciplina"><button class="primary" id="add">+ Cadastrar novo professor</button></div><div class="table-wrap" id="list"></div></section>
 <section class="panel"><h2>Cópias de segurança</h2><p class="hint">O banco do ATLAS é copiado automaticamente todo dia às 3h17 (horário de Brasília) para o armazenamento R2. Ficam guardadas as 60 cópias mais recentes. As imagens já ficam guardadas no R2.</p><p id="backup-ultimo"></p><div class="toolbar"><button type="button" class="secondary" id="backup-agora">Fazer cópia agora</button><button type="button" class="secondary" id="backup-ver">Ver cópias guardadas</button></div><p class="status" id="backup-status" role="status"></p><div class="table-wrap" id="backup-lista" hidden style="max-height:320px;overflow:auto"></div></section>
@@ -97,12 +96,6 @@ $('#backup-agora').addEventListener('click',async()=>{const b=$('#backup-agora')
   try{const d=await api('/api/adm/backups',{method:'POST',body:{}});status($('#backup-status'),'Cópia feita: '+d.backup.itens+' questão(ões), '+tamanho(d.backup.bytes)+'.');await carregarBackups(!$('#backup-lista').hidden)}
   catch(e){if(e.message!=='__sessao__')status($('#backup-status'),e.message,true)}finally{b.disabled=false}});
 $('#backup-ver').addEventListener('click',()=>carregarBackups(true));
-$('#test-email').addEventListener('click',async()=>{
-  const button=$('#test-email'),out=$('#test-email-status');button.disabled=true;status(out,'Enviando teste…');
-  try{const data=await api('/api/adm/avisos/testar',{method:'POST',body:{}});status(out,data.mensagem)}
-  catch(e){if(e.message!=='__sessao__')status(out,e.message,true)}
-  finally{button.disabled=false}
-});
 form.addEventListener('submit',async event=>{event.preventDefault();const id=$('#teacher-id').value,asSup=$('#as-supervisor').value,err=$('#error');
   const body={nome:$('#name').value.trim(),email:$('#email').value.trim(),disciplina:subject.value};
   if(!body.nome||!body.email||!body.disciplina){err.textContent='Preencha nome, e-mail e disciplina.';err.hidden=false;return}
