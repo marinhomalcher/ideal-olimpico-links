@@ -48,17 +48,18 @@ window.ATLAS_SAIR = async function () {
 };
 
 // Chamada ao servidor do ATLAS com a sessão do usuário. Sessão vencida volta para o login.
-window.ATLAS_API = async function (path, { method = 'GET', body } = {}) {
+window.ATLAS_API = async function (path, { method = 'GET', body, raw } = {}) {
   const perfil = /\/supervisor[\w-]*\.html$/.test(location.pathname) ? 'Supervisor' : 'Professor';
   let saved;
   try { saved = JSON.parse(sessionStorage.getItem('atlas_user_auth') || localStorage.getItem('atlas_user_auth') || 'null'); } catch {}
   const headers = {};
   if (saved?.token) headers.Authorization = 'Bearer ' + saved.token;
   if (body !== undefined) headers['Content-Type'] = 'application/json';
+  if (raw) headers['Content-Type'] = raw.type || 'application/octet-stream';
   let response;
   try {
     response = await fetch('https://atlas-api.marinhomalcher.workers.dev' + path, {
-      method, headers, body: body === undefined ? undefined : JSON.stringify(body), cache: 'no-store'
+      method, headers, body: raw ? raw : body === undefined ? undefined : JSON.stringify(body), cache: 'no-store'
     });
   } catch { throw new Error('Sem conexão com o servidor do ATLAS. Seus dados continuam na tela; tente novamente.'); }
   const data = await response.json().catch(() => ({}));
@@ -71,4 +72,22 @@ window.ATLAS_API = async function (path, { method = 'GET', body } = {}) {
   }
   if (!response.ok || data.ok !== true) throw new Error(data.error || 'A operação falhou. Tente novamente.');
   return data;
+};
+
+// Imagens coladas no editor vão para o armazenamento do ATLAS (R2); a questão guarda só o endereço.
+window.ATLAS_ENVIAR_IMAGEM = async function (blob) {
+  return (await window.ATLAS_API('/api/imagens', { method: 'POST', raw: blob })).url;
+};
+// Troca links de imagem vencidos (rascunhos antigos) por links novos.
+window.ATLAS_RENOVAR_IMAGENS = async function (dados) {
+  const re = /https:\/\/atlas-api\.marinhomalcher\.workers\.dev\/img\/[0-9a-f]{32}\?e=\d{1,12}(?:&amp;|&)s=[0-9a-f]{64}/g;
+  const links = [...new Set(Object.values(dados || {}).filter(v => typeof v === 'string').flatMap(v => v.match(re) || []))];
+  if (!links.length) return dados;
+  const pedido = links.map(l => l.replace(/&amp;/g, '&'));
+  const { links: novos } = await window.ATLAS_API('/api/imagens/links', { method: 'POST', body: { links: pedido } });
+  const out = { ...dados };
+  for (const k of Object.keys(out)) if (typeof out[k] === 'string') out[k] = out[k].replace(re, l => {
+    const n = novos[l.replace(/&amp;/g, '&')]; return n ? (l.includes('&amp;') ? n.replace(/&/g, '&amp;') : n) : l;
+  });
+  return out;
 };
