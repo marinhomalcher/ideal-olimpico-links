@@ -487,6 +487,8 @@ async function rotasItens(request, env, path) {
 async function rotasSupervisor(request, env, path, url) {
   const user = await usuarioDaSessao(request, env);
   if (user.papel !== 'supervisor') throw new HttpError(403, 'Área restrita ao Supervisor da disciplina.');
+  const selecoes = await rotasSelecoesSupervisor(request, env, path, url, user);
+  if (selecoes) return selecoes;
 
   if (path === '/api/supervisor/fila' && request.method === 'GET') {
     const situacao = url.searchParams.get('situacao') || 'analise';
@@ -740,6 +742,271 @@ async function rotasAdmItens(request, env, path, sessao) {
   throw new HttpError(404, 'Rota indisponível.');
 }
 
+// ---------- BQI: seleções de questões para provas ----------
+// A série (1ª–3ª) e o tipo (REG/MED) pertencem à seleção, não à questão.
+// Regra de uso: a questão não volta ao mesmo par série/tipo no mesmo ano e acompanha a turma
+// nos anos seguintes (aplicada na 1ª série em X não é oferecida à 2ª em X+1 nem à 3ª em X+2, mesmo tipo).
+// "Aplicada" só quando o ADM marca a prova como enviada aos alunos.
+const SERIES_SELECAO = [1, 2, 3];
+const TIPOS_SELECAO = ['REG', 'MED'];
+const MAX_ITENS_SELECAO = 200;
+const NOME_SERIE = s => s + 'ª série';
+
+function anoAtualSP() {
+  return Number(new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo', year: 'numeric' }).format(new Date()));
+}
+// Use com .bind(..., tipo, ano, serie, ano).
+const SQL_ITEM_BLOQUEADO =
+  "EXISTS (SELECT 1 FROM selecao_itens bi JOIN selecoes bs ON bs.id = bi.selecao_id " +
+  "WHERE bi.item_id = i.id AND bs.situacao = 'aplicada' AND bs.tipo = ? AND bs.ano <= ? AND (bs.serie - bs.ano) = (? - ?))";
+
+const SQL_ITEM_BANCO =
+  "SELECT i.id, i.codigo, i.versao_atual, u.nome AS autor, " +
+  "json_extract(v.dados, '$.assunto') AS assunto, json_extract(v.dados, '$.subtema') AS subtema, " +
+  "json_extract(v.dados, '$.dificuldade') AS dificuldade, json_extract(v.dados, '$.origem') AS origem, " +
+  "json_extract(v.dados, '$.fonte') AS fonte, json_extract(v.dados, '$.bloom') AS bloom, " +
+  "json_extract(v.dados, '$.gabarito') AS gabarito, substr(json_extract(v.dados, '$.comando'), 1, 800) AS comando " +
+  "FROM itens i JOIN usuarios u ON u.id = i.autor_id JOIN item_versoes v ON v.item_id = i.id AND v.versao = i.versao_atual ";
+
+function validarSerieTipo(body) {
+  const serie = Number(body.serie);
+  const tipo = String(body.tipo || '').toUpperCase();
+  if (!SERIES_SELECAO.includes(serie)) throw new HttpError(400, 'Escolha a série (1ª, 2ª ou 3ª).');
+  if (!TIPOS_SELECAO.includes(tipo)) throw new HttpError(400, 'Escolha o tipo (REG ou MED).');
+  return { serie, tipo };
+}
+function validarTitulo(v) {
+  const t = String(v ?? '').trim();
+  if (t.length > 120) throw new HttpError(400, 'O título pode ter até 120 caracteres.');
+  return t || null;
+}
+
+// Usos das questões da disciplina em seleções enviadas ou aplicadas (para mostrar ao Supervisor).
+async function usosDaDisciplina(env, disciplina) {
+  const { results } = await env.DB.prepare(
+    "SELECT si.item_id, s.id, s.serie, s.tipo, s.ano, s.situacao FROM selecao_itens si JOIN selecoes s ON s.id = si.selecao_id " +
+    "WHERE s.disciplina = ? AND s.situacao IN ('enviada','aplicada')"
+  ).bind(disciplina).all();
+  const mapa = new Map();
+  for (const r of results) {
+    if (!mapa.has(r.item_id)) mapa.set(r.item_id, []);
+    mapa.get(r.item_id).push({ selecao: r.id, serie: r.serie, tipo: r.tipo, ano: r.ano, situacao: r.situacao });
+  }
+  return mapa;
+}
+
+async function selecaoDaDisciplina(env, id, disciplina) {
+  const sel = await env.DB.prepare(
+    "SELECT s.*, u.nome AS supervisor FROM selecoes s JOIN usuarios u ON u.id = s.supervisor_id WHERE s.id = ?"
+  ).bind(Number(id)).first();
+  if (!sel || (disciplina && sel.disciplina !== disciplina)) throw new HttpError(404, 'Seleção não encontrada.');
+  return sel;
+}
+
+async function itensDaSelecao(env, sel, comDados) {
+  const ano = anoAtualSP();
+  const { results } = await env.DB.prepare(
+    "SELECT i.id, i.codigo, i.versao_atual, i.situacao AS situacao_item, si.ordem, si.versao, u.nome AS autor, " +
+    "json_extract(v.dados, '$.assunto') AS assunto, json_extract(v.dados, '$.subtema') AS subtema, " +
+    "json_extract(v.dados, '$.dificuldade') AS dificuldade, json_extract(v.dados, '$.origem') AS origem, " +
+    "json_extract(v.dados, '$.bloom') AS bloom, json_extract(v.dados, '$.gabarito') AS gabarito, " +
+    (comDados ? "v.dados AS dados, " : "substr(json_extract(v.dados, '$.comando'), 1, 800) AS comando, ") +
+    "(" + SQL_ITEM_BLOQUEADO + " AND NOT EXISTS (SELECT 1 FROM selecao_itens pi WHERE pi.selecao_id = ? AND pi.item_id = i.id AND ? = 'aplicada')) AS bloqueado " +
+    "FROM selecao_itens si JOIN itens i ON i.id = si.item_id JOIN usuarios u ON u.id = i.autor_id " +
+    // Rascunho mostra a versão atual; enviada/aplicada mostra a versão congelada no envio.
+    "JOIN item_versoes v ON v.item_id = i.id AND v.versao = CASE WHEN ? = 'rascunho' THEN i.versao_atual ELSE si.versao END " +
+    "WHERE si.selecao_id = ? ORDER BY si.ordem"
+  ).bind(sel.tipo, sel.ano || ano, sel.serie, sel.ano || ano, sel.id, sel.situacao, sel.situacao, sel.id).all();
+  return results.map(({ id, dados, ...r }) => (comDados ? { ...r, dados: JSON.parse(dados) } : r));
+}
+
+async function rotasSelecoesSupervisor(request, env, path, url, user) {
+  if (!path.startsWith('/api/supervisor/selecoes') && path !== '/api/supervisor/banco') return null;
+  const ano = anoAtualSP();
+
+  // Banco: questões aprovadas da disciplina, do Ensino Médio, elegíveis para a série/tipo da seleção.
+  if (path === '/api/supervisor/banco' && request.method === 'GET') {
+    const sel = await selecaoDaDisciplina(env, url.searchParams.get('selecao'), user.disciplina);
+    const filtros = []; const args = [user.disciplina, sel.tipo, ano, sel.serie, ano];
+    const f = (campo, nome) => { const v = (url.searchParams.get(nome) || '').trim(); if (v) { filtros.push("json_extract(v.dados, '$." + campo + "') = ?"); args.push(v.slice(0, 200)); } };
+    f('assunto', 'assunto'); f('dificuldade', 'dificuldade'); f('origem', 'origem'); f('bloom', 'bloom');
+    const q = (url.searchParams.get('q') || '').trim().slice(0, 100);
+    if (q) {
+      filtros.push("(i.codigo = ? OR json_extract(v.dados, '$.comando') LIKE ? OR json_extract(v.dados, '$.texto-base') LIKE ? OR json_extract(v.dados, '$.subtema') LIKE ?)");
+      const like = '%' + q.replace(/[%_]/g, '') + '%';
+      args.push(q.toUpperCase(), like, like, like);
+    }
+    const { results } = await env.DB.prepare(
+      SQL_ITEM_BANCO + "WHERE i.disciplina = ? AND i.situacao = 'aprovado' AND json_extract(v.dados, '$.etapa') = 'em' AND NOT " + SQL_ITEM_BLOQUEADO +
+      (filtros.length ? ' AND ' + filtros.join(' AND ') : '') + " ORDER BY assunto COLLATE NOCASE, i.codigo LIMIT 301"
+    ).bind(...args).all();
+    const { results: assuntos } = await env.DB.prepare(
+      "SELECT DISTINCT json_extract(v.dados, '$.assunto') AS a FROM itens i JOIN item_versoes v ON v.item_id = i.id AND v.versao = i.versao_atual " +
+      "WHERE i.disciplina = ? AND i.situacao = 'aprovado' ORDER BY a COLLATE NOCASE"
+    ).bind(user.disciplina).all();
+    const usos = await usosDaDisciplina(env, user.disciplina);
+    const itens = results.slice(0, 300).map(({ id, ...r }) => ({ ...r, usos: usos.get(id) || [] }));
+    return { ok: true, itens, mais: results.length > 300, assuntos: assuntos.map(x => x.a).filter(Boolean) };
+  }
+
+  if (path === '/api/supervisor/selecoes' && request.method === 'GET') {
+    const { results } = await env.DB.prepare(
+      "SELECT s.id, s.serie, s.tipo, s.titulo, s.situacao, s.ano, s.motivo_devolucao, s.criado_em, s.atualizado_em, s.enviada_em, s.aplicada_em, " +
+      "u.nome AS supervisor, (SELECT COUNT(*) FROM selecao_itens si WHERE si.selecao_id = s.id) AS total " +
+      "FROM selecoes s JOIN usuarios u ON u.id = s.supervisor_id WHERE s.disciplina = ? " +
+      "ORDER BY CASE s.situacao WHEN 'rascunho' THEN 0 WHEN 'enviada' THEN 1 ELSE 2 END, s.id DESC LIMIT 300"
+    ).bind(user.disciplina).all();
+    return { ok: true, disciplina: user.disciplina, ano, selecoes: results };
+  }
+
+  if (path === '/api/supervisor/selecoes' && request.method === 'POST') {
+    const body = await readJson(request);
+    const { serie, tipo } = validarSerieTipo(body);
+    const titulo = validarTitulo(body.titulo);
+    const row = await env.DB.prepare(
+      'INSERT INTO selecoes (disciplina, supervisor_id, serie, tipo, titulo) VALUES (?, ?, ?, ?, ?) RETURNING id'
+    ).bind(user.disciplina, user.id, serie, tipo, titulo).first();
+    await registrar(env, 'selecao_criada', { selecao: row.id, serie, tipo }, user.id);
+    return { ok: true, selecao: { id: row.id } };
+  }
+
+  const m = path.match(/^\/api\/supervisor\/selecoes\/(\d+)(\/enviar)?$/);
+  if (!m) throw new HttpError(404, 'Rota indisponível.');
+  const sel = await selecaoDaDisciplina(env, m[1], user.disciplina);
+
+  if (!m[2] && request.method === 'GET') {
+    return { ok: true, ano, selecao: { ...sel, itens: await itensDaSelecao(env, sel, false) } };
+  }
+
+  if (sel.situacao !== 'rascunho') {
+    throw new HttpError(409, sel.situacao === 'enviada' ? 'Esta seleção já foi enviada ao administrador.' : 'Esta seleção já foi aplicada.');
+  }
+
+  if (!m[2] && request.method === 'DELETE') {
+    await env.DB.batch([
+      env.DB.prepare('DELETE FROM selecao_itens WHERE selecao_id = ?').bind(sel.id),
+      env.DB.prepare("DELETE FROM selecoes WHERE id = ? AND situacao = 'rascunho'").bind(sel.id)
+    ]);
+    await registrar(env, 'selecao_excluida', { selecao: sel.id }, user.id);
+    return { ok: true };
+  }
+
+  if (!m[2] && request.method === 'PUT') {
+    const body = await readJson(request);
+    const { serie, tipo } = validarSerieTipo({ serie: body.serie ?? sel.serie, tipo: body.tipo ?? sel.tipo });
+    const titulo = body.titulo === undefined ? sel.titulo : validarTitulo(body.titulo);
+    const codigos = Array.isArray(body.itens) ? body.itens.map(c => String(c).toUpperCase()) : [];
+    if (codigos.length > MAX_ITENS_SELECAO) throw new HttpError(400, 'Uma seleção pode ter até ' + MAX_ITENS_SELECAO + ' questões.');
+    if (new Set(codigos).size !== codigos.length) throw new HttpError(400, 'Há questões repetidas na seleção.');
+    // Candidatas válidas: aprovadas, da disciplina, do Ensino Médio e elegíveis para a série/tipo.
+    const { results } = await env.DB.prepare(
+      "SELECT i.id, i.codigo, i.versao_atual FROM itens i JOIN item_versoes v ON v.item_id = i.id AND v.versao = i.versao_atual " +
+      "WHERE i.disciplina = ? AND i.situacao = 'aprovado' AND json_extract(v.dados, '$.etapa') = 'em' AND NOT " + SQL_ITEM_BLOQUEADO
+    ).bind(user.disciplina, tipo, ano, serie, ano).all();
+    const validas = new Map(results.map(r => [r.codigo, r]));
+    const invalidas = codigos.filter(c => !validas.has(c));
+    if (invalidas.length) {
+      throw new HttpError(409, 'Estas questões não podem entrar nesta seleção (não aprovadas, de outra disciplina ou já usadas para ' +
+        NOME_SERIE(serie) + ' ' + tipo + '): ' + invalidas.slice(0, 20).join(', ') + '.');
+    }
+    const ops = [
+      env.DB.prepare("UPDATE selecoes SET serie = ?, tipo = ?, titulo = ?, atualizado_em = strftime('%Y-%m-%dT%H:%M:%SZ','now') WHERE id = ? AND situacao = 'rascunho'")
+        .bind(serie, tipo, titulo, sel.id),
+      env.DB.prepare('DELETE FROM selecao_itens WHERE selecao_id = ?').bind(sel.id),
+      ...codigos.map((c, k) => env.DB.prepare('INSERT INTO selecao_itens (selecao_id, item_id, ordem, versao) VALUES (?, ?, ?, ?)')
+        .bind(sel.id, validas.get(c).id, k + 1, validas.get(c).versao_atual))
+    ];
+    await env.DB.batch(ops);
+    return { ok: true, selecao: { id: sel.id, total: codigos.length } };
+  }
+
+  if (m[2] && request.method === 'POST') {
+    const itens = await itensDaSelecao(env, sel, false);
+    if (!itens.length) throw new HttpError(400, 'Adicione pelo menos uma questão antes de enviar.');
+    const problemas = itens.filter(i => i.bloqueado || i.situacao_item !== 'aprovado').map(i => i.codigo);
+    if (problemas.length) throw new HttpError(409, 'Retire da seleção as questões que não estão mais disponíveis: ' + problemas.join(', ') + '.');
+    const enviada = await env.DB.prepare(
+      "UPDATE selecoes SET situacao = 'enviada', enviada_em = strftime('%Y-%m-%dT%H:%M:%SZ','now'), atualizado_em = strftime('%Y-%m-%dT%H:%M:%SZ','now'), motivo_devolucao = NULL " +
+      "WHERE id = ? AND situacao = 'rascunho' RETURNING id"
+    ).bind(sel.id).first();
+    if (!enviada) throw new HttpError(409, 'Esta seleção acabou de ser alterada.');
+    await env.DB.prepare('UPDATE selecao_itens SET versao = (SELECT versao_atual FROM itens WHERE itens.id = selecao_itens.item_id) WHERE selecao_id = ?')
+      .bind(sel.id).run();
+    await registrar(env, 'selecao_enviada', { selecao: sel.id, total: itens.length }, user.id);
+    avisar(env, env.ADMIN_EMAIL, 'ATLAS: seleção de ' + user.disciplina + ' recebida (' + NOME_SERIE(sel.serie) + ' ' + sel.tipo + ')',
+      user.nome + ' (Supervisor de ' + user.disciplina + ') enviou a seleção #' + sel.id + (sel.titulo ? ' — ' + sel.titulo : '') +
+      ', com ' + itens.length + ' questões para a ' + NOME_SERIE(sel.serie) + ' ' + sel.tipo + '.\n\n' + LINK_ATLAS + 'admin-selecoes.html?id=' + sel.id);
+    return { ok: true, selecao: { id: sel.id, situacao: 'enviada' } };
+  }
+  throw new HttpError(404, 'Rota indisponível.');
+}
+
+async function rotasSelecoesAdm(request, env, path, url, sessao) {
+  if (!path.startsWith('/api/adm/selecoes')) return null;
+  if (path === '/api/adm/selecoes' && request.method === 'GET') {
+    const situacao = url.searchParams.get('situacao') || 'enviada';
+    if (!['enviada', 'aplicada'].includes(situacao)) throw new HttpError(400, 'Situação inválida.');
+    const { results } = await env.DB.prepare(
+      "SELECT s.id, s.disciplina, s.serie, s.tipo, s.titulo, s.situacao, s.ano, s.enviada_em, s.aplicada_em, u.nome AS supervisor, " +
+      "(SELECT COUNT(*) FROM selecao_itens si WHERE si.selecao_id = s.id) AS total " +
+      "FROM selecoes s JOIN usuarios u ON u.id = s.supervisor_id WHERE s.situacao = ? ORDER BY " +
+      (situacao === 'enviada' ? 's.enviada_em ASC' : 's.aplicada_em DESC') + " LIMIT 300"
+    ).bind(situacao).all();
+    return { ok: true, ano: anoAtualSP(), selecoes: results };
+  }
+  const m = path.match(/^\/api\/adm\/selecoes\/(\d+)(\/aplicar|\/devolver)?$/);
+  if (!m) throw new HttpError(404, 'Rota indisponível.');
+  const sel = await selecaoDaDisciplina(env, m[1], null);
+  if (sel.situacao === 'rascunho') throw new HttpError(404, 'Seleção não encontrada.');
+
+  if (!m[2] && request.method === 'GET') {
+    return { ok: true, selecao: { ...sel, itens: await itensDaSelecao(env, sel, true) } };
+  }
+  if (sel.situacao !== 'enviada') throw new HttpError(409, 'Esta seleção já foi aplicada.');
+  const admId = await admUsuarioId(env);
+
+  if (m[2] === '/aplicar' && request.method === 'POST') {
+    const ano = anoAtualSP();
+    const { results: conflitos } = await env.DB.prepare(
+      "SELECT i.codigo FROM selecao_itens si JOIN itens i ON i.id = si.item_id WHERE si.selecao_id = ? AND " + SQL_ITEM_BLOQUEADO
+    ).bind(sel.id, sel.tipo, ano, sel.serie, ano).all();
+    if (conflitos.length) {
+      throw new HttpError(409, 'Estas questões já foram aplicadas para esta turma (' + NOME_SERIE(sel.serie) + ' ' + sel.tipo + '): ' +
+        conflitos.map(c => c.codigo).join(', ') + '. Devolva a seleção ao Supervisor para trocá-las.');
+    }
+    const ok = await env.DB.prepare(
+      "UPDATE selecoes SET situacao = 'aplicada', ano = ?, aplicada_em = strftime('%Y-%m-%dT%H:%M:%SZ','now'), atualizado_em = strftime('%Y-%m-%dT%H:%M:%SZ','now') " +
+      "WHERE id = ? AND situacao = 'enviada' RETURNING id"
+    ).bind(ano, sel.id).first();
+    if (!ok) throw new HttpError(409, 'Esta seleção acabou de ser alterada.');
+    await registrar(env, 'selecao_aplicada', { adm: sessao.email, selecao: sel.id, ano }, admId);
+    return { ok: true, selecao: { id: sel.id, situacao: 'aplicada', ano } };
+  }
+
+  if (m[2] === '/devolver' && request.method === 'POST') {
+    const body = await readJson(request);
+    const motivo = String(body.motivo ?? '').trim();
+    if (motivo.length < 3 || motivo.length > 2000) throw new HttpError(400, 'Explique ao Supervisor o que precisa mudar.');
+    const ok = await env.DB.prepare(
+      "UPDATE selecoes SET situacao = 'rascunho', motivo_devolucao = ?, atualizado_em = strftime('%Y-%m-%dT%H:%M:%SZ','now') WHERE id = ? AND situacao = 'enviada' RETURNING id"
+    ).bind(motivo, sel.id).first();
+    if (!ok) throw new HttpError(409, 'Esta seleção acabou de ser alterada.');
+    await registrar(env, 'selecao_devolvida', { adm: sessao.email, selecao: sel.id }, admId);
+    const destinos = new Set();
+    const criador = await env.DB.prepare('SELECT email FROM usuarios WHERE id = ? AND ativo = 1').bind(sel.supervisor_id).first();
+    if (criador) destinos.add(criador.email);
+    const atual = await supervisorDaDisciplina(env, sel.disciplina);
+    if (atual) destinos.add(atual.email);
+    for (const para of destinos) {
+      avisar(env, para, 'ATLAS: seleção #' + sel.id + ' devolvida pelo administrador',
+        'O administrador devolveu a seleção #' + sel.id + ' (' + NOME_SERIE(sel.serie) + ' ' + sel.tipo + ') para ajustes:\n\n' + motivo +
+        '\n\n' + LINK_ATLAS + 'supervisor-selecoes.html?id=' + sel.id);
+    }
+    return { ok: true, selecao: { id: sel.id, situacao: 'rascunho' } };
+  }
+  throw new HttpError(404, 'Rota indisponível.');
+}
+
 // ---------- rotas da Administração ----------
 async function rotasAdm(request, env, path) {
   if (path === '/api/adm/login' && request.method === 'POST') {
@@ -787,6 +1054,8 @@ async function rotasAdm(request, env, path) {
     }
     return { ok: true, mensagem: 'O serviço de e-mail aceitou o aviso. Confira a caixa de entrada do ADM.' };
   }
+  const selecoesAdm = await rotasSelecoesAdm(request, env, path, new URL(request.url), sessao);
+  if (selecoesAdm) return selecoesAdm;
   const itensAdm = await rotasAdmItens(request, env, path, sessao);
   if (itensAdm) return itensAdm;
 

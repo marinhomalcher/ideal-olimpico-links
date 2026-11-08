@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8"><meta name="robots" content="noindex, nofollow"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ATLAS | Seleções para provas</title>
+<script src="auth.js"></script>
+<style>
+.question img{display:block;max-width:100%;max-height:380px;height:auto;margin:10px 0}.question table{border-collapse:collapse;margin:12px 0;max-width:100%;width:auto}.question td,.question th{border:1px solid #a99498;padding:7px 10px;min-width:64px}.question .atlas-equation{display:inline-block;vertical-align:middle;max-width:100%;overflow-x:auto}
+
+.question .stem { text-align: justify; text-align-last: left; }
+:root{--red:#98151d;--ink:#30282b;--muted:#70676b;--line:#e6dadd;--soft:#fbecef}*{box-sizing:border-box}body{margin:0;background:#f7f5f5;color:var(--ink);font:15px/1.5 Arial,Helvetica,sans-serif}button{font:inherit;cursor:pointer}header{background:#fff;border-bottom:4px solid var(--red);padding:12px clamp(18px,4vw,52px);display:flex;justify-content:space-between;align-items:center;gap:16px}.brand{display:flex;align-items:center;gap:17px;color:var(--red);font-size:20px;font-weight:700;letter-spacing:.07em}.brand img{width:145px;height:52px;object-fit:contain;object-position:left}.brand span{border-left:1px solid var(--line);padding-left:16px}.role{color:var(--muted);font-size:13px}.back-link{color:var(--red);font-weight:bold;text-decoration:none;margin-right:16px;white-space:nowrap}.back-link:hover{text-decoration:underline}.shell{display:grid;grid-template-columns:210px minmax(0,1fr);max-width:1180px;margin:auto;min-height:80vh}aside{background:#fff;border-right:1px solid var(--line);padding:30px 14px}aside small{display:block;margin:0 12px 12px;color:#8b7b7f;letter-spacing:.13em;font-weight:bold}aside a{display:block;text-decoration:none;padding:11px 12px;border-radius:8px;color:var(--red);background:var(--soft);font-weight:bold}main{min-width:0;padding:31px clamp(18px,3.5vw,42px) 70px}.crumb{color:#8b7c80;font-size:12px}h1{font-size:29px;margin:8px 0 4px}.lead{color:var(--muted);margin:0 0 22px}.panel{background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:0 6px 24px #44151a0a;padding:24px;margin-bottom:20px}.tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:17px}.tabs button,.secondary{border:1px solid #cbaeb2;background:#fff;color:var(--red);border-radius:8px;padding:9px 13px;font-weight:bold}.tabs button.active{background:var(--red);color:#fff;border-color:var(--red)}.table-wrap{overflow-x:auto}table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:13px 10px;border-bottom:1px solid #eee4e6}th{color:#716166;font-size:12px}td small{color:var(--muted)}.primary{border:1px solid var(--red);background:var(--red);color:white;border-radius:8px;padding:10px 15px;font-weight:bold}.primary:hover{background:#b21d27}.secondary:disabled{opacity:.48;cursor:not-allowed}.empty{border:1px dashed #dbc9cd;background:#fcfafb;border-radius:10px;padding:25px;color:var(--muted)}.notice{background:#fff8eb;border:1px solid #eed7ae;border-radius:8px;padding:12px 14px;color:#6a573b;font-size:13px;margin-bottom:18px}.details h2{color:#6e2026;font-size:19px;margin:0 0 6px}.meta{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 18px;margin:20px 0;padding:16px;background:#faf7f8;border-radius:10px}.meta p{margin:0;overflow-wrap:anywhere}.meta strong{display:block;color:#7a676c;font-size:12px}.question{border-top:1px solid var(--line);padding-top:18px;white-space:pre-wrap;overflow-wrap:anywhere}.question p{margin:0 0 15px}.choice{padding:5px 0}.actions{display:flex;gap:9px;flex-wrap:wrap;margin-top:20px;border-top:1px solid var(--line);padding-top:20px}.back{border:0;background:none;color:var(--red);font-weight:bold;padding:0 0 16px}.hint{font-size:12px;color:var(--muted)}[hidden]{display:none!important}@media(max-width:740px){.shell{grid-template-columns:1fr}aside{display:none}main{padding-top:24px}.meta{grid-template-columns:1fr}.panel{padding:18px}.brand img{width:105px}}
+.question .atlas-equation{display:inline;vertical-align:baseline;white-space:nowrap}.question .atlas-equation .katex{font-size:1.15em}
+.question .atlas-latex-document{white-space:pre-wrap}.question .atlas-equation[data-display="block"]{display:block;text-align:center;margin:10px 0}
+.adjust-form{margin-top:18px;padding:16px;border:1px solid var(--line);border-radius:9px;background:#faf7f8}.adjust-form label{display:block;font-weight:bold;margin-bottom:7px}.adjust-form textarea{width:100%;min-height:110px;padding:10px;border:1px solid #cbaeb2;border-radius:7px;font:inherit;resize:vertical}.adjust-form .actions{margin-top:10px;padding-top:10px}.adjust-note{color:#6e2026;font-size:13px}
+img[style*="width"]{max-height:none!important;height:auto!important}
+.is-invalid{border-color:#b21d27!important;outline:2px solid #b21d2733!important}
+.field-error{color:#a21923;font-size:12px;font-weight:700;margin:5px 0 0}
+.alt+.field-error{margin:-7px 0 14px 44px}
+.rich-editor{width:100%;min-height:90px;border:1px solid #d8cdd0;background:white;border-radius:8px;padding:10px 12px;outline:none;white-space:pre-wrap;overflow-wrap:anywhere}
+.rich-editor.long{min-height:145px}
+.rich-editor:focus{outline:3px solid #9b111a25;border-color:var(--red)}
+.rich-editor:empty:before{content:attr(data-placeholder);color:#8a7f82;pointer-events:none}
+.rich-editor img,.preview img{max-width:100%;max-height:380px;height:auto;display:block;margin:10px 0}
+.rich-editor .atlas-equation,.preview .atlas-equation{display:inline-block;max-width:100%;overflow-x:auto;vertical-align:middle;padding:2px 3px}
+.rich-editor .atlas-equation{background:#faf0f1;border:1px solid #e8cdd1;border-radius:4px;cursor:pointer}
+.alt .rich-editor{min-height:66px}
+dialog{border:1px solid var(--line);border-radius:12px;box-shadow:0 18px 60px #29151b55;width:min(560px,calc(100% - 30px));padding:22px}
+dialog::backdrop{background:#1f1119a8}
+dialog h2{margin:0 0 8px;color:var(--red)}
+dialog .modal-actions{display:flex;justify-content:flex-end;gap:9px;margin-top:18px}
+#equation-preview{min-height:62px;border:1px solid var(--line);padding:12px;overflow:auto;margin-top:10px}
+#equation-preview .katex{font-size:1.35em}
+.math-error{color:#b21d27}
+.rich-editor .atlas-equation,.preview .atlas-equation{display:inline;vertical-align:baseline;padding:0;border:0;background:transparent;white-space:nowrap}
+.rich-editor .atlas-equation .katex,.preview .atlas-equation .katex{font-size:1.15em}
+.rich-editor .atlas-equation[data-display="block"],.preview .atlas-equation[data-display="block"]{display:block;text-align:center;margin:10px 0}
+.alt .rich-editor{text-align:justify;text-align-last:left}
+.alt .rich-editor strong{border-radius:0;background:transparent;color:inherit;padding:0;text-align:inherit}
+.rich-editor .atlas-equation[data-display="block"]{text-align:center;text-align-last:center}
+.edit-form label{display:block;font-weight:bold;font-size:13px;margin:14px 0 5px}.edit-form input,.edit-form select,.edit-form textarea{width:100%;border:1px solid #d8cdd0;border-radius:8px;padding:9px 10px;font:inherit}.edit-form select{max-width:140px}.edit-form h3{color:#6e2026;margin:22px 0 4px}.danger-btn{border:1px solid #a21923;background:#a21923;color:#fff;border-radius:8px;padding:9px 13px;font-weight:bold;cursor:pointer}.badge-edit{display:inline-block;margin-left:6px;background:#eef1fb;color:#2e4b8f;border-radius:999px;padding:2px 8px;font-size:11px;font-weight:bold}
+
+
+.grid2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:18px;align-items:start}@media(max-width:1000px){.grid2{grid-template-columns:1fr}}
+.filters{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}.filters select,.filters input{border:1px solid #d8cdd0;border-radius:8px;padding:8px 9px;font:inherit;background:#fff;max-width:100%}.filters input{flex:1 1 180px}
+.qcard{border:1px solid var(--line);border-radius:9px;padding:10px 12px;margin-bottom:9px;background:#fff}.qcard .top{display:flex;justify-content:space-between;gap:8px;align-items:baseline;flex-wrap:wrap}.qcard .cod{font-weight:bold;color:var(--red);letter-spacing:.03em}.qcard .tags{display:flex;flex-wrap:wrap;gap:5px;margin:6px 0}.tag{background:#f3eef0;color:#5c5054;border-radius:999px;padding:1px 8px;font-size:12px}.tag.uso{background:#eef1fb;color:#2e4b8f}.tag.alerta{background:#fff4dc;color:#7a5600}.tag.erro{background:#fbecef;color:#98151d}
+.qcard .snip{color:#4c4346;font-size:13px;max-height:3.9em;overflow:hidden}.qcard .btns{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}.qcard .btns button{padding:5px 10px;font-size:13px}
+.ord{display:inline-flex;align-items:center;justify-content:center;min-width:26px;height:26px;border-radius:999px;background:var(--red);color:#fff;font-size:12px;font-weight:bold;margin-right:6px}
+.opts{display:flex;gap:8px;flex-wrap:wrap;margin:6px 0 12px}.opts label{display:inline-flex;align-items:center;gap:6px;border:1px solid #d8cdd0;border-radius:8px;padding:7px 12px;cursor:pointer;background:#fff;font-weight:normal}.opts input{margin:0}
+.newsel input[type=text]{width:100%;max-width:420px;border:1px solid #d8cdd0;border-radius:8px;padding:9px 10px;font:inherit}
+.sit{display:inline-block;border-radius:999px;padding:2px 9px;font-size:12px;font-weight:bold;background:#f1eced;color:#5c5054}.sit.enviada{background:#eef1fb;color:#2e4b8f}.sit.aplicada{background:#e6f4ea;color:#1f6b35}.sit.rascunho{background:#fff4dc;color:#7a5600}
+dialog.preview-dialog{width:min(860px,calc(100% - 30px));max-height:88vh;overflow:auto}
+.savestate{font-size:12px;color:var(--muted);margin-left:8px}
+
+aside a+a{margin-top:6px}aside a:not(.atual){background:transparent}
+</style>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.19.1/dist/katex.min.css" integrity="sha384-WwGtaC6ywCHxA5cstpj/3+xIZvTez8dq2IcBQaXRkenHZ7FVVq1ZROtURwfbtTlG" crossorigin="anonymous">
+</head>
+<body>
+<header><div class="brand"><img src="ideal-logo.png" alt="Ideal 50 anos"><span>ATLAS</span></div><div class="role"><a class="back-link" href="index.html">← Voltar ao início</a>Área do Supervisor <button type="button" onclick="ATLAS_SAIR()" style="margin-left:12px;border:1px solid #cbaeb2;background:#fff;color:#98151d;border-radius:8px;padding:6px 10px;cursor:pointer">Sair</button></div></header>
+<div class="shell"><aside><small>ÁREA DO SUPERVISOR</small><a href="supervisor.html">Fila de análise</a><a href="supervisor-selecoes.html" class="atual">Seleções para provas</a></aside><main>
+<div class="crumb">Supervisor / Seleções para provas</div><h1>Seleções para provas</h1><p class="lead" id="lead">Escolha a série e o tipo, selecione questões aprovadas e envie ao administrador.</p>
+<div class="notice" id="notice" role="status">As questões só contam como usadas quando o administrador envia a prova aos alunos.</div>
+
+<section class="panel" id="lista-view">
+  <div class="actions" style="margin-top:0;padding-top:0;border:0"><button type="button" class="primary" id="nova">+ Nova seleção</button></div>
+  <form id="nova-form" class="adjust-form newsel" hidden>
+    <label>Série</label><div class="opts"><label><input type="radio" name="serie" value="1">1ª série</label><label><input type="radio" name="serie" value="2">2ª série</label><label><input type="radio" name="serie" value="3">3ª série</label></div>
+    <label>Tipo</label><div class="opts"><label><input type="radio" name="tipo" value="REG">REG</label><label><input type="radio" name="tipo" value="MED">MED</label></div>
+    <label for="novo-titulo">Título (opcional)</label><input type="text" id="novo-titulo" maxlength="120" placeholder="Ex.: Simulado 1 — 1º bimestre">
+    <p class="field-error" id="nova-erro" hidden></p>
+    <div class="actions"><button type="button" class="secondary" id="cancelar-nova">Cancelar</button><button type="submit" class="primary">Criar seleção</button></div>
+  </form>
+  <div id="lista" class="table-wrap"></div>
+</section>
+
+<section class="panel" id="sel-view" hidden>
+  <button type="button" class="back" id="voltar">← Voltar às seleções</button>
+  <h2 id="sel-titulo">Seleção</h2>
+  <div id="sel-info"></div>
+  <div id="devolvida" class="adjust-form" hidden></div>
+  <div id="editor-bloco">
+    <div class="filters" style="align-items:center"><label for="sel-serie" style="font-weight:bold">Série</label><select id="sel-serie"><option value="1">1ª série</option><option value="2">2ª série</option><option value="3">3ª série</option></select>
+      <label for="sel-tipo" style="font-weight:bold">Tipo</label><select id="sel-tipo"><option>REG</option><option>MED</option></select>
+      <input id="sel-nome" maxlength="120" placeholder="Título (opcional)" aria-label="Título da seleção"><span class="savestate" id="savestate"></span></div>
+    <div class="grid2">
+      <div><h3 style="color:#6e2026;margin:6px 0 10px">Questões selecionadas (<span id="qtd">0</span>)</h3><div id="escolhidas"></div></div>
+      <div><h3 style="color:#6e2026;margin:6px 0 10px">Banco de questões aprovadas</h3>
+        <div class="filters"><select id="f-assunto" aria-label="Assunto"><option value="">Todos os assuntos</option></select>
+          <select id="f-dificuldade" aria-label="Dificuldade"><option value="">Dificuldade</option><option>Fácil</option><option>Média</option><option>Difícil</option></select>
+          <select id="f-origem" aria-label="Origem"><option value="">Origem</option><option value="autoral">Autoral</option><option value="enem">ENEM</option><option value="outros">Outros</option></select>
+          <select id="f-bloom" aria-label="Bloom"><option value="">Bloom</option><option>Lembrar</option><option>Compreender</option><option>Aplicar</option><option>Analisar</option><option>Avaliar</option></select>
+          <input id="f-q" type="search" placeholder="Buscar por código ou texto"></div>
+        <p class="hint" id="banco-info"></p><div id="banco"></div></div>
+    </div>
+    <div class="actions"><button type="button" class="secondary" id="excluir">Excluir seleção</button><button type="button" class="primary" id="enviar">Enviar ao administrador</button></div>
+    <div id="enviar-confirm" class="adjust-form" hidden role="alertdialog"><p><strong id="enviar-texto">Enviar ao administrador?</strong> Depois de enviada, a seleção só volta a ser editada se o administrador devolver.</p><div class="actions"><button type="button" class="secondary" id="cancelar-envio">Cancelar</button><button type="button" class="primary" id="confirmar-envio">Confirmar envio</button></div></div>
+    <div id="excluir-confirm" class="adjust-form" hidden role="alertdialog"><p><strong>Excluir esta seleção?</strong> As questões continuam no banco; só a seleção é apagada.</p><div class="actions"><button type="button" class="secondary" id="cancelar-exclusao">Cancelar</button><button type="button" class="danger-btn" id="confirmar-exclusao">Excluir</button></div></div>
+  </div>
+  <div id="leitura" hidden></div>
+</section>
+</main></div>
+<dialog id="preview" class="preview-dialog" aria-labelledby="preview-titulo"><h2 id="preview-titulo">Questão</h2><div id="preview-corpo"></div><div class="modal-actions"><button type="button" class="secondary" onclick="this.closest('dialog').close()">Fechar</button></div></dialog>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.19.1/dist/katex.min.js" integrity="sha384-a1WQdjRj162i159OYq041X6I4K8NenkrI09LlPmiHg0YOb7CR+wJOraXwK9abpnE" crossorigin="anonymous"></script>
+<script src="atlas-editor.js"></script>
+<script>
+
+const originLabel={autoral:'Autoral',enem:'ENEM',outros:'Outros',adaptada:'Adaptada'};
+function escapeHTML(value){return String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function quando(v){const d=new Date(v);return Number.isNaN(d.getTime())?'—':d.toLocaleString('pt-BR')}
+function textoPuro(html){const t=document.createElement('template');t.innerHTML=String(html||'');t.content.querySelectorAll('.katex-mathml,annotation').forEach(n=>n.remove());return (t.content.textContent||'').replace(/\s+/g,' ').trim()}
+function questaoHTML(d){const body=v=>AtlasRich.clean(v||'');let html='<div class="question">';
+  if(d['texto-base'])html+='<div class="stem">'+body(d['texto-base'])+'</div>';if(d.referencia)html+='<p class="hint">'+escapeHTML(d.referencia)+'</p>';
+  const command=body(d.comando);html+='<div class="stem">'+(command.includes('class="atlas-latex-document"')?command:'<b>'+command+'</b>')+'</div>';
+  for(const l of 'abcde')html+='<div class="choice"><b>'+l.toUpperCase()+'.</b> '+body(d['alt-'+l])+'</div>';
+  html+='<p class="hint">Gabarito: '+escapeHTML(d.gabarito)+'</p>';if(d.resolucao)html+='<div class="stem"><b>Resolução e comentários:</b><br>'+body(d.resolucao)+'</div>';return html+'</div>'}
+function serieTipo(s){return s.serie+'ª série '+s.tipo}
+function usoTexto(u){return u.situacao==='aplicada'?'Aplicada: '+u.serie+'ª '+u.tipo+' '+u.ano:'Na seleção #'+u.selecao+' ('+u.serie+'ª '+u.tipo+', enviada)'}
+
+const $=s=>document.querySelector(s),notice=$('#notice');
+let atual=null,escolhidas=[],cacheBanco=new Map(),salvando=Promise.resolve();
+function msg(t,erro=false){notice.textContent=t;notice.style.borderColor=erro?'#e2a1a7':'';notice.style.color=erro?'#8c2028':''}
+const sitNome=s=>s.situacao==='rascunho'?(s.motivo_devolucao?'Devolvida para ajustes':'Rascunho'):s.situacao==='enviada'?'Enviada ao ADM':'Aplicada em '+s.ano;
+async function carregarLista(){const box=$('#lista');box.innerHTML='<div class="empty">Carregando…</div>';let data;
+  try{data=await ATLAS_API('/api/supervisor/selecoes')}catch(e){box.innerHTML='';msg(e.message,true);return}
+  $('#lead').textContent='Disciplina: '+data.disciplina+'. Escolha a série e o tipo, selecione questões aprovadas e envie ao administrador.';
+  box.replaceChildren();if(!data.selecoes.length){const d=document.createElement('div');d.className='empty';d.textContent='Nenhuma seleção ainda. Clique em “+ Nova seleção”.';box.append(d);return}
+  const t=document.createElement('table');t.innerHTML='<thead><tr><th>Nº</th><th>Série e tipo</th><th>Título</th><th>Questões</th><th>Situação</th><th>Atualizada em</th><th></th></tr></thead>';const b=document.createElement('tbody');
+  for(const s of data.selecoes){const r=document.createElement('tr');const c=v=>{const td=document.createElement('td');td.textContent=v;r.append(td);return td};
+    c('#'+s.id).style.fontWeight='bold';c(serieTipo(s));c(s.titulo||'—');c(String(s.total));const st=c('');const sp=document.createElement('span');sp.className='sit '+s.situacao;sp.textContent=sitNome(s);st.append(sp);c(quando(s.atualizado_em));
+    const td=document.createElement('td');const bt=document.createElement('button');bt.className=s.situacao==='rascunho'?'primary':'secondary';bt.textContent=s.situacao==='rascunho'?'Continuar':'Ver';bt.addEventListener('click',()=>abrir(s.id));td.append(bt);r.append(td);b.append(r)}
+  t.append(b);box.append(t)}
+$('#nova').addEventListener('click',()=>{$('#nova-form').hidden=false;$('#nova-erro').hidden=true});
+$('#cancelar-nova').addEventListener('click',()=>{$('#nova-form').hidden=true});
+$('#nova-form').addEventListener('submit',async e=>{e.preventDefault();const f=e.target,serie=f.serie.value,tipo=f.tipo.value,err=$('#nova-erro');
+  if(!serie||!tipo){err.textContent='Escolha a série e o tipo.';err.hidden=false;return}
+  try{const r=await ATLAS_API('/api/supervisor/selecoes',{method:'POST',body:{serie:Number(serie),tipo,titulo:$('#novo-titulo').value}});f.reset();f.hidden=true;await abrir(r.selecao.id)}
+  catch(e2){err.textContent=e2.message;err.hidden=false}});
+async function abrir(id){let data;try{data=await ATLAS_API('/api/supervisor/selecoes/'+id)}catch(e){msg(e.message,true);return}
+  atual=data.selecao;escolhidas=atual.itens.map(i=>i.codigo);for(const i of atual.itens)cacheBanco.set(i.codigo,i);
+  history.replaceState(null,'','?id='+atual.id);
+  $('#lista-view').hidden=true;$('#sel-view').hidden=false;$('#enviar-confirm').hidden=true;$('#excluir-confirm').hidden=true;
+  $('#sel-titulo').innerHTML='Seleção #'+atual.id+' — '+escapeHTML(serieTipo(atual))+' <span class="sit '+atual.situacao+'">'+escapeHTML(sitNome(atual))+'</span>';
+  $('#sel-info').innerHTML='<p class="hint">'+escapeHTML((atual.titulo?atual.titulo+' · ':'')+'Criada por '+atual.supervisor+' em '+quando(atual.criado_em)+(atual.enviada_em?' · enviada em '+quando(atual.enviada_em):'')+(atual.aplicada_em?' · aplicada em '+quando(atual.aplicada_em):''))+'</p>';
+  const dev=$('#devolvida');if(atual.situacao==='rascunho'&&atual.motivo_devolucao){dev.innerHTML='<strong>O administrador devolveu esta seleção:</strong><p>'+escapeHTML(atual.motivo_devolucao)+'</p>';dev.hidden=false}else dev.hidden=true;
+  const editavel=atual.situacao==='rascunho';$('#editor-bloco').hidden=!editavel;$('#leitura').hidden=editavel;
+  if(editavel){$('#sel-serie').value=String(atual.serie);$('#sel-tipo').value=atual.tipo;$('#sel-nome').value=atual.titulo||'';$('#savestate').textContent='';desenharEscolhidas();await buscar()}
+  else desenharLeitura();
+  $('#sel-view').scrollIntoView({behavior:'smooth',block:'start'})}
+function tagsDe(i){const t=[i.dificuldade,i.origem==='outros'&&i.fonte?i.fonte:originLabel[i.origem]||i.origem,i.bloom].filter(Boolean).map(x=>'<span class="tag">'+escapeHTML(x)+'</span>');
+  const usos=i.usos||[];if(!usos.length&&'usos' in i)t.push('<span class="tag uso">Nunca aplicada</span>');for(const u of usos)t.push('<span class="tag '+(u.situacao==='aplicada'?'uso':'alerta')+'">'+escapeHTML(usoTexto(u))+'</span>');return t.join('')}
+function cartao(i,{ordem,botoes}){const d=document.createElement('div');d.className='qcard';
+  d.innerHTML='<div class="top"><span>'+(ordem?'<span class="ord">'+ordem+'</span>':'')+'<span class="cod">'+escapeHTML(i.codigo)+'</span> · '+escapeHTML(i.assunto||'')+(i.subtema?' › '+escapeHTML(i.subtema):'')+'</span><span class="hint">'+escapeHTML(i.autor||'')+'</span></div><div class="tags">'+tagsDe(i)+(i.bloqueado?'<span class="tag erro">Já usada para esta turma — retire</span>':'')+'</div><div class="snip"></div><div class="btns"></div>';
+  d.querySelector('.snip').textContent=textoPuro(i.comando);const bx=d.querySelector('.btns');
+  const ver=document.createElement('button');ver.className='secondary';ver.textContent='Ver questão';ver.addEventListener('click',()=>verQuestao(i.codigo));bx.append(ver);
+  for(const [txt,cls,fn,dis] of botoes){const b=document.createElement('button');b.className=cls;b.textContent=txt;b.disabled=!!dis;b.addEventListener('click',fn);bx.append(b)}return d}
+function desenharEscolhidas(){const box=$('#escolhidas');box.replaceChildren();$('#qtd').textContent=escolhidas.length;
+  if(!escolhidas.length){box.innerHTML='<div class="empty">Nenhuma questão ainda. Adicione pelo banco ao lado.</div>';return}
+  escolhidas.forEach((c,k)=>{const i=cacheBanco.get(c)||{codigo:c};box.append(cartao(i,{ordem:k+1,botoes:[
+    ['↑','secondary',()=>mover(k,-1),k===0],['↓','secondary',()=>mover(k,1),k===escolhidas.length-1],['Retirar','secondary',()=>{escolhidas.splice(k,1);salvar()}]]}))})}
+function mover(k,d){const j=k+d;[escolhidas[k],escolhidas[j]]=[escolhidas[j],escolhidas[k]];salvar()}
+let ultimoBanco=[];
+async function buscar(){if(!atual||atual.situacao!=='rascunho')return;const p=new URLSearchParams({selecao:atual.id});
+  for(const [k,id] of [['assunto','#f-assunto'],['dificuldade','#f-dificuldade'],['origem','#f-origem'],['bloom','#f-bloom'],['q','#f-q']]){const v=$(id).value.trim();if(v)p.set(k,v)}
+  $('#banco-info').textContent='Carregando…';let data;try{data=await ATLAS_API('/api/supervisor/banco?'+p)}catch(e){$('#banco-info').textContent=e.message;return}
+  const sel=$('#f-assunto'),cur=sel.value;sel.replaceChildren(new Option('Todos os assuntos',''),...data.assuntos.map(a=>new Option(a,a)));sel.value=data.assuntos.includes(cur)?cur:'';
+  ultimoBanco=data.itens;for(const i of data.itens)cacheBanco.set(i.codigo,{...cacheBanco.get(i.codigo),...i});desenharBanco(data.mais)}
+function desenharBanco(mais){const box=$('#banco');box.replaceChildren();const lista=ultimoBanco.filter(i=>!escolhidas.includes(i.codigo));
+  $('#banco-info').textContent=lista.length?('Questões disponíveis para '+serieTipo(atual)+': '+lista.length+(mais?' (mostrando as primeiras; use os filtros)':'')+'. Já usadas para esta turma não aparecem.'):'';
+  if(!lista.length){box.innerHTML='<div class="empty">Nenhuma questão disponível com estes filtros.</div>';return}
+  for(const i of lista)box.append(cartao(i,{botoes:[['Adicionar','primary',()=>{escolhidas.push(i.codigo);salvar()}]]}))}
+async function salvar(extra={}){desenharEscolhidas();desenharBanco();$('#savestate').textContent='Salvando…';
+  const corpo={itens:escolhidas,serie:Number($('#sel-serie').value),tipo:$('#sel-tipo').value,titulo:$('#sel-nome').value,...extra};
+  salvando=salvando.then(async()=>{try{await ATLAS_API('/api/supervisor/selecoes/'+atual.id,{method:'PUT',body:corpo});$('#savestate').textContent='Salvo';return true}
+    catch(e){$('#savestate').textContent='';msg(e.message,true);await abrir(atual.id);return false}});return salvando}
+$('#sel-serie').addEventListener('change',async()=>{if(await salvar())await abrir(atual.id)});
+$('#sel-tipo').addEventListener('change',async()=>{if(await salvar())await abrir(atual.id)});
+let tNome;$('#sel-nome').addEventListener('input',()=>{clearTimeout(tNome);tNome=setTimeout(()=>salvar(),700)});
+for(const id of ['#f-assunto','#f-dificuldade','#f-origem','#f-bloom'])$(id).addEventListener('change',buscar);
+let tq;$('#f-q').addEventListener('input',()=>{clearTimeout(tq);tq=setTimeout(buscar,400)});
+async function verQuestao(codigo){let item;try{({item}=await ATLAS_API('/api/itens/'+encodeURIComponent(codigo)))}catch(e){msg(e.message,true);return}
+  const d=item.dados||{};$('#preview-titulo').textContent='Questão '+item.codigo;
+  const meta=[['Professor',item.autor],['Assunto',d.assunto],['Subtema',d.subtema],['Dificuldade prevista',d.dificuldade],['Origem',originLabel[d.origem]||d.origem],['Fonte',d.fonte],['Bloom',d.bloom]].filter(([,v])=>v);
+  $('#preview-corpo').innerHTML='<div class="meta">'+meta.map(([n,v])=>'<p><strong>'+escapeHTML(n)+'</strong>'+escapeHTML(v)+'</p>').join('')+'</div>'+questaoHTML(d);$('#preview').showModal()}
+function desenharLeitura(){const box=$('#leitura');box.replaceChildren();if(!atual.itens.length){box.innerHTML='<div class="empty">Seleção vazia.</div>';return}
+  atual.itens.forEach((i,k)=>box.append(cartao(i,{ordem:k+1,botoes:[]})))}
+$('#voltar').addEventListener('click',async()=>{await salvando;atual=null;history.replaceState(null,'','supervisor-selecoes.html');$('#sel-view').hidden=true;$('#lista-view').hidden=false;carregarLista()});
+$('#enviar').addEventListener('click',()=>{$('#excluir-confirm').hidden=true;$('#enviar-texto').textContent='Enviar a seleção #'+atual.id+' ('+escolhidas.length+' questões, '+serieTipo({serie:$('#sel-serie').value,tipo:$('#sel-tipo').value})+') ao administrador?';$('#enviar-confirm').hidden=false;$('#confirmar-envio').focus()});
+$('#cancelar-envio').addEventListener('click',()=>{$('#enviar-confirm').hidden=true});
+$('#confirmar-envio').addEventListener('click',async()=>{const b=$('#confirmar-envio');b.disabled=true;try{if(!await salvar())return;await ATLAS_API('/api/supervisor/selecoes/'+atual.id+'/enviar',{method:'POST',body:{}});msg('Seleção #'+atual.id+' enviada ao administrador.');await abrir(atual.id)}catch(e){msg(e.message,true)}finally{b.disabled=false;$('#enviar-confirm').hidden=true}});
+$('#excluir').addEventListener('click',()=>{$('#enviar-confirm').hidden=true;$('#excluir-confirm').hidden=false});
+$('#cancelar-exclusao').addEventListener('click',()=>{$('#excluir-confirm').hidden=true});
+$('#confirmar-exclusao').addEventListener('click',async()=>{try{await salvando;await ATLAS_API('/api/supervisor/selecoes/'+atual.id,{method:'DELETE'});msg('Seleção #'+atual.id+' excluída.');atual=null;history.replaceState(null,'','supervisor-selecoes.html');$('#sel-view').hidden=true;$('#lista-view').hidden=false;carregarLista()}catch(e){msg(e.message,true)}});
+window.ATLAS_AUTH_READY.then(async()=>{const id=new URLSearchParams(location.search).get('id');await carregarLista();if(id&&/^\d+$/.test(id))abrir(id)}).catch(()=>{});
+</script>
+</body></html>
