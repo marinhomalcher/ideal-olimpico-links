@@ -43,7 +43,7 @@ dialog .modal-actions{display:flex;justify-content:flex-end;gap:9px;margin-top:1
 </head>
 <body>
 <header><div class="brand"><img src="ideal-logo.png" alt="Ideal 50 anos"><span>ATLAS</span></div><div class="role"><a class="back-link" href="index.html">← Voltar ao início</a>Área do Supervisor <button type="button" onclick="ATLAS_SAIR()" style="margin-left:12px;border:1px solid #cbaeb2;background:#fff;color:#98151d;border-radius:8px;padding:6px 10px;cursor:pointer">Sair</button></div></header>
-<div class="shell"><aside><small>ÁREA DO SUPERVISOR</small><a href="supervisor.html">Fila de análise</a></aside><main>
+<div class="shell"><aside><small>ÁREA DO SUPERVISOR</small><a href="supervisor.html">Fila de análise</a><a href="supervisor-selecoes.html" style="margin-top:6px;background:transparent">Seleções para provas</a></aside><main>
 <div class="crumb">Supervisor / Análise de itens</div><h1>Fila de análise</h1><p class="lead" id="lead">Confira os itens enviados pela área do Professor.</p>
 <div class="notice" id="notice" role="status">Questões da sua disciplina, enviadas pelos professores e guardadas no banco do ATLAS.</div>
 <section class="panel" id="queue"><div class="tabs" role="tablist" aria-label="Situação dos itens"><button type="button" class="active" data-tab="analise" role="tab" aria-selected="true">Aguardando análise</button><button type="button" data-tab="ajustes" role="tab" aria-selected="false">Aguardando ajustes</button><button type="button" data-tab="aprovado" role="tab" aria-selected="false">Aprovadas</button><button type="button" data-tab="descartado" role="tab" aria-selected="false">Descartadas</button></div><div id="list" class="table-wrap"></div></section>
