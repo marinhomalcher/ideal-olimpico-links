@@ -181,18 +181,21 @@ function gerarCodigoAcesso() {
   crypto.getRandomValues(value);
   return String(value[0] % 1000000).padStart(6, '0');
 }
-async function contarTentativaLogin(env, key, windowSeconds, maxRequests) {
+async function consultarLimiteLogin(env, key, windowSeconds, maxRequests) {
   const now = Math.floor(Date.now() / 1000);
   const sql = 'INSERT INTO login_rate_limits (chave, janela_inicio, quantidade) VALUES (?, ?, 1) ' +
     'ON CONFLICT(chave) DO UPDATE SET ' +
     'janela_inicio = CASE WHEN login_rate_limits.janela_inicio + ? <= excluded.janela_inicio ' +
     'THEN excluded.janela_inicio ELSE login_rate_limits.janela_inicio END, ' +
     'quantidade = CASE WHEN login_rate_limits.janela_inicio + ? <= excluded.janela_inicio ' +
-    'THEN 1 ELSE login_rate_limits.quantidade + 1 END RETURNING quantidade';
+    'THEN 1 ELSE login_rate_limits.quantidade + 1 END RETURNING quantidade, janela_inicio';
   const row = await env.DB.prepare(sql).bind(key, now, windowSeconds, windowSeconds).first();
   await env.DB.prepare('DELETE FROM login_rate_limits WHERE janela_inicio < ?')
     .bind(now - 172800).run();
-  return Number(row?.quantidade || 0) <= maxRequests;
+  return { permitido: Number(row?.quantidade || 0) <= maxRequests, aguardeMinutos: Math.max(1, Math.ceil((Number(row?.janela_inicio || now) + windowSeconds - now) / 60)) };
+}
+async function contarTentativaLogin(env, key, windowSeconds, maxRequests) {
+  return (await consultarLimiteLogin(env, key, windowSeconds, maxRequests)).permitido;
 }
 async function enviarCodigoAcesso(env, email, codigo) {
   const response = await fetch(env.ATLAS_MAILER_URL, {
@@ -219,18 +222,28 @@ async function solicitarCodigoAcesso(request, env) {
   const emailKey = await hmacHex(env.ATLAS_MAILER_SECRET, 'email:' + email);
   const ip = request.headers.get('CF-Connecting-IP') || 'indisponivel';
   const ipKey = await hmacHex(env.ATLAS_MAILER_SECRET, 'ip:' + ip);
-  const permitEmail = await contarTentativaLogin(env, emailKey, 3600, 5);
-  const permitIp = await contarTentativaLogin(env, ipKey, 3600, 120);
-  if (!permitEmail || !permitIp) return { ok: true };
+  const limiteEmail = await consultarLimiteLogin(env, emailKey, 3600, 10);
+  const limiteIp = await consultarLimiteLogin(env, ipKey, 3600, 120);
+  if (!limiteEmail.permitido || !limiteIp.permitido) {
+    const minutos = Math.max(limiteEmail.permitido ? 0 : limiteEmail.aguardeMinutos,
+      limiteIp.permitido ? 0 : limiteIp.aguardeMinutos);
+    throw new HttpError(429, 'Muitas solicitações de código. Aguarde ' + minutos +
+      (minutos === 1 ? ' minuto' : ' minutos') + ' e tente novamente.');
+  }
+
+  // O intervalo vale também para endereços não cadastrados, evitando revelar cadastros.
+  const cooldownKey = await hmacHex(env.ATLAS_MAILER_SECRET, 'cooldown:' + email);
+  const intervalo = await consultarLimiteLogin(env, cooldownKey, 60, 1);
+  if (!intervalo.permitido) {
+    throw new HttpError(429, 'Aguarde ' + intervalo.aguardeMinutos +
+      (intervalo.aguardeMinutos === 1 ? ' minuto' : ' minutos') + ' antes de pedir outro código.');
+  }
 
   const user = await env.DB.prepare(
     "SELECT id, nome, email, disciplina, papel FROM usuarios " +
     "WHERE email = ? COLLATE NOCASE AND ativo = 1 AND papel IN ('professor','supervisor')"
   ).bind(email).first();
   if (!user) return { ok: true };
-
-  const cooldownKey = await hmacHex(env.ATLAS_MAILER_SECRET, 'cooldown:' + email);
-  if (!await contarTentativaLogin(env, cooldownKey, 60, 1)) return { ok: true };
 
   const codigo = gerarCodigoAcesso();
   const codigoHash = await hmacHex(env.ATLAS_MAILER_SECRET, 'codigo:' + user.id + ':' + codigo);
