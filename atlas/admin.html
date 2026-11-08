@@ -21,6 +21,7 @@
 <section class="panel"><h2>Avisos por e-mail</h2><p class="hint">Envia uma mensagem de teste somente para o e-mail do administrador.</p><button type="button" class="secondary" id="test-email">Testar aviso por e-mail</button><p class="status" id="test-email-status" role="status"></p></section>
 <section class="panel"><h2>Supervisores por disciplina</h2><p class="hint">Escolha um professor da disciplina ou cadastre um novo. Cada disciplina tem um supervisor.</p><div class="sup-grid" id="supervisors"></div></section>
 <section class="panel"><h2>Professores cadastrados</h2><p class="hint">A disciplina definida aqui será carregada no cadastro de questões. O Professor não escolhe a disciplina.</p><div class="summary" id="summary"></div><div class="toolbar"><input id="search" type="search" placeholder="Buscar por professor, e-mail ou disciplina"><button class="primary" id="add">+ Cadastrar novo professor</button></div><div class="table-wrap" id="list"></div></section>
+<section class="panel"><h2>Cópias de segurança</h2><p class="hint">O banco do ATLAS é copiado automaticamente todo dia às 3h17 (horário de Brasília) para o armazenamento R2. Ficam guardadas as 60 cópias mais recentes. As imagens já ficam guardadas no R2.</p><p id="backup-ultimo"></p><div class="toolbar"><button type="button" class="secondary" id="backup-agora">Fazer cópia agora</button><button type="button" class="secondary" id="backup-ver">Ver cópias guardadas</button></div><p class="status" id="backup-status" role="status"></p><div class="table-wrap" id="backup-lista" hidden style="max-height:320px;overflow:auto"></div></section>
 </main></div>
 
 <dialog id="dialog"><form id="teacher-form"><h2 id="dialog-title">Cadastrar novo professor</h2><input type="hidden" id="teacher-id"><input type="hidden" id="as-supervisor"><label for="name">Nome do professor</label><input id="name" required maxlength="120" placeholder="Nome e sobrenome"><label for="email">E-mail institucional</label><input id="email" type="text" inputmode="email" autocomplete="off" placeholder="nome.sobrenome@grupoideal.com.br"><p class="hint">Se digitar só a parte antes do @, completamos com @grupoideal.com.br.</p><label for="subject">Disciplina</label><select id="subject" required></select><p class="field-error" id="error" hidden></p><div class="dialog-actions"><button type="button" class="secondary" id="cancel">Cancelar</button><button type="submit" class="primary" id="save">Salvar cadastro</button></div></form></dialog>
@@ -58,7 +59,7 @@ async function showApp(email){
   status($('#app-status'),'Carregando professores…');
   const data=await api('/api/adm/professores');subjects=data.disciplinas||subjects;teachers=data.professores||[];
   subject.replaceChildren(new Option('Selecione a disciplina',''),...subjects.map(s=>new Option(s,s)));
-  status($('#app-status'),'');render();
+  status($('#app-status'),'');render();carregarBackups(false);
 }
 function byName(a,b){return String(a.nome).localeCompare(String(b.nome),'pt-BR',{sensitivity:'base'})}
 function render(){
@@ -83,6 +84,19 @@ function openEdit(id){const t=teachers.find(x=>x.id===id);if(!t)return;$('#dialo
 function openNew(presetSubject='',asSupervisor=false){form.reset();$('#dialog-title').textContent=asSupervisor?`Cadastrar supervisor de ${presetSubject}`:'Cadastrar novo professor';$('#teacher-id').value='';$('#as-supervisor').value=asSupervisor?presetSubject:'';subject.value=presetSubject;subject.disabled=asSupervisor;$('#error').hidden=true;dialog.showModal()}
 $('#add').addEventListener('click',()=>openNew());$('#cancel').addEventListener('click',()=>dialog.close());search.addEventListener('input',render);
 $('#logout').addEventListener('click',async()=>{try{await api('/api/adm/sair',{method:'POST',body:{}})}catch{}setToken('');try{google.accounts.id.disableAutoSelect()}catch{}showLogin('Você saiu da Administração.',false)});
+function tamanho(b){return b>1048576?(b/1048576).toFixed(1).replace('.',',')+' MB':Math.max(1,Math.round(b/1024))+' KB'}
+function dataBackup(b){const d=new Date(b.criado_em||b.nome.replace(/^atlas-(\d{4}-\d{2}-\d{2})T(\d{2})-(\d{2})-(\d{2})Z\.json$/,'$1T$2:$3:$4Z'));return Number.isNaN(d.getTime())?b.nome:d.toLocaleString('pt-BR')}
+async function carregarBackups(mostrar){try{const d=await api('/api/adm/backups');const ult=d.backups[0];$('#backup-ultimo').textContent=ult?'Última cópia: '+dataBackup(ult)+' ('+tamanho(ult.bytes)+').':'Ainda não há nenhuma cópia. A primeira automática sai na próxima madrugada; se quiser, faça uma agora.';
+  if(!mostrar)return;const box=$('#backup-lista');box.hidden=false;box.replaceChildren();if(!d.backups.length){box.textContent='Nenhuma cópia guardada.';return}
+  const t=document.createElement('table');t.innerHTML='<thead><tr><th>Data</th><th>Tamanho</th><th></th></tr></thead>';const tb=document.createElement('tbody');
+  for(const b of d.backups){const tr=document.createElement('tr');const c1=document.createElement('td');c1.textContent=dataBackup(b);const c2=document.createElement('td');c2.textContent=tamanho(b.bytes);const c3=document.createElement('td');const bt=document.createElement('button');bt.className='secondary';bt.textContent='Baixar';bt.addEventListener('click',()=>baixarBackup(b.nome,bt));c3.append(bt);tr.append(c1,c2,c3);tb.append(tr)}
+  t.append(tb);box.append(t)}catch(e){if(e.message!=='__sessao__')status($('#backup-status'),e.message,true)}}
+async function baixarBackup(nome,bt){bt.disabled=true;try{const r=await fetch(API+'/api/adm/backups/'+encodeURIComponent(nome),{headers:{Authorization:'Bearer '+getToken()},cache:'no-store'});if(!r.ok){const d=await r.json().catch(()=>({}));throw new Error(d.error||'Não foi possível baixar.')}
+  const blob=await r.blob();const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=nome;document.body.append(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},2000)}catch(e){status($('#backup-status'),e.message,true)}finally{bt.disabled=false}}
+$('#backup-agora').addEventListener('click',async()=>{const b=$('#backup-agora');b.disabled=true;status($('#backup-status'),'Fazendo a cópia…');
+  try{const d=await api('/api/adm/backups',{method:'POST',body:{}});status($('#backup-status'),'Cópia feita: '+d.backup.itens+' questão(ões), '+tamanho(d.backup.bytes)+'.');await carregarBackups(!$('#backup-lista').hidden)}
+  catch(e){if(e.message!=='__sessao__')status($('#backup-status'),e.message,true)}finally{b.disabled=false}});
+$('#backup-ver').addEventListener('click',()=>carregarBackups(true));
 $('#test-email').addEventListener('click',async()=>{
   const button=$('#test-email'),out=$('#test-email-status');button.disabled=true;status(out,'Enviando teste…');
   try{const data=await api('/api/adm/avisos/testar',{method:'POST',body:{}});status(out,data.mensagem)}
