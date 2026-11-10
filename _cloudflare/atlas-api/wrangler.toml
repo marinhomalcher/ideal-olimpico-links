@@ -16,6 +16,11 @@ ADMIN_EMAIL = "marinhomalcher@gmail.com"
 ATLAS_MAILER_URL = "https://script.google.com/macros/s/AKfycbwM3QE2lKUst-rl4qMR_tF7P7mGewmXImPlBcCpqyRpxGndZNOX9mM_yCAmPJU_VmE00A/exec"
 # Avisos por e-mail (aprovação, ajuste, descarte, consertos). O Apps Script deve aceitar tipo "aviso" antes da implantação.
 ATLAS_AVISOS_ATIVOS = "1"
+# Envio pela Microsoft como olimpiadas@grupoideal.com.br (aplicativo "ATLAS - envio de e-mails" no Entra ID).
+# O segredo do aplicativo fica só no painel da Cloudflare, como MS_CLIENT_SECRET. Sem ele, o Apps Script continua enviando.
+MS_TENANT_ID = "84ccf0a0-7901-47f8-9c1a-4a4b95689d19"
+MS_CLIENT_ID = "ffae919b-7e6c-4109-969c-d969abd48beb"
+MS_REMETENTE = "olimpiadas@grupoideal.com.br"
 
 [[d1_databases]]
 binding = "DB"
