@@ -204,20 +204,72 @@ async function consultarLimiteLogin(env, key, windowSeconds, maxRequests) {
 async function contarTentativaLogin(env, key, windowSeconds, maxRequests) {
   return (await consultarLimiteLogin(env, key, windowSeconds, maxRequests)).permitido;
 }
-async function enviarCodigoAcesso(env, email, codigo) {
-  const response = await fetch(env.ATLAS_MAILER_URL, {
+// ---------- envio de e-mail pela Microsoft (Graph), como olimpiadas@grupoideal.com.br ----------
+// Configuração: MS_TENANT_ID, MS_CLIENT_ID e MS_REMETENTE em [vars]; MS_CLIENT_SECRET como segredo no painel.
+// O aplicativo só tem "Application Mail.Send" restrito à caixa do remetente (RBAC for Applications no Exchange).
+// Sem MS_CLIENT_SECRET, ou se a Microsoft recusar, usa o enviador antigo (Apps Script) como reserva.
+let tokenMicrosoft = null; // { valor, expira } — reaproveitado entre pedidos na mesma instância
+function microsoftConfigurado(env) {
+  return !!(env.MS_TENANT_ID && env.MS_CLIENT_ID && env.MS_CLIENT_SECRET && env.MS_REMETENTE);
+}
+async function tokenDaMicrosoft(env) {
+  if (tokenMicrosoft && tokenMicrosoft.cliente === env.MS_CLIENT_ID && tokenMicrosoft.expira > Date.now() + 60000) return tokenMicrosoft.valor;
+  const resp = await fetch('https://login.microsoftonline.com/' + encodeURIComponent(env.MS_TENANT_ID) + '/oauth2/v2.0/token', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ segredo: env.ATLAS_MAILER_SECRET, email, codigo })
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({ client_id: env.MS_CLIENT_ID, client_secret: env.MS_CLIENT_SECRET,
+      scope: 'https://graph.microsoft.com/.default', grant_type: 'client_credentials' }).toString()
   });
-  let result = null;
-  try { result = await response.json(); } catch {}
-  if (!response.ok || result?.ok !== true) {
-    throw new HttpError(502, 'Não foi possível enviar o código. Tente novamente mais tarde.');
+  const dados = await resp.json().catch(() => ({}));
+  if (!resp.ok || !dados.access_token) throw new Error('token Microsoft recusado (' + resp.status + ' ' + (dados.error || '') + ')');
+  tokenMicrosoft = { valor: dados.access_token, cliente: env.MS_CLIENT_ID, expira: Date.now() + Number(dados.expires_in || 3000) * 1000 };
+  return tokenMicrosoft.valor;
+}
+async function enviarPelaMicrosoft(env, para, assunto, texto) {
+  const token = await tokenDaMicrosoft(env);
+  const resp = await fetch('https://graph.microsoft.com/v1.0/users/' + encodeURIComponent(env.MS_REMETENTE) + '/sendMail', {
+    method: 'POST',
+    headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      message: { subject: assunto, body: { contentType: 'Text', content: texto }, toRecipients: [{ emailAddress: { address: para } }] },
+      saveToSentItems: true
+    })
+  });
+  if (resp.status !== 202) {
+    const erro = await resp.json().catch(() => ({}));
+    if (resp.status === 401) tokenMicrosoft = null;
+    throw new Error('envio Microsoft recusado (' + resp.status + ' ' + (erro?.error?.code || '') + ')');
   }
 }
+// Envio único usado por códigos e avisos. Devolve true se algum caminho aceitou.
+async function enviarEmail(env, para, assunto, texto, reservaAppsScript) {
+  if (microsoftConfigurado(env)) {
+    try { await enviarPelaMicrosoft(env, para, assunto, texto); return true; }
+    catch (error) { console.warn('ATLAS e-mail pela Microsoft falhou; tentando o enviador reserva:', error && error.message); }
+  }
+  return reservaAppsScript ? await reservaAppsScript() : false;
+}
+
+async function enviarCodigoAcesso(env, email, codigo) {
+  const assunto = 'Seu código de acesso ao ATLAS';
+  const texto = 'Seu código para entrar no ATLAS é: ' + codigo +
+    '\n\nEle expira em 10 minutos. Se você não solicitou este código, ignore esta mensagem.\n\n' + LINK_ATLAS;
+  const ok = await enviarEmail(env, email, assunto, texto, async () => {
+    if (!env.ATLAS_MAILER_URL) return false;
+    try {
+      const response = await fetch(env.ATLAS_MAILER_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ segredo: env.ATLAS_MAILER_SECRET, email, codigo })
+      });
+      const result = await response.json().catch(() => null);
+      return response.ok && result?.ok === true;
+    } catch { return false; }
+  });
+  if (!ok) throw new HttpError(502, 'Não foi possível enviar o código. Tente novamente mais tarde.');
+}
 async function solicitarCodigoAcesso(request, env) {
-  if (!env.ATLAS_MAILER_URL || !env.ATLAS_MAILER_SECRET) {
+  if (!env.ATLAS_MAILER_SECRET || (!env.ATLAS_MAILER_URL && !microsoftConfigurado(env))) {
     throw new HttpError(503, 'O envio de códigos ainda não está configurado.');
   }
   const body = await readJson(request);
@@ -720,27 +772,27 @@ async function rotasSupervisor(request, env, path, url) {
 }
 
 // ---------- avisos por e-mail ----------
-// Só envia quando ATLAS_AVISOS_ATIVOS = "1" (o Apps Script precisa aceitar o tipo "aviso").
+// Só envia quando ATLAS_AVISOS_ATIVOS = "1". Sai pela Microsoft (olimpiadas@) e, se falhar, pelo Apps Script.
 // Uma falha no envio nunca desfaz a ação que gerou o aviso.
 function avisar(env, para, assunto, texto) {
   if (env.ATLAS_AVISOS_ATIVOS !== '1') return;
-  if (!env.ATLAS_MAILER_URL || !env.ATLAS_MAILER_SECRET || !para) {
+  if (!para || (!microsoftConfigurado(env) && (!env.ATLAS_MAILER_URL || !env.ATLAS_MAILER_SECRET))) {
     console.warn('ATLAS aviso não enviado: configuração ou destinatário ausente.');
     return;
   }
-  const envio = fetch(env.ATLAS_MAILER_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ segredo: env.ATLAS_MAILER_SECRET, tipo: 'aviso', email: para, assunto, texto })
-  }).then(async response => {
-    let resultado = null;
-    try { resultado = await response.json(); } catch {}
-    if (!response.ok || resultado?.ok !== true) {
-      console.warn('ATLAS aviso recusado pelo mailer:', response.status, resultado?.erro || 'resposta inválida');
-    }
-  }).catch(() => {
-    console.warn('ATLAS aviso não enviado: falha de conexão com o mailer.');
-  });
+  const envio = enviarEmail(env, para, assunto, texto, async () => {
+    if (!env.ATLAS_MAILER_URL || !env.ATLAS_MAILER_SECRET) return false;
+    try {
+      const response = await fetch(env.ATLAS_MAILER_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ segredo: env.ATLAS_MAILER_SECRET, tipo: 'aviso', email: para, assunto, texto })
+      });
+      const resultado = await response.json().catch(() => null);
+      if (!response.ok || resultado?.ok !== true) console.warn('ATLAS aviso recusado pelo mailer:', response.status, resultado?.erro || 'resposta inválida');
+      return response.ok && resultado?.ok === true;
+    } catch { console.warn('ATLAS aviso não enviado: falha de conexão com o mailer.'); return false; }
+  }).then(ok => { if (!ok) console.warn('ATLAS aviso não enviado por nenhum caminho.'); });
   if (env.__ctx && typeof env.__ctx.waitUntil === 'function') env.__ctx.waitUntil(envio);
 }
 const LINK_ATLAS = 'https://idealolimpico.com.br/atlas/';
@@ -1308,7 +1360,7 @@ export default {
     try {
       if (url.pathname === '/api/saude' && request.method === 'GET') {
         const row = await env.DB.prepare("SELECT valor FROM meta WHERE chave = 'schema_versao'").first();
-        return reply({ ok: true, modo: 'teste', banco: 'conectado', schema: row ? row.valor : null, avisos_ativos: env.ATLAS_AVISOS_ATIVOS === '1' }, 200, origin);
+        return reply({ ok: true, modo: 'teste', banco: 'conectado', schema: row ? row.valor : null, avisos_ativos: env.ATLAS_AVISOS_ATIVOS === '1', envio: microsoftConfigurado(env) ? 'microsoft' : 'apps-script' }, 200, origin);
       }
       if (url.pathname === '/api/login/codigo' && request.method === 'POST') {
         if (!ALLOWED_ORIGINS.includes(origin)) throw new HttpError(403, 'Origem não permitida.');
