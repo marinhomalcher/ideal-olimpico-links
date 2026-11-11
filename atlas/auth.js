@@ -70,7 +70,7 @@ window.ATLAS_API = async function (path, { method = 'GET', body, raw } = {}) {
     location.replace('index.html?perfil=' + encodeURIComponent(perfil));
     throw new Error('Sessão expirada. Entre novamente.');
   }
-  if (!response.ok || data.ok !== true) throw new Error(data.error || 'A operação falhou. Tente novamente.');
+  if (!response.ok || data.ok !== true) { const erro = new Error(data.error || 'A operação falhou. Tente novamente.'); erro.dados = data; erro.status = response.status; throw erro; }
   return data;
 };
 

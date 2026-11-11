@@ -49,6 +49,7 @@ dialog .modal-actions{display:flex;justify-content:flex-end;gap:9px;margin-top:1
 .newsel input[type=text]{width:100%;max-width:420px;border:1px solid #d8cdd0;border-radius:8px;padding:9px 10px;font:inherit}
 .sit{display:inline-block;border-radius:999px;padding:2px 9px;font-size:12px;font-weight:bold;background:#f1eced;color:#5c5054}.sit.enviada{background:#eef1fb;color:#2e4b8f}.sit.aplicada{background:#e6f4ea;color:#1f6b35}.sit.rascunho{background:#fff4dc;color:#7a5600}
 dialog.preview-dialog{width:min(860px,calc(100% - 30px));max-height:88vh;overflow:auto}
+.grupo-bloco{border:2px solid #e8cdd1;border-radius:11px;padding:8px;margin-bottom:10px;background:#fffafa}.grupo-titulo{font-size:12px;font-weight:bold;color:#7a1219;margin:2px 4px 8px}
 .savestate{font-size:12px;color:var(--muted);margin-left:8px}
 
 aside a+a{margin-top:6px}aside a:not(.atual){background:transparent}
@@ -154,11 +155,18 @@ function cartao(i,{ordem,botoes}){const d=document.createElement('div');d.classN
   d.querySelector('.snip').textContent=textoPuro(i.comando);d.querySelectorAll('.qtags .atlas-tag-view').forEach(c=>{c.style.cursor='pointer';c.title='Buscar questões com esta tag';c.addEventListener('click',()=>{$('#f-q').value=c.textContent.replace(/^#/,'');buscar()})});const bx=d.querySelector('.btns');
   const ver=document.createElement('button');ver.className='secondary';ver.textContent='Ver questão';ver.addEventListener('click',()=>verQuestao(i.codigo));bx.append(ver);
   for(const [txt,cls,fn,dis] of botoes){const b=document.createElement('button');b.className=cls;b.textContent=txt;b.disabled=!!dis;b.addEventListener('click',fn);bx.append(b)}return d}
+function grupoDe(c){const i=cacheBanco.get(c);return i&&i.grupo?i.grupo.codigo:null}
+// Blocos: cada questão solta é um bloco; as questões de um mesmo grupo (testlet) formam um bloco só.
+function blocos(){const out=[];for(const c of escolhidas){const g=grupoDe(c);const ult=out[out.length-1];if(g&&ult&&ult.grupo===g)ult.codigos.push(c);else out.push({grupo:g,codigos:[c]})}return out}
 function desenharEscolhidas(){const box=$('#escolhidas');box.replaceChildren();$('#qtd').textContent=escolhidas.length;
   if(!escolhidas.length){box.innerHTML='<div class="empty">Nenhuma questão ainda. Adicione pelo banco ao lado.</div>';return}
-  escolhidas.forEach((c,k)=>{const i=cacheBanco.get(c)||{codigo:c};box.append(cartao(i,{ordem:k+1,botoes:[
-    ['↑','secondary',()=>mover(k,-1),k===0],['↓','secondary',()=>mover(k,1),k===escolhidas.length-1],['Retirar','secondary',()=>{escolhidas.splice(k,1);salvar()}]]}))})}
-function mover(k,d){const j=k+d;[escolhidas[k],escolhidas[j]]=[escolhidas[j],escolhidas[k]];salvar()}
+  const bl=blocos();let n=0;
+  bl.forEach((b,k)=>{const acoes=[['↑','secondary',()=>moverBloco(k,-1),k===0],['↓','secondary',()=>moverBloco(k,1),k===bl.length-1],[b.grupo?'Retirar o grupo':'Retirar','secondary',()=>{escolhidas=escolhidas.filter(c=>!b.codigos.includes(c));salvar()}]];
+    if(b.grupo){const caixa=document.createElement('div');caixa.className='grupo-bloco';const t=document.createElement('div');t.className='grupo-titulo';t.textContent='Grupo '+b.grupo+' — texto compartilhado pelas questões '+(n+1)+' a '+(n+b.codigos.length);caixa.append(t);
+      b.codigos.forEach((c,j)=>{n++;caixa.append(cartao(cacheBanco.get(c)||{codigo:c},{ordem:n,botoes:j===0?acoes:[]}))});box.append(caixa)}
+    else{n++;box.append(cartao(cacheBanco.get(b.codigos[0])||{codigo:b.codigos[0]},{ordem:n,botoes:acoes}))}})}
+function moverBloco(k,d){const bl=blocos();const j=k+d;[bl[k],bl[j]]=[bl[j],bl[k]];escolhidas=bl.flatMap(b=>b.codigos);salvar()}
+function adicionar(i){if(i.grupo){const membros=ultimoBanco.filter(x=>x.grupo&&x.grupo.codigo===i.grupo.codigo).sort((a,b)=>(a.grupo.ordem||0)-(b.grupo.ordem||0)).map(x=>x.codigo);for(const c of membros)if(!escolhidas.includes(c))escolhidas.push(c)}else escolhidas.push(i.codigo);salvar()}
 let ultimoBanco=[];
 async function buscar(){if(!atual||atual.situacao!=='rascunho')return;const p=new URLSearchParams({selecao:atual.id});
   for(const [k,id] of [['assunto','#f-assunto'],['dificuldade','#f-dificuldade'],['origem','#f-origem'],['bloom','#f-bloom'],['q','#f-q']]){const v=$(id).value.trim();if(v)p.set(k,v)}
@@ -168,7 +176,7 @@ async function buscar(){if(!atual||atual.situacao!=='rascunho')return;const p=ne
 function desenharBanco(mais){const box=$('#banco');box.replaceChildren();const lista=ultimoBanco.filter(i=>!escolhidas.includes(i.codigo));
   $('#banco-info').textContent=lista.length?('Questões disponíveis para '+serieTipo(atual)+': '+lista.length+(mais?' (mostrando as primeiras; use os filtros)':'')+'. Já usadas para esta turma não aparecem.'):'';
   if(!lista.length){box.innerHTML='<div class="empty">Nenhuma questão disponível com estes filtros.</div>';return}
-  for(const i of lista)box.append(cartao(i,{botoes:[['Adicionar','primary',()=>{escolhidas.push(i.codigo);salvar()}]]}))}
+  const vistosG=new Set();for(const i of lista){if(i.grupo){if(vistosG.has(i.grupo.codigo))continue;vistosG.add(i.grupo.codigo);const membros=lista.filter(x=>x.grupo&&x.grupo.codigo===i.grupo.codigo).sort((a,b)=>(a.grupo.ordem||0)-(b.grupo.ordem||0));const caixa=document.createElement('div');caixa.className='grupo-bloco';const t=document.createElement('div');t.className='grupo-titulo';t.textContent='Grupo '+i.grupo.codigo+' — '+membros.length+' questões com o mesmo texto-base (entram juntas)';caixa.append(t);membros.forEach((m,j)=>caixa.append(cartao(m,{botoes:j===0?[['Adicionar o grupo ('+membros.length+' questões)','primary',()=>adicionar(m)]]:[]})));box.append(caixa)}else box.append(cartao(i,{botoes:[['Adicionar','primary',()=>adicionar(i)]]}))}}
 async function salvar(extra={}){desenharEscolhidas();desenharBanco();$('#savestate').textContent='Salvando…';
   const corpo={itens:escolhidas,serie:Number($('#sel-serie').value),tipo:$('#sel-tipo').value,titulo:$('#sel-nome').value,...extra};
   salvando=salvando.then(async()=>{try{await ATLAS_API('/api/supervisor/selecoes/'+atual.id,{method:'PUT',body:corpo});$('#savestate').textContent='Salvo';return true}
