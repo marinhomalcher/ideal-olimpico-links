@@ -18,6 +18,7 @@ footer{background:#eaf0f6;border-top:1px solid #dce3ec;padding:18px 24px;text-al
 .overlay{position:fixed;inset:0;background:#0c1729a6;display:none;place-items:center;padding:20px;z-index:2}.overlay.open{display:grid}.dialog{width:min(440px,100%);background:white;border-radius:16px;padding:28px;box-shadow:0 24px 70px #07122655;position:relative}.close{position:absolute;right:17px;top:14px;border:0;background:transparent;font-size:24px;color:#64748b;cursor:pointer}.dialog .icon{margin-bottom:14px}.dialog h2{margin:0 0 6px;color:var(--navy)}.dialog p{color:var(--muted);font-size:14px;margin:0 0 20px}.dialog label{display:block;font-size:13px;font-weight:700;margin-bottom:6px}.dialog input{width:100%;padding:12px;border:1px solid #cbd5e1;border-radius:8px;font:inherit;margin-bottom:14px}.dialog input:focus{outline:3px solid #284c8e24;border-color:var(--blue)}.demo{font-size:12px!important;padding:10px 12px;background:#fff8e8;border:1px solid #f0d7a8;border-radius:8px;color:#775317!important;margin:14px 0 0!important}
 .login-status{min-height:20px;margin:10px 0!important;color:#a21923!important}.login-status.info{color:#46616c!important}.remember{display:flex!important;align-items:center;gap:9px;margin:2px 0 14px!important;font-weight:normal!important}.remember input{width:auto!important;margin:0!important}.code-step[hidden],.email-step[hidden]{display:none}.email-field{display:flex;align-items:center;border:1px solid #cbd5e1;border-radius:8px;margin-bottom:14px;overflow:hidden}.dialog .email-field input{min-width:0;flex:1;width:auto;border:0;border-radius:0;margin:0;outline:0}.email-field:focus-within{outline:3px solid #b21d2724;border-color:var(--blue)}.email-field span{padding:12px 11px 12px 0;white-space:nowrap;color:#66585d;font-size:14px;user-select:none}.dialog .email-field input:focus{outline:0}
 @media(max-width:760px){main{padding:46px 0}.cards{grid-template-columns:1fr;max-width:500px;margin:auto}.card{min-height:0}.intro{margin-bottom:28px}.intro p{font-size:15px}}
+.sessao-ativa{display:flex;align-items:center;justify-content:center;gap:12px;flex-wrap:wrap;max-width:760px;margin:0 auto 18px;padding:10px 14px;border:1px solid #cfe3d4;background:#f1faf3;color:#1f5130;border-radius:10px;font-size:14px}.sessao-ativa button{border:1px solid #9cc7a8;background:#fff;color:#1f5130;border-radius:8px;padding:5px 12px;font-weight:bold;cursor:pointer}
 </style>
 </head>
 <body>
@@ -42,11 +43,24 @@ let role='Professor',requestedEmail='';
 function setStatus(message,info=false){loginStatus.textContent=message;loginStatus.classList.toggle('info',info)}
 function resetSteps(){emailStep.hidden=false;codeStep.hidden=true;code.value='';requestedEmail='';setStatus('')}
 function closeDialog(){overlay.classList.remove('open');resetSteps()}
-document.querySelectorAll('[data-role]').forEach(button=>button.addEventListener('click',()=>{
+// Sessão guardada (inclusive a de 7 dias): se ainda vale, entra direto, sem pedir código.
+async function sessaoSalva(){let saved;try{saved=JSON.parse(sessionStorage.getItem('atlas_user_auth')||localStorage.getItem('atlas_user_auth')||'null')}catch{return null}
+  if(!saved?.token||!saved?.expira_em||Date.parse(saved.expira_em)<=Date.now())return null;
+  try{const r=await fetch(API+'/api/login/sessao',{headers:{Authorization:'Bearer '+saved.token},cache:'no-store'});const d=await r.json().catch(()=>({}));if(r.ok&&d.ok&&d.usuario)return d.usuario}catch{return null}
+  sessionStorage.removeItem('atlas_user_auth');localStorage.removeItem('atlas_user_auth');return null}
+document.querySelectorAll('[data-role]').forEach(button=>button.addEventListener('click',async()=>{
   role=button.dataset.role;
   if(role==='Administrador'){location.href='admin.html';return}
+  if(button.dataset.verificando)return;button.dataset.verificando='1';
+  const usuario=await sessaoSalva();delete button.dataset.verificando;
+  if(usuario){location.href=(role==='Supervisor'&&usuario.papel==='supervisor')?'supervisor.html':'professor.html';return}
   title.textContent=`Acesso do ${role}`;resetSteps();overlay.classList.add('open');email.focus();
 }));
+// Aviso no topo quando já há sessão válida.
+sessaoSalva().then(u=>{if(!u)return;const box=document.createElement('div');box.className='sessao-ativa';box.setAttribute('role','status');
+  const txt=document.createElement('span');txt.textContent='Você está conectado como '+u.nome+(u.papel==='supervisor'?' (Supervisor de '+u.disciplina+')':' ('+u.disciplina+')')+'.';
+  const sair=document.createElement('button');sair.type='button';sair.textContent='Sair';sair.addEventListener('click',async()=>{let saved;try{saved=JSON.parse(sessionStorage.getItem('atlas_user_auth')||localStorage.getItem('atlas_user_auth')||'null')}catch{}sessionStorage.removeItem('atlas_user_auth');localStorage.removeItem('atlas_user_auth');try{if(saved?.token)await fetch(API+'/api/login/sair',{method:'POST',headers:{Authorization:'Bearer '+saved.token},cache:'no-store'})}catch{}box.remove()});
+  box.append(txt,sair);document.querySelector('main')?.prepend(box)});
 document.querySelector('.close').addEventListener('click',closeDialog);
 overlay.addEventListener('click',event=>{if(event.target===overlay)closeDialog()});
 document.addEventListener('keydown',event=>{if(event.key==='Escape')closeDialog()});
