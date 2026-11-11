@@ -116,7 +116,7 @@ function textoPuro(html){const t=document.createElement('template');t.innerHTML=
 function questaoHTML(d){const body=v=>AtlasRich.clean(v||'');let html='<div class="question">';
   if(d['texto-base'])html+='<div class="stem">'+body(d['texto-base'])+'</div>';if(d.referencia)html+='<p class="hint">'+escapeHTML(d.referencia)+'</p>';
   const command=body(d.comando);html+='<div class="stem">'+(command.includes('class="atlas-latex-document"')?command:'<b>'+command+'</b>')+'</div>';
-  for(const l of 'abcde')html+='<div class="choice"><b>'+l.toUpperCase()+'.</b> '+body(d['alt-'+l])+'</div>';
+  for(const l of 'abcde')html+='<div class="choice"><b>'+l.toUpperCase()+')</b> '+body(d['alt-'+l])+'</div>';
   html+='<p class="hint">Gabarito: '+escapeHTML(d.gabarito)+'</p>';if(d.resolucao)html+='<div class="stem"><b>Resolução e comentários:</b><br>'+body(d.resolucao)+'</div>';return html+'</div>'}
 function serieTipo(s){return s.serie+'ª série '+s.tipo}
 function usoTexto(u){return u.situacao==='aplicada'?'Aplicada: '+u.serie+'ª '+u.tipo+' '+u.ano:'Na seleção #'+u.selecao+' ('+u.serie+'ª '+u.tipo+', enviada)'}
