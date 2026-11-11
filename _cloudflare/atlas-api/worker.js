@@ -591,7 +591,7 @@ async function usuarioDaSessao(request, env) {
 }
 
 const SQL_RESUMO_ITEM =
-  'SELECT i.id, i.codigo, i.disciplina, i.situacao, i.versao_atual, i.criado_em, i.atualizado_em, ' +
+  'SELECT i.id, i.codigo, i.disciplina, i.situacao, i.versao_atual, i.criado_em, i.atualizado_em, i.grupo_id, i.ordem_grupo, (SELECT gg.codigo FROM grupos gg WHERE gg.id = i.grupo_id) AS grupo_codigo, ' +
   'u.nome AS autor, json_extract(v.dados, \'$.assunto\') AS assunto, json_extract(v.dados, \'$.tags\') AS tags, (v.autor_id <> i.autor_id AND ue.papel = \'supervisor\') AS editada_supervisor, (v.autor_id <> i.autor_id AND ue.papel = \'adm\') AS corrigida_adm, ' +
   '(SELECT r.motivo FROM revisoes r WHERE r.item_id = i.id ORDER BY r.id DESC LIMIT 1) AS ultimo_motivo, ' +
   '(SELECT r.decisao FROM revisoes r WHERE r.item_id = i.id ORDER BY r.id DESC LIMIT 1) AS ultima_decisao ' +
@@ -609,6 +609,178 @@ function podeVer(user, item, autorId) {
   return autorId === user.id || (user.papel === 'supervisor' && user.disciplina === item.disciplina);
 }
 
+// ---------- questões repetidas ----------
+// Assinatura = SHA-256 do texto-base + comando + alternativas, sem formatação, acentos, pontuação e espaços.
+// Imagens não entram (só o texto). Questão só com imagens fica sem assinatura (não dá para comparar).
+function textoPlano(html) {
+  return String(html || '')
+    .replace(/<span class="katex-mathml">[\s\S]*?<\/span>/g, ' ')
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'")
+    .normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .toLowerCase().replace(/[^a-z0-9]+/g, '');
+}
+async function assinaturaDe(dados) {
+  const partes = ['texto-base', 'comando', 'alt-a', 'alt-b', 'alt-c', 'alt-d', 'alt-e'].map(c => textoPlano(dados && dados[c]));
+  if (!partes.slice(1).join('')) return '';
+  return sha256Hex(partes.join('|'));
+}
+// Calcula a assinatura das questões da disciplina que ainda não têm (novas colunas ou texto alterado).
+async function preencherAssinaturas(env, disciplina) {
+  const { results } = await env.DB.prepare(
+    'SELECT i.id, i.grupo_id, v.dados FROM itens i JOIN item_versoes v ON v.item_id = i.id AND v.versao = i.versao_atual ' +
+    'WHERE i.disciplina = ? AND i.assinatura IS NULL LIMIT 300'
+  ).bind(disciplina).all();
+  const ops = [];
+  for (const r of results) {
+    const inj = await injetarGrupo(env, r.grupo_id, JSON.parse(r.dados));
+    ops.push(env.DB.prepare('UPDATE itens SET assinatura = ? WHERE id = ?').bind(await assinaturaDe(inj.dados), r.id));
+  }
+  for (let k = 0; k < ops.length; k += 50) await env.DB.batch(ops.slice(k, k + 50));
+}
+async function repetidasDe(env, disciplina, assinatura, excluirId = null) {
+  if (!assinatura) return [];
+  await preencherAssinaturas(env, disciplina);
+  const { results } = await env.DB.prepare(
+    "SELECT codigo, situacao FROM itens WHERE disciplina = ? AND assinatura = ? AND situacao <> 'descartado' AND id IS NOT ? ORDER BY id LIMIT 10"
+  ).bind(disciplina, assinatura, excluirId).all();
+  return results;
+}
+function erroRepetida(repetidas) {
+  const nomes = { analise: 'em análise', ajustes: 'aguardando ajuste', aprovado: 'aprovada', rascunho: 'rascunho' };
+  const e = new HttpError(409, 'Esta questão parece igual a outra que já está no banco: ' +
+    repetidas.map(r => r.codigo + ' (' + (nomes[r.situacao] || r.situacao) + ')').join(', ') + '.');
+  e.extra = { repetidas };
+  return e;
+}
+
+// ---------- grupos de questões (testlets) ----------
+// Um grupo tem um texto-base (e referência) compartilhado, com versões próprias em grupo_versoes.
+// Cada questão do grupo continua com código, versões e análise próprios; no banco, o texto-base dela fica vazio
+// e o servidor injeta o texto do grupo ao devolver a questão. Ao salvar, o texto volta para o grupo.
+const MIN_ITENS_GRUPO = 2, MAX_ITENS_GRUPO = 10;
+
+function gerarCodigoGrupo(disciplina) {
+  const letra = LETRA_DISCIPLINA[disciplina];
+  if (!letra) throw new HttpError(400, 'Disciplina sem código definido.');
+  const d = new Uint32Array(1); crypto.getRandomValues(d);
+  return 'G' + letra + String(100000 + (d[0] % 900000));
+}
+async function validarTextoGrupo(env, input) {
+  if (!input || typeof input !== 'object') throw new HttpError(400, 'Texto-base do grupo inválido.');
+  let texto = input['texto-base'];
+  const ref = input.referencia === undefined || input.referencia === null ? '' : input.referencia;
+  if (typeof texto !== 'string' || typeof ref !== 'string') throw new HttpError(400, 'Texto-base do grupo inválido.');
+  if (ref.length > 1000) throw new HttpError(400, 'Referência grande demais.');
+  texto = await normalizarImagens(env, texto);
+  if (HTML_PROIBIDO.test(texto)) throw new HttpError(400, 'O texto-base contém conteúdo não permitido.');
+  for (const img of texto.match(/<img\b[^>]*>/gi) || []) {
+    const src = (img.match(/\ssrc\s*=\s*"([^"]*)"/i) || [])[1] || '';
+    if (!/^data:image\/(png|jpeg|webp);base64,/i.test(src) && !/^atlas:img\/[0-9a-f]{32}$/.test(src)) {
+      throw new HttpError(400, 'O texto-base tem uma imagem de origem não permitida. Cole a imagem de novo.');
+    }
+  }
+  if (!texto.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim() && !/<img\b/i.test(texto)) {
+    throw new HttpError(400, 'Preencha o texto-base compartilhado do grupo.');
+  }
+  const json = JSON.stringify({ 'texto-base': texto, referencia: ref.trim() });
+  if (new TextEncoder().encode(json).length > MAX_ITEM_BYTES) throw new HttpError(413, 'O texto-base ficou grande demais.');
+  return json;
+}
+async function dadosDoGrupo(env, grupoId, versao = null) {
+  const g = await env.DB.prepare('SELECT id, codigo, versao_atual FROM grupos WHERE id = ?').bind(grupoId).first();
+  if (!g) return null;
+  const v = await env.DB.prepare('SELECT dados FROM grupo_versoes WHERE grupo_id = ? AND versao = ?').bind(g.id, versao || g.versao_atual).first();
+  const { results: membros } = await env.DB.prepare(
+    'SELECT codigo, situacao, ordem_grupo AS ordem FROM itens WHERE grupo_id = ? ORDER BY ordem_grupo, id'
+  ).bind(g.id).all();
+  return { id: g.id, codigo: g.codigo, versao: versao || g.versao_atual, versao_atual: g.versao_atual, dados: JSON.parse(v ? v.dados : '{}'), membros };
+}
+// Coloca no "dados" da questão o texto-base e a referência do grupo (para exibir e editar como antes).
+async function injetarGrupo(env, grupoId, dados, versao = null) {
+  if (!grupoId) return { dados, grupo: null };
+  const g = await dadosDoGrupo(env, grupoId, versao);
+  if (!g) return { dados, grupo: null };
+  return {
+    dados: { ...dados, 'texto-base': g.dados['texto-base'] || '', referencia: g.dados.referencia || '' },
+    grupo: { codigo: g.codigo, versao: g.versao, versao_atual: g.versao_atual, membros: g.membros }
+  };
+}
+// Ao salvar uma questão de grupo: separa o texto compartilhado. Se ele mudou, cria nova versão do grupo
+// (Professor/Supervisor só enquanto nenhuma questão do grupo estiver aprovada; o ADM sempre).
+async function gravacaoDoGrupo(env, item, dadosJson, autorId, papel) {
+  if (!item.grupo_id) return { dados: dadosJson, ops: [] };
+  const d = JSON.parse(dadosJson);
+  const textoNovo = { 'texto-base': d['texto-base'] || '', referencia: d.referencia || '' };
+  d['texto-base'] = ''; d.referencia = '';
+  const g = await dadosDoGrupo(env, item.grupo_id);
+  const ops = [];
+  if (g && (textoNovo['texto-base'] !== (g.dados['texto-base'] || '') || textoNovo.referencia !== (g.dados.referencia || ''))) {
+    if (papel !== 'adm' && g.membros.some(m => m.situacao === 'aprovado')) {
+      throw new HttpError(409, 'O texto-base é compartilhado com questões do grupo ' + g.codigo + ' que já foram aprovadas. Para mudá-lo, peça um conserto ao administrador.');
+    }
+    const textoJson = await validarTextoGrupo(env, textoNovo);
+    const nova = g.versao_atual + 1;
+    ops.push(
+      env.DB.prepare('INSERT INTO grupo_versoes (grupo_id, versao, dados, autor_id) VALUES (?, ?, ?, ?)').bind(g.id, nova, textoJson, autorId),
+      env.DB.prepare("UPDATE grupos SET versao_atual = ?, atualizado_em = strftime('%Y-%m-%dT%H:%M:%SZ','now') WHERE id = ? AND versao_atual = ?").bind(nova, g.id, g.versao_atual),
+      env.DB.prepare("INSERT INTO eventos (usuario_id, acao, detalhe) VALUES (?, 'grupo_texto_alterado', ?)").bind(autorId, JSON.stringify({ grupo: g.codigo, versao: nova, por: papel })),
+      env.DB.prepare('UPDATE itens SET assinatura = NULL WHERE grupo_id = ?').bind(g.id)
+    );
+  }
+  return { dados: JSON.stringify(d), ops };
+}
+// Enviar um grupo novo: texto compartilhado + 2 a 10 questões.
+async function criarGrupo(request, env, user) {
+  const body = await readJson(request, (MAX_ITEM_BYTES + 64 * 1024) * 3);
+  const textoJson = await validarTextoGrupo(env, body.texto || {});
+  const lista = Array.isArray(body.itens) ? body.itens : [];
+  if (lista.length < MIN_ITENS_GRUPO || lista.length > MAX_ITENS_GRUPO) {
+    throw new HttpError(400, 'Um grupo precisa ter de ' + MIN_ITENS_GRUPO + ' a ' + MAX_ITENS_GRUPO + ' questões.');
+  }
+  const dadosItens = [], assinaturas = [];
+  const textoGrupo = JSON.parse(textoJson);
+  for (let k = 0; k < lista.length; k++) {
+    try {
+      const d = JSON.parse(await validarDadosComImagens(env, { ...(lista[k] || {}), 'texto-base': '', referencia: '' }));
+      dadosItens.push(JSON.stringify(d));
+      assinaturas.push(await assinaturaDe({ ...d, 'texto-base': textoGrupo['texto-base'] }));
+    } catch (error) {
+      if (error instanceof HttpError) throw new HttpError(error.status, 'Questão ' + (k + 1) + ' do grupo: ' + error.message);
+      throw error;
+    }
+  }
+  if (body.confirmar_repetida !== true) {
+    const todas = [];
+    for (const a of assinaturas) for (const r of await repetidasDe(env, user.disciplina, a)) if (!todas.some(t => t.codigo === r.codigo)) todas.push(r);
+    if (todas.length) throw erroRepetida(todas);
+  }
+  for (let tentativa = 0; tentativa < 10; tentativa++) {
+    const codigoGrupo = gerarCodigoGrupo(user.disciplina);
+    const codigos = new Set();
+    while (codigos.size < dadosItens.length) codigos.add(gerarCodigoItem(user.disciplina));
+    const lista2 = [...codigos];
+    const ops = [
+      env.DB.prepare('INSERT INTO grupos (codigo, disciplina, autor_id) VALUES (?, ?, ?)').bind(codigoGrupo, user.disciplina, user.id),
+      env.DB.prepare('INSERT INTO grupo_versoes (grupo_id, versao, dados, autor_id) SELECT id, 1, ?, ? FROM grupos WHERE codigo = ?').bind(textoJson, user.id, codigoGrupo)
+    ];
+    lista2.forEach((codigo, k) => ops.push(
+      env.DB.prepare("INSERT INTO itens (codigo, disciplina, autor_id, situacao, versao_atual, grupo_id, ordem_grupo, assinatura) SELECT ?, ?, ?, 'analise', 1, id, ?, ? FROM grupos WHERE codigo = ?")
+        .bind(codigo, user.disciplina, user.id, k + 1, assinaturas[k], codigoGrupo),
+      env.DB.prepare('INSERT INTO item_versoes (item_id, versao, dados, autor_id) SELECT id, 1, ?, ? FROM itens WHERE codigo = ?').bind(dadosItens[k], user.id, codigo),
+      env.DB.prepare("INSERT INTO eventos (usuario_id, acao, item_id, detalhe) SELECT ?, 'item_enviado', id, ? FROM itens WHERE codigo = ?")
+        .bind(user.id, JSON.stringify({ codigo, versao: 1, grupo: codigoGrupo }), codigo)
+    ));
+    try {
+      await env.DB.batch(ops);
+      return { ok: true, grupo: { codigo: codigoGrupo, itens: lista2 } };
+    } catch (error) {
+      if (!/UNIQUE/i.test(String(error && error.message))) throw error;
+    }
+  }
+  throw new HttpError(503, 'Não foi possível gerar os códigos. Tente novamente.');
+}
+
 async function rotasItens(request, env, path) {
   const user = await usuarioDaSessao(request, env);
 
@@ -616,12 +788,17 @@ async function rotasItens(request, env, path) {
   if (path === '/api/itens' && request.method === 'POST') {
     const body = await readJson(request, MAX_ITEM_BYTES + 64 * 1024);
     const dados = await validarDadosComImagens(env, body.dados);
+    const assinatura = await assinaturaDe(JSON.parse(dados));
+    if (body.confirmar_repetida !== true) {
+      const repetidas = await repetidasDe(env, user.disciplina, assinatura);
+      if (repetidas.length) throw erroRepetida(repetidas);
+    }
     for (let tentativa = 0; tentativa < 10; tentativa++) {
       const codigo = gerarCodigoItem(user.disciplina);
       try {
         await env.DB.batch([
-          env.DB.prepare("INSERT INTO itens (codigo, disciplina, autor_id, situacao, versao_atual) VALUES (?, ?, ?, 'analise', 1)")
-            .bind(codigo, user.disciplina, user.id),
+          env.DB.prepare("INSERT INTO itens (codigo, disciplina, autor_id, situacao, versao_atual, assinatura) VALUES (?, ?, ?, 'analise', 1, ?)")
+            .bind(codigo, user.disciplina, user.id, assinatura),
           env.DB.prepare('INSERT INTO item_versoes (item_id, versao, dados, autor_id) SELECT id, 1, ?, ? FROM itens WHERE codigo = ?')
             .bind(dados, user.id, codigo),
           env.DB.prepare("INSERT INTO eventos (usuario_id, acao, item_id, detalhe) SELECT ?, 'item_enviado', id, ? FROM itens WHERE codigo = ?")
@@ -635,11 +812,13 @@ async function rotasItens(request, env, path) {
     throw new HttpError(503, 'Não foi possível gerar o código da questão. Tente novamente.');
   }
 
+  if (path === '/api/itens/grupo' && request.method === 'POST') return await criarGrupo(request, env, user);
+
   // Minhas questões
   if (path === '/api/itens/meus' && request.method === 'GET') {
     const { results } = await env.DB.prepare(SQL_RESUMO_ITEM + 'WHERE i.autor_id = ? ORDER BY i.atualizado_em DESC, i.id DESC LIMIT 300')
       .bind(user.id).all();
-    return { ok: true, itens: results.map(({ id, tags, ...r }) => ({ ...r, tags: tags ? JSON.parse(tags) : [] })) };
+    return { ok: true, itens: results.map(({ id, grupo_id, tags, ...r }) => ({ ...r, tags: tags ? JSON.parse(tags) : [] })) };
   }
 
   const match = path.match(/^\/api\/itens\/([A-Z]\d{7})$/);
@@ -658,8 +837,10 @@ async function rotasItens(request, env, path) {
     const { results: consertos } = await env.DB.prepare(
       'SELECT c.motivo, c.situacao, c.resposta, c.criado_em, c.resolvido_em, u.nome AS solicitante FROM consertos c JOIN usuarios u ON u.id = c.solicitante_id WHERE c.item_id = ? ORDER BY c.id'
     ).bind(item.id).all();
-    const { id, ...resumo } = item;
-    return { ok: true, item: { ...resumo, dados: JSON.parse(versao.dados), revisoes, versoes, consertos, e_autor: autorId === user.id } };
+    const { id, grupo_id, ...resumo } = item;
+    const inj = await injetarGrupo(env, grupo_id, JSON.parse(versao.dados));
+    const repetidas = await repetidasDe(env, item.disciplina, await assinaturaDe(inj.dados), item.id);
+    return { ok: true, item: { ...resumo, dados: inj.dados, grupo: inj.grupo, repetidas, revisoes, versoes, consertos, e_autor: autorId === user.id } };
   }
 
   // Reenviar após pedido de ajuste (só o autor; gera nova versão)
@@ -670,12 +851,14 @@ async function rotasItens(request, env, path) {
     if (item.situacao !== 'ajustes') throw new HttpError(409, 'Esta questão não está aguardando ajuste.');
     const body = await readJson(request, MAX_ITEM_BYTES + 64 * 1024);
     if (body.versao !== item.versao_atual) throw new HttpError(409, 'A questão mudou desde que você a abriu. Recarregue a página.');
-    const dados = await validarDadosComImagens(env, body.dados);
+    const grp = await gravacaoDoGrupo(env, item, await validarDadosComImagens(env, body.dados), user.id, 'professor');
+    const dados = grp.dados;
     const nova = item.versao_atual + 1;
     try {
       await env.DB.batch([
+        ...grp.ops,
         env.DB.prepare('INSERT INTO item_versoes (item_id, versao, dados, autor_id) VALUES (?, ?, ?, ?)').bind(item.id, nova, dados, user.id),
-        env.DB.prepare("UPDATE itens SET versao_atual = ?, situacao = 'analise', atualizado_em = strftime('%Y-%m-%dT%H:%M:%SZ','now') WHERE id = ? AND versao_atual = ? AND situacao = 'ajustes'")
+        env.DB.prepare("UPDATE itens SET versao_atual = ?, situacao = 'analise', assinatura = NULL, atualizado_em = strftime('%Y-%m-%dT%H:%M:%SZ','now') WHERE id = ? AND versao_atual = ? AND situacao = 'ajustes'")
           .bind(nova, item.id, item.versao_atual),
         env.DB.prepare("INSERT INTO eventos (usuario_id, acao, item_id, detalhe) VALUES (?, 'item_reenviado', ?, ?)")
           .bind(user.id, item.id, JSON.stringify({ codigo: item.codigo, versao: nova }))
@@ -700,7 +883,7 @@ async function rotasSupervisor(request, env, path, url) {
     if (!['analise', 'ajustes', 'aprovado', 'descartado'].includes(situacao)) throw new HttpError(400, 'Situação inválida.');
     const { results } = await env.DB.prepare(SQL_RESUMO_ITEM + 'WHERE i.disciplina = ? AND i.situacao = ? ORDER BY i.atualizado_em ASC, i.id ASC LIMIT 300')
       .bind(user.disciplina, situacao).all();
-    return { ok: true, disciplina: user.disciplina, itens: results.map(({ id, tags, ...r }) => ({ ...r, tags: tags ? JSON.parse(tags) : [] })) };
+    return { ok: true, disciplina: user.disciplina, itens: results.map(({ id, grupo_id, tags, ...r }) => ({ ...r, tags: tags ? JSON.parse(tags) : [] })) };
   }
 
   // Editar (correção pequena): nova versão feita pelo Supervisor; a questão continua em análise.
@@ -711,12 +894,14 @@ async function rotasSupervisor(request, env, path, url) {
     if (item.situacao !== 'analise') throw new HttpError(409, 'Só é possível editar questões em análise.');
     const body = await readJson(request, MAX_ITEM_BYTES + 64 * 1024);
     if (body.versao !== item.versao_atual) throw new HttpError(409, 'A questão mudou desde que você a abriu. Volte à fila e abra de novo.');
-    const dados = await validarDadosComImagens(env, body.dados);
+    const grp = await gravacaoDoGrupo(env, item, await validarDadosComImagens(env, body.dados), user.id, 'supervisor');
+    const dados = grp.dados;
     const nova = item.versao_atual + 1;
     try {
       await env.DB.batch([
+        ...grp.ops,
         env.DB.prepare('INSERT INTO item_versoes (item_id, versao, dados, autor_id) VALUES (?, ?, ?, ?)').bind(item.id, nova, dados, user.id),
-        env.DB.prepare("UPDATE itens SET versao_atual = ?, atualizado_em = strftime('%Y-%m-%dT%H:%M:%SZ','now') WHERE id = ? AND versao_atual = ? AND situacao = 'analise'")
+        env.DB.prepare("UPDATE itens SET versao_atual = ?, assinatura = NULL, atualizado_em = strftime('%Y-%m-%dT%H:%M:%SZ','now') WHERE id = ? AND versao_atual = ? AND situacao = 'analise'")
           .bind(nova, item.id, item.versao_atual),
         env.DB.prepare("INSERT INTO eventos (usuario_id, acao, item_id, detalhe) VALUES (?, 'item_editado_supervisor', ?, ?)")
           .bind(user.id, item.id, JSON.stringify({ codigo: item.codigo, versao: nova }))
@@ -851,8 +1036,10 @@ async function detalheCompleto(env, item) {
   const { results: consertos } = await env.DB.prepare(
     'SELECT c.id, c.motivo, c.situacao, c.resposta, c.criado_em, c.resolvido_em, u.nome AS solicitante FROM consertos c JOIN usuarios u ON u.id = c.solicitante_id WHERE c.item_id = ? ORDER BY c.id'
   ).bind(item.id).all();
-  const { id, ...resumo } = item;
-  return { ...resumo, dados: JSON.parse(versao.dados), revisoes, versoes, consertos, autor_id: autor.autor_id };
+  const { id, grupo_id, ...resumo } = item;
+  const inj = await injetarGrupo(env, grupo_id, JSON.parse(versao.dados));
+  const repetidas = await repetidasDe(env, item.disciplina, await assinaturaDe(inj.dados), item.id);
+  return { ...resumo, dados: inj.dados, grupo: inj.grupo, repetidas, revisoes, versoes, consertos, autor_id: autor.autor_id };
 }
 
 async function rotasAdmItens(request, env, path, sessao) {
@@ -915,7 +1102,8 @@ async function rotasAdmItens(request, env, path, sessao) {
     if (item.situacao !== 'aprovado') throw new HttpError(409, 'Só questões aprovadas são corrigidas pela Administração.');
     const body = await readJson(request, MAX_ITEM_BYTES + 64 * 1024);
     if (body.versao !== item.versao_atual) throw new HttpError(409, 'A questão mudou desde que você a abriu. Busque de novo.');
-    const dados = await validarDadosComImagens(env, body.dados);
+    const grp = await gravacaoDoGrupo(env, item, await validarDadosComImagens(env, body.dados), await admUsuarioId(env), 'adm');
+    const dados = grp.dados;
     const consertoId = body.conserto_id === undefined || body.conserto_id === null ? null : Number(body.conserto_id);
     let conserto = null;
     if (consertoId !== null) {
@@ -925,8 +1113,9 @@ async function rotasAdmItens(request, env, path, sessao) {
     const admId = await admUsuarioId(env);
     const nova = item.versao_atual + 1;
     const ops = [
+      ...grp.ops,
       env.DB.prepare('INSERT INTO item_versoes (item_id, versao, dados, autor_id) VALUES (?, ?, ?, ?)').bind(item.id, nova, dados, admId),
-      env.DB.prepare("UPDATE itens SET versao_atual = ?, atualizado_em = strftime('%Y-%m-%dT%H:%M:%SZ','now') WHERE id = ? AND versao_atual = ? AND situacao = 'aprovado'")
+      env.DB.prepare("UPDATE itens SET versao_atual = ?, assinatura = NULL, atualizado_em = strftime('%Y-%m-%dT%H:%M:%SZ','now') WHERE id = ? AND versao_atual = ? AND situacao = 'aprovado'")
         .bind(nova, item.id, item.versao_atual),
       env.DB.prepare("INSERT INTO eventos (usuario_id, acao, item_id, detalhe) VALUES (?, 'item_corrigido_adm', ?, ?)")
         .bind(admId, item.id, JSON.stringify({ adm: sessao.email, codigo: item.codigo, versao: nova, conserto: consertoId }))
@@ -965,12 +1154,20 @@ const SQL_ITEM_BLOQUEADO =
   "EXISTS (SELECT 1 FROM selecao_itens bi JOIN selecoes bs ON bs.id = bi.selecao_id " +
   "WHERE bi.item_id = i.id AND bs.situacao = 'aplicada' AND bs.tipo = ? AND bs.ano <= ? AND (bs.serie - bs.ano) = (? - ?))";
 
+// Questão de grupo só entra quando todas as questões do grupo (fora as descartadas) estão aprovadas
+// e nenhuma delas já foi usada para a turma. Use com .bind(..., tipo, ano, serie, ano).
+const SQL_GRUPO_DISPONIVEL =
+  "(i.grupo_id IS NULL OR (NOT EXISTS (SELECT 1 FROM itens g2 WHERE g2.grupo_id = i.grupo_id AND g2.situacao NOT IN ('aprovado','descartado')) " +
+  "AND NOT EXISTS (SELECT 1 FROM itens g3 WHERE g3.grupo_id = i.grupo_id AND g3.situacao = 'aprovado' AND " +
+  SQL_ITEM_BLOQUEADO.replace('bi.item_id = i.id', 'bi.item_id = g3.id') + ")))";
+
 const SQL_ITEM_BANCO =
   "SELECT i.id, i.codigo, i.versao_atual, u.nome AS autor, " +
   "json_extract(v.dados, '$.assunto') AS assunto, json_extract(v.dados, '$.subtema') AS subtema, " +
   "json_extract(v.dados, '$.dificuldade') AS dificuldade, json_extract(v.dados, '$.origem') AS origem, " +
   "json_extract(v.dados, '$.fonte') AS fonte, json_extract(v.dados, '$.bloom') AS bloom, " +
-  "json_extract(v.dados, '$.gabarito') AS gabarito, json_extract(v.dados, '$.tags') AS tags, substr(json_extract(v.dados, '$.comando'), 1, 800) AS comando " +
+  "json_extract(v.dados, '$.gabarito') AS gabarito, json_extract(v.dados, '$.tags') AS tags, substr(json_extract(v.dados, '$.comando'), 1, 800) AS comando, " +
+  "i.grupo_id, i.ordem_grupo, (SELECT gg.codigo FROM grupos gg WHERE gg.id = i.grupo_id) AS grupo_codigo " +
   "FROM itens i JOIN usuarios u ON u.id = i.autor_id JOIN item_versoes v ON v.item_id = i.id AND v.versao = i.versao_atual ";
 
 function validarSerieTipo(body) {
@@ -1011,7 +1208,7 @@ async function selecaoDaDisciplina(env, id, disciplina) {
 async function itensDaSelecao(env, sel, comDados) {
   const ano = anoAtualSP();
   const { results } = await env.DB.prepare(
-    "SELECT i.id, i.codigo, i.versao_atual, i.situacao AS situacao_item, si.ordem, si.versao, u.nome AS autor, " +
+    "SELECT i.id, i.codigo, i.versao_atual, i.situacao AS situacao_item, si.ordem, si.versao, si.grupo_versao, i.grupo_id, u.nome AS autor, " +
     "json_extract(v.dados, '$.assunto') AS assunto, json_extract(v.dados, '$.subtema') AS subtema, " +
     "json_extract(v.dados, '$.dificuldade') AS dificuldade, json_extract(v.dados, '$.origem') AS origem, " +
     "json_extract(v.dados, '$.bloom') AS bloom, json_extract(v.dados, '$.gabarito') AS gabarito, " +
@@ -1022,7 +1219,13 @@ async function itensDaSelecao(env, sel, comDados) {
     "JOIN item_versoes v ON v.item_id = i.id AND v.versao = CASE WHEN ? = 'rascunho' THEN i.versao_atual ELSE si.versao END " +
     "WHERE si.selecao_id = ? ORDER BY si.ordem"
   ).bind(sel.tipo, sel.ano || ano, sel.serie, sel.ano || ano, sel.id, sel.situacao, sel.situacao, sel.id).all();
-  return results.map(({ id, dados, ...r }) => (comDados ? { ...r, dados: JSON.parse(dados) } : r));
+  const out = [];
+  for (const { id, dados, grupo_id, grupo_versao, ...r } of results) {
+    const versaoGrupo = sel.situacao === 'rascunho' ? null : grupo_versao;
+    const inj = grupo_id ? await injetarGrupo(env, grupo_id, comDados ? JSON.parse(dados) : {}, versaoGrupo) : { dados: comDados ? JSON.parse(dados) : null, grupo: null };
+    out.push({ ...r, ...(comDados ? { dados: inj.dados } : {}), grupo: inj.grupo ? { codigo: inj.grupo.codigo, versao: inj.grupo.versao, versao_atual: inj.grupo.versao_atual } : null });
+  }
+  return out;
 }
 
 async function rotasSelecoesSupervisor(request, env, path, url, user) {
@@ -1032,7 +1235,7 @@ async function rotasSelecoesSupervisor(request, env, path, url, user) {
   // Banco: questões aprovadas da disciplina, do Ensino Médio, elegíveis para a série/tipo da seleção.
   if (path === '/api/supervisor/banco' && request.method === 'GET') {
     const sel = await selecaoDaDisciplina(env, url.searchParams.get('selecao'), user.disciplina);
-    const filtros = []; const args = [user.disciplina, sel.tipo, ano, sel.serie, ano];
+    const filtros = []; const args = [user.disciplina, sel.tipo, ano, sel.serie, ano, sel.tipo, ano, sel.serie, ano];
     const f = (campo, nome) => { const v = (url.searchParams.get(nome) || '').trim(); if (v) { filtros.push("json_extract(v.dados, '$." + campo + "') = ?"); args.push(v.slice(0, 200)); } };
     f('assunto', 'assunto'); f('dificuldade', 'dificuldade'); f('origem', 'origem'); f('bloom', 'bloom');
     const q = (url.searchParams.get('q') || '').trim().slice(0, 100);
@@ -1045,14 +1248,24 @@ async function rotasSelecoesSupervisor(request, env, path, url, user) {
     if (tag) { filtros.push("EXISTS (SELECT 1 FROM json_each(v.dados, '$.tags') jt WHERE jt.value = ?)"); args.push(tag); }
     const { results } = await env.DB.prepare(
       SQL_ITEM_BANCO + "WHERE i.disciplina = ? AND i.situacao = 'aprovado' AND json_extract(v.dados, '$.etapa') = 'em' AND NOT " + SQL_ITEM_BLOQUEADO +
+      " AND " + SQL_GRUPO_DISPONIVEL +
       (filtros.length ? ' AND ' + filtros.join(' AND ') : '') + " ORDER BY assunto COLLATE NOCASE, i.codigo LIMIT 301"
     ).bind(...args).all();
+    // Um grupo aparece inteiro: traz as questões irmãs que o filtro não pegou.
+    const vistos = new Set(results.map(r => r.id));
+    for (const gid of [...new Set(results.filter(r => r.grupo_id).map(r => r.grupo_id))].slice(0, 60)) {
+      const { results: irmas } = await env.DB.prepare(SQL_ITEM_BANCO + "WHERE i.grupo_id = ? AND i.situacao = 'aprovado'").bind(gid).all();
+      for (const r of irmas) if (!vistos.has(r.id)) { vistos.add(r.id); results.push(r); }
+    }
+    const totais = {};
+    for (const r of results) if (r.grupo_id) totais[r.grupo_id] = (totais[r.grupo_id] || 0) + 1;
     const { results: assuntos } = await env.DB.prepare(
       "SELECT DISTINCT json_extract(v.dados, '$.assunto') AS a FROM itens i JOIN item_versoes v ON v.item_id = i.id AND v.versao = i.versao_atual " +
       "WHERE i.disciplina = ? AND i.situacao = 'aprovado' ORDER BY a COLLATE NOCASE"
     ).bind(user.disciplina).all();
     const usos = await usosDaDisciplina(env, user.disciplina);
-    const itens = results.slice(0, 300).map(({ id, tags, ...r }) => ({ ...r, tags: tags ? JSON.parse(tags) : [], usos: usos.get(id) || [] }));
+    const itens = results.slice(0, 360).map(({ id, tags, grupo_id, ordem_grupo, grupo_codigo, ...r }) => ({ ...r, tags: tags ? JSON.parse(tags) : [], usos: usos.get(id) || [],
+      grupo: grupo_id ? { codigo: grupo_codigo, ordem: ordem_grupo, total: totais[grupo_id] } : null }));
     return { ok: true, itens, mais: results.length > 300, assuntos: assuntos.map(x => x.a).filter(Boolean) };
   }
 
@@ -1107,15 +1320,30 @@ async function rotasSelecoesSupervisor(request, env, path, url, user) {
     if (new Set(codigos).size !== codigos.length) throw new HttpError(400, 'Há questões repetidas na seleção.');
     // Candidatas válidas: aprovadas, da disciplina, do Ensino Médio e elegíveis para a série/tipo.
     const { results } = await env.DB.prepare(
-      "SELECT i.id, i.codigo, i.versao_atual FROM itens i JOIN item_versoes v ON v.item_id = i.id AND v.versao = i.versao_atual " +
-      "WHERE i.disciplina = ? AND i.situacao = 'aprovado' AND json_extract(v.dados, '$.etapa') = 'em' AND NOT " + SQL_ITEM_BLOQUEADO
-    ).bind(user.disciplina, tipo, ano, serie, ano).all();
+      "SELECT i.id, i.codigo, i.versao_atual, i.grupo_id, i.ordem_grupo FROM itens i JOIN item_versoes v ON v.item_id = i.id AND v.versao = i.versao_atual " +
+      "WHERE i.disciplina = ? AND i.situacao = 'aprovado' AND json_extract(v.dados, '$.etapa') = 'em' AND NOT " + SQL_ITEM_BLOQUEADO + " AND " + SQL_GRUPO_DISPONIVEL
+    ).bind(user.disciplina, tipo, ano, serie, ano, tipo, ano, serie, ano).all();
     const validas = new Map(results.map(r => [r.codigo, r]));
     const invalidas = codigos.filter(c => !validas.has(c));
     if (invalidas.length) {
       throw new HttpError(409, 'Estas questões não podem entrar nesta seleção (não aprovadas, de outra disciplina ou já usadas para ' +
         NOME_SERIE(serie) + ' ' + tipo + '): ' + invalidas.slice(0, 20).join(', ') + '.');
     }
+    // Grupo (testlet) vai inteiro e com as questões juntas, na ordem do grupo.
+    const membrosGrupo = new Map();
+    for (const r of results) if (r.grupo_id) { if (!membrosGrupo.has(r.grupo_id)) membrosGrupo.set(r.grupo_id, []); membrosGrupo.get(r.grupo_id).push(r); }
+    for (const lista of membrosGrupo.values()) lista.sort((a, b) => (a.ordem_grupo || 0) - (b.ordem_grupo || 0));
+    const ordenados = []; const gruposPostos = new Set();
+    for (const c of codigos) {
+      const r = validas.get(c);
+      if (!r.grupo_id) { ordenados.push(c); continue; }
+      if (gruposPostos.has(r.grupo_id)) continue;
+      const membros = membrosGrupo.get(r.grupo_id);
+      const faltam = membros.filter(m => !codigos.includes(m.codigo)).map(m => m.codigo);
+      if (faltam.length) throw new HttpError(409, 'Questões de grupo (texto compartilhado) entram juntas. Inclua também: ' + faltam.join(', ') + '.');
+      gruposPostos.add(r.grupo_id); for (const m of membros) ordenados.push(m.codigo);
+    }
+    codigos.splice(0, codigos.length, ...ordenados);
     const ops = [
       env.DB.prepare("UPDATE selecoes SET serie = ?, tipo = ?, titulo = ?, atualizado_em = strftime('%Y-%m-%dT%H:%M:%SZ','now') WHERE id = ? AND situacao = 'rascunho'")
         .bind(serie, tipo, titulo, sel.id),
@@ -1137,7 +1365,8 @@ async function rotasSelecoesSupervisor(request, env, path, url, user) {
       "WHERE id = ? AND situacao = 'rascunho' RETURNING id"
     ).bind(sel.id).first();
     if (!enviada) throw new HttpError(409, 'Esta seleção acabou de ser alterada.');
-    await env.DB.prepare('UPDATE selecao_itens SET versao = (SELECT versao_atual FROM itens WHERE itens.id = selecao_itens.item_id) WHERE selecao_id = ?')
+    await env.DB.prepare('UPDATE selecao_itens SET versao = (SELECT versao_atual FROM itens WHERE itens.id = selecao_itens.item_id), ' +
+      'grupo_versao = (SELECT g.versao_atual FROM grupos g JOIN itens it ON it.grupo_id = g.id WHERE it.id = selecao_itens.item_id) WHERE selecao_id = ?')
       .bind(sel.id).run();
     await registrar(env, 'selecao_enviada', { selecao: sel.id, total: itens.length }, user.id);
     avisar(env, env.ADMIN_EMAIL, 'ATLAS: seleção de ' + user.disciplina + ' recebida (' + NOME_SERIE(sel.serie) + ' ' + sel.tipo + ')',
@@ -1218,7 +1447,7 @@ async function rotasSelecoesAdm(request, env, path, url, sessao) {
 // Automática todo dia de madrugada (cron no wrangler.toml) e manual pela Administração.
 // Guarda as tabelas de conteúdo e cadastro; não guarda sessões nem códigos de login.
 // As imagens já ficam no R2 e não são copiadas de novo.
-const TABELAS_BACKUP = ['meta', 'usuarios', 'itens', 'item_versoes', 'revisoes', 'consertos', 'selecoes', 'selecao_itens', 'eventos'];
+const TABELAS_BACKUP = ['meta', 'usuarios', 'grupos', 'grupo_versoes', 'itens', 'item_versoes', 'revisoes', 'consertos', 'selecoes', 'selecao_itens', 'eventos'];
 const MANTER_BACKUPS = 60;
 
 async function fazerBackup(env, origem) {
@@ -1447,7 +1676,7 @@ export default {
       }
       throw new HttpError(404, 'Rota indisponível.');
     } catch (error) {
-      if (error instanceof HttpError) return reply({ ok: false, error: error.message }, error.status, origin);
+      if (error instanceof HttpError) return reply({ ok: false, error: error.message, ...(error.extra || {}) }, error.status, origin);
       return reply({ ok: false, error: 'Erro interno. Tente novamente.' }, 500, origin);
     }
   }
