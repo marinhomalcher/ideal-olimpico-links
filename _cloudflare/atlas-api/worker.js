@@ -424,6 +424,20 @@ function validarDados(input) {
     }
     d[campo] = v;
   }
+  // Tags (palavras-chave): até 12, cada uma com até 40 caracteres, minúsculas, sem repetir.
+  const tagsBrutas = input.tags === undefined || input.tags === null ? [] : input.tags;
+  if (!Array.isArray(tagsBrutas) && typeof tagsBrutas !== 'string') throw new HttpError(400, 'Tags inválidas.');
+  const tags = [];
+  for (const t of (Array.isArray(tagsBrutas) ? tagsBrutas : tagsBrutas.split(/[,;\n]/))) {
+    if (typeof t !== 'string') throw new HttpError(400, 'Tags inválidas.');
+    const n = t.replace(/^#+/, '').replace(/\s+/g, ' ').trim().toLocaleLowerCase('pt-BR');
+    if (!n) continue;
+    if (n.length > 40) throw new HttpError(400, 'Cada tag pode ter até 40 caracteres.');
+    if (/[<>]/.test(n)) throw new HttpError(400, 'Tag com caractere não permitido.');
+    if (!tags.includes(n)) tags.push(n);
+  }
+  if (tags.length > 12) throw new HttpError(400, 'Use no máximo 12 tags por questão.');
+  d.tags = tags;
   const vazio = v => !String(v).replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim() && !/<img\b/i.test(v);
   if (!['em', 'ef2'].includes(d.etapa)) throw new HttpError(400, 'Escolha a etapa.');
   if (!['autoral', 'enem', 'outros'].includes(d.origem)) throw new HttpError(400, 'Escolha a origem da questão.');
@@ -578,7 +592,7 @@ async function usuarioDaSessao(request, env) {
 
 const SQL_RESUMO_ITEM =
   'SELECT i.id, i.codigo, i.disciplina, i.situacao, i.versao_atual, i.criado_em, i.atualizado_em, ' +
-  'u.nome AS autor, json_extract(v.dados, \'$.assunto\') AS assunto, (v.autor_id <> i.autor_id AND ue.papel = \'supervisor\') AS editada_supervisor, (v.autor_id <> i.autor_id AND ue.papel = \'adm\') AS corrigida_adm, ' +
+  'u.nome AS autor, json_extract(v.dados, \'$.assunto\') AS assunto, json_extract(v.dados, \'$.tags\') AS tags, (v.autor_id <> i.autor_id AND ue.papel = \'supervisor\') AS editada_supervisor, (v.autor_id <> i.autor_id AND ue.papel = \'adm\') AS corrigida_adm, ' +
   '(SELECT r.motivo FROM revisoes r WHERE r.item_id = i.id ORDER BY r.id DESC LIMIT 1) AS ultimo_motivo, ' +
   '(SELECT r.decisao FROM revisoes r WHERE r.item_id = i.id ORDER BY r.id DESC LIMIT 1) AS ultima_decisao ' +
   'FROM itens i JOIN usuarios u ON u.id = i.autor_id ' +
@@ -625,7 +639,7 @@ async function rotasItens(request, env, path) {
   if (path === '/api/itens/meus' && request.method === 'GET') {
     const { results } = await env.DB.prepare(SQL_RESUMO_ITEM + 'WHERE i.autor_id = ? ORDER BY i.atualizado_em DESC, i.id DESC LIMIT 300')
       .bind(user.id).all();
-    return { ok: true, itens: results.map(({ id, ...r }) => r) };
+    return { ok: true, itens: results.map(({ id, tags, ...r }) => ({ ...r, tags: tags ? JSON.parse(tags) : [] })) };
   }
 
   const match = path.match(/^\/api\/itens\/([A-Z]\d{7})$/);
@@ -686,7 +700,7 @@ async function rotasSupervisor(request, env, path, url) {
     if (!['analise', 'ajustes', 'aprovado', 'descartado'].includes(situacao)) throw new HttpError(400, 'Situação inválida.');
     const { results } = await env.DB.prepare(SQL_RESUMO_ITEM + 'WHERE i.disciplina = ? AND i.situacao = ? ORDER BY i.atualizado_em ASC, i.id ASC LIMIT 300')
       .bind(user.disciplina, situacao).all();
-    return { ok: true, disciplina: user.disciplina, itens: results.map(({ id, ...r }) => r) };
+    return { ok: true, disciplina: user.disciplina, itens: results.map(({ id, tags, ...r }) => ({ ...r, tags: tags ? JSON.parse(tags) : [] })) };
   }
 
   // Editar (correção pequena): nova versão feita pelo Supervisor; a questão continua em análise.
@@ -956,7 +970,7 @@ const SQL_ITEM_BANCO =
   "json_extract(v.dados, '$.assunto') AS assunto, json_extract(v.dados, '$.subtema') AS subtema, " +
   "json_extract(v.dados, '$.dificuldade') AS dificuldade, json_extract(v.dados, '$.origem') AS origem, " +
   "json_extract(v.dados, '$.fonte') AS fonte, json_extract(v.dados, '$.bloom') AS bloom, " +
-  "json_extract(v.dados, '$.gabarito') AS gabarito, substr(json_extract(v.dados, '$.comando'), 1, 800) AS comando " +
+  "json_extract(v.dados, '$.gabarito') AS gabarito, json_extract(v.dados, '$.tags') AS tags, substr(json_extract(v.dados, '$.comando'), 1, 800) AS comando " +
   "FROM itens i JOIN usuarios u ON u.id = i.autor_id JOIN item_versoes v ON v.item_id = i.id AND v.versao = i.versao_atual ";
 
 function validarSerieTipo(body) {
@@ -1023,10 +1037,12 @@ async function rotasSelecoesSupervisor(request, env, path, url, user) {
     f('assunto', 'assunto'); f('dificuldade', 'dificuldade'); f('origem', 'origem'); f('bloom', 'bloom');
     const q = (url.searchParams.get('q') || '').trim().slice(0, 100);
     if (q) {
-      filtros.push("(i.codigo = ? OR json_extract(v.dados, '$.comando') LIKE ? OR json_extract(v.dados, '$.texto-base') LIKE ? OR json_extract(v.dados, '$.subtema') LIKE ?)");
+      filtros.push("(i.codigo = ? OR json_extract(v.dados, '$.comando') LIKE ? OR json_extract(v.dados, '$.texto-base') LIKE ? OR json_extract(v.dados, '$.subtema') LIKE ? OR EXISTS (SELECT 1 FROM json_each(v.dados, '$.tags') jt WHERE jt.value LIKE ?))");
       const like = '%' + q.replace(/[%_]/g, '') + '%';
-      args.push(q.toUpperCase(), like, like, like);
+      args.push(q.toUpperCase(), like, like, like, like.toLocaleLowerCase('pt-BR'));
     }
+    const tag = (url.searchParams.get('tag') || '').replace(/^#+/, '').trim().toLocaleLowerCase('pt-BR').slice(0, 40);
+    if (tag) { filtros.push("EXISTS (SELECT 1 FROM json_each(v.dados, '$.tags') jt WHERE jt.value = ?)"); args.push(tag); }
     const { results } = await env.DB.prepare(
       SQL_ITEM_BANCO + "WHERE i.disciplina = ? AND i.situacao = 'aprovado' AND json_extract(v.dados, '$.etapa') = 'em' AND NOT " + SQL_ITEM_BLOQUEADO +
       (filtros.length ? ' AND ' + filtros.join(' AND ') : '') + " ORDER BY assunto COLLATE NOCASE, i.codigo LIMIT 301"
@@ -1036,7 +1052,7 @@ async function rotasSelecoesSupervisor(request, env, path, url, user) {
       "WHERE i.disciplina = ? AND i.situacao = 'aprovado' ORDER BY a COLLATE NOCASE"
     ).bind(user.disciplina).all();
     const usos = await usosDaDisciplina(env, user.disciplina);
-    const itens = results.slice(0, 300).map(({ id, ...r }) => ({ ...r, usos: usos.get(id) || [] }));
+    const itens = results.slice(0, 300).map(({ id, tags, ...r }) => ({ ...r, tags: tags ? JSON.parse(tags) : [], usos: usos.get(id) || [] }));
     return { ok: true, itens, mais: results.length > 300, assuntos: assuntos.map(x => x.a).filter(Boolean) };
   }
 
