@@ -594,6 +594,7 @@ const SQL_RESUMO_ITEM =
   'SELECT i.id, i.codigo, i.disciplina, i.situacao, i.versao_atual, i.criado_em, i.atualizado_em, i.grupo_id, i.ordem_grupo, (SELECT gg.codigo FROM grupos gg WHERE gg.id = i.grupo_id) AS grupo_codigo, ' +
   'u.nome AS autor, json_extract(v.dados, \'$.assunto\') AS assunto, json_extract(v.dados, \'$.tags\') AS tags, (v.autor_id <> i.autor_id AND ue.papel = \'supervisor\') AS editada_supervisor, (v.autor_id <> i.autor_id AND ue.papel = \'adm\') AS corrigida_adm, ' +
   '(SELECT r.motivo FROM revisoes r WHERE r.item_id = i.id ORDER BY r.id DESC LIMIT 1) AS ultimo_motivo, ' +
+  '(i.assinatura IS NOT NULL AND i.assinatura <> \'\' AND EXISTS (SELECT 1 FROM itens rr WHERE rr.disciplina = i.disciplina AND rr.assinatura = i.assinatura AND rr.id <> i.id AND rr.situacao <> \'descartado\')) AS tem_repetida, ' +
   '(SELECT r.decisao FROM revisoes r WHERE r.item_id = i.id ORDER BY r.id DESC LIMIT 1) AS ultima_decisao ' +
   'FROM itens i JOIN usuarios u ON u.id = i.autor_id ' +
   'JOIN item_versoes v ON v.item_id = i.id AND v.versao = i.versao_atual JOIN usuarios ue ON ue.id = v.autor_id ';
@@ -881,6 +882,7 @@ async function rotasSupervisor(request, env, path, url) {
   if (path === '/api/supervisor/fila' && request.method === 'GET') {
     const situacao = url.searchParams.get('situacao') || 'analise';
     if (!['analise', 'ajustes', 'aprovado', 'descartado'].includes(situacao)) throw new HttpError(400, 'Situação inválida.');
+    await preencherAssinaturas(env, user.disciplina);
     const { results } = await env.DB.prepare(SQL_RESUMO_ITEM + 'WHERE i.disciplina = ? AND i.situacao = ? ORDER BY i.atualizado_em ASC, i.id ASC LIMIT 300')
       .bind(user.disciplina, situacao).all();
     return { ok: true, disciplina: user.disciplina, itens: results.map(({ id, grupo_id, tags, ...r }) => ({ ...r, tags: tags ? JSON.parse(tags) : [] })) };
