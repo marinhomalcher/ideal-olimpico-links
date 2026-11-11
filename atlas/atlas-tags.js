@@ -32,7 +32,7 @@
     input.setAttribute('aria-label', original?.getAttribute('aria-label') || 'Tags da questão');
     caixa.append(input);
     if (original) original.replaceWith(caixa);
-    let tags = [];
+    let tags = [], iniciado = false;
     function desenhar() {
       caixa.querySelectorAll('.atlas-tag').forEach(n => n.remove());
       for (const t of tags) {
@@ -42,6 +42,7 @@
         chip.append(x); caixa.insertBefore(chip, input);
       }
       input.disabled = false;
+      if (iniciado) caixa.dispatchEvent(new Event('change', { bubbles: true }));
       input.placeholder = tags.length >= MAX_TAGS ? 'Máximo de ' + MAX_TAGS + ' tags' : (original?.getAttribute('placeholder') || 'Digite e tecle Enter (ou vírgula)');
     }
     function adicionar(texto) {
@@ -56,8 +57,11 @@
     input.addEventListener('paste', ev => { const t = ev.clipboardData?.getData('text/plain'); if (t && /[,;\n]/.test(t)) { ev.preventDefault(); adicionar(t); } });
     input.addEventListener('blur', () => { if (input.value.trim()) adicionar(input.value); });
     caixa.addEventListener('click', () => input.focus());
+    iniciado = true;
     return {
       get() { if (input.value.trim()) adicionar(input.value); return tags.slice(); },
+      // Só consulta (não transforma o que está sendo digitado em tag).
+      peek() { const extra = lista(input.value).filter(x => !tags.includes(x)); return tags.concat(extra).slice(0, MAX_TAGS); },
       set(v) { tags = lista(v); input.value = ''; desenhar(); }
     };
   }

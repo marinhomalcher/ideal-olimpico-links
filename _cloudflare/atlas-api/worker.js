@@ -660,6 +660,11 @@ function erroRepetida(repetidas) {
 // Cada questão do grupo continua com código, versões e análise próprios; no banco, o texto-base dela fica vazio
 // e o servidor injeta o texto do grupo ao devolver a questão. Ao salvar, o texto volta para o grupo.
 const MIN_ITENS_GRUPO = 2, MAX_ITENS_GRUPO = 10;
+const MIN_TAGS = 2;
+function exigirTags(dadosJson, prefixo = '') {
+  const d = JSON.parse(dadosJson);
+  if (!Array.isArray(d.tags) || d.tags.length < MIN_TAGS) throw new HttpError(400, prefixo + 'Coloque pelo menos ' + MIN_TAGS + ' tags (palavras-chave) na questão.');
+}
 
 function gerarCodigoGrupo(disciplina) {
   const letra = LETRA_DISCIPLINA[disciplina];
@@ -743,7 +748,9 @@ async function criarGrupo(request, env, user) {
   const textoGrupo = JSON.parse(textoJson);
   for (let k = 0; k < lista.length; k++) {
     try {
-      const d = JSON.parse(await validarDadosComImagens(env, { ...(lista[k] || {}), 'texto-base': '', referencia: '' }));
+      const dj = await validarDadosComImagens(env, { ...(lista[k] || {}), 'texto-base': '', referencia: '' });
+      exigirTags(dj);
+      const d = JSON.parse(dj);
       dadosItens.push(JSON.stringify(d));
       assinaturas.push(await assinaturaDe({ ...d, 'texto-base': textoGrupo['texto-base'] }));
     } catch (error) {
@@ -789,6 +796,7 @@ async function rotasItens(request, env, path) {
   if (path === '/api/itens' && request.method === 'POST') {
     const body = await readJson(request, MAX_ITEM_BYTES + 64 * 1024);
     const dados = await validarDadosComImagens(env, body.dados);
+    exigirTags(dados);
     const assinatura = await assinaturaDe(JSON.parse(dados));
     if (body.confirmar_repetida !== true) {
       const repetidas = await repetidasDe(env, user.disciplina, assinatura);
@@ -852,7 +860,9 @@ async function rotasItens(request, env, path) {
     if (item.situacao !== 'ajustes') throw new HttpError(409, 'Esta questão não está aguardando ajuste.');
     const body = await readJson(request, MAX_ITEM_BYTES + 64 * 1024);
     if (body.versao !== item.versao_atual) throw new HttpError(409, 'A questão mudou desde que você a abriu. Recarregue a página.');
-    const grp = await gravacaoDoGrupo(env, item, await validarDadosComImagens(env, body.dados), user.id, 'professor');
+    const dadosProf = await validarDadosComImagens(env, body.dados);
+    exigirTags(dadosProf);
+    const grp = await gravacaoDoGrupo(env, item, dadosProf, user.id, 'professor');
     const dados = grp.dados;
     const nova = item.versao_atual + 1;
     try {
