@@ -89,7 +89,7 @@ aside a+a{margin-top:6px}aside a:not(.atual){background:transparent}
           <select id="f-dificuldade" aria-label="Dificuldade"><option value="">Dificuldade</option><option>Fácil</option><option>Média</option><option>Difícil</option></select>
           <select id="f-origem" aria-label="Origem"><option value="">Origem</option><option value="autoral">Autoral</option><option value="enem">ENEM</option><option value="outros">Outros</option></select>
           <select id="f-bloom" aria-label="Bloom"><option value="">Bloom</option><option>Lembrar</option><option>Compreender</option><option>Aplicar</option><option>Analisar</option><option>Avaliar</option></select>
-          <input id="f-q" type="search" placeholder="Buscar por código ou texto"></div>
+          <input id="f-q" type="search" placeholder="Buscar por código, texto ou tag"></div>
         <p class="hint" id="banco-info"></p><div id="banco"></div></div>
     </div>
     <div class="actions"><button type="button" class="secondary" id="excluir">Excluir seleção</button><button type="button" class="primary" id="enviar">Enviar ao administrador</button></div>
@@ -102,6 +102,7 @@ aside a+a{margin-top:6px}aside a:not(.atual){background:transparent}
 <dialog id="preview" class="preview-dialog" aria-labelledby="preview-titulo"><h2 id="preview-titulo">Questão</h2><div id="preview-corpo"></div><div class="modal-actions"><button type="button" class="secondary" onclick="this.closest('dialog').close()">Fechar</button></div></dialog>
 <script src="https://cdn.jsdelivr.net/npm/katex@0.19.1/dist/katex.min.js" integrity="sha384-a1WQdjRj162i159OYq041X6I4K8NenkrI09LlPmiHg0YOb7CR+wJOraXwK9abpnE" crossorigin="anonymous"></script>
 <script src="atlas-editor.js"></script>
+<script src="atlas-tags.js"></script>
 <script>
 
 const originLabel={autoral:'Autoral',enem:'ENEM',outros:'Outros',adaptada:'Adaptada'};
@@ -149,8 +150,8 @@ async function abrir(id){let data;try{data=await ATLAS_API('/api/supervisor/sele
 function tagsDe(i){const t=[i.dificuldade,i.origem==='outros'&&i.fonte?i.fonte:originLabel[i.origem]||i.origem,i.bloom].filter(Boolean).map(x=>'<span class="tag">'+escapeHTML(x)+'</span>');
   const usos=i.usos||[];if(!usos.length&&'usos' in i)t.push('<span class="tag uso">Nunca aplicada</span>');for(const u of usos)t.push('<span class="tag '+(u.situacao==='aplicada'?'uso':'alerta')+'">'+escapeHTML(usoTexto(u))+'</span>');return t.join('')}
 function cartao(i,{ordem,botoes}){const d=document.createElement('div');d.className='qcard';
-  d.innerHTML='<div class="top"><span>'+(ordem?'<span class="ord">'+ordem+'</span>':'')+'<span class="cod">'+escapeHTML(i.codigo)+'</span> · '+escapeHTML(i.assunto||'')+(i.subtema?' › '+escapeHTML(i.subtema):'')+'</span><span class="hint">'+escapeHTML(i.autor||'')+'</span></div><div class="tags">'+tagsDe(i)+(i.bloqueado?'<span class="tag erro">Já usada para esta turma — retire</span>':'')+'</div><div class="snip"></div><div class="btns"></div>';
-  d.querySelector('.snip').textContent=textoPuro(i.comando);const bx=d.querySelector('.btns');
+  d.innerHTML='<div class="top"><span>'+(ordem?'<span class="ord">'+ordem+'</span>':'')+'<span class="cod">'+escapeHTML(i.codigo)+'</span> · '+escapeHTML(i.assunto||'')+(i.subtema?' › '+escapeHTML(i.subtema):'')+'</span><span class="hint">'+escapeHTML(i.autor||'')+'</span></div><div class="tags">'+tagsDe(i)+(i.bloqueado?'<span class="tag erro">Já usada para esta turma — retire</span>':'')+'</div>'+(i.tags&&i.tags.length?'<div class="qtags">'+AtlasTags.html(i.tags,escapeHTML)+'</div>':'')+'<div class="snip"></div><div class="btns"></div>';
+  d.querySelector('.snip').textContent=textoPuro(i.comando);d.querySelectorAll('.qtags .atlas-tag-view').forEach(c=>{c.style.cursor='pointer';c.title='Buscar questões com esta tag';c.addEventListener('click',()=>{$('#f-q').value=c.textContent.replace(/^#/,'');buscar()})});const bx=d.querySelector('.btns');
   const ver=document.createElement('button');ver.className='secondary';ver.textContent='Ver questão';ver.addEventListener('click',()=>verQuestao(i.codigo));bx.append(ver);
   for(const [txt,cls,fn,dis] of botoes){const b=document.createElement('button');b.className=cls;b.textContent=txt;b.disabled=!!dis;b.addEventListener('click',fn);bx.append(b)}return d}
 function desenharEscolhidas(){const box=$('#escolhidas');box.replaceChildren();$('#qtd').textContent=escolhidas.length;
