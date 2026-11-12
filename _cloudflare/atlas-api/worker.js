@@ -906,6 +906,10 @@ async function rotasSupervisor(request, env, path, url) {
     if (item.situacao !== 'analise') throw new HttpError(409, 'Só é possível editar questões em análise.');
     const body = await readJson(request, MAX_ITEM_BYTES + 64 * 1024);
     if (body.versao !== item.versao_atual) throw new HttpError(409, 'A questão mudou desde que você a abriu. Volte à fila e abra de novo.');
+    // O Supervisor ajusta conteúdo, tags e classificação (assunto, subtema, detalhamentos, Bloom);
+    // etapa, origem, fonte e dificuldade prevista continuam como o professor informou.
+    const atualSup = JSON.parse((await env.DB.prepare('SELECT dados FROM item_versoes WHERE item_id = ? AND versao = ?').bind(item.id, item.versao_atual).first()).dados);
+    if (body.dados && typeof body.dados === 'object') for (const k of ['etapa', 'ano', 'origem', 'fonte', 'dificuldade']) body.dados[k] = atualSup[k] ?? '';
     const grp = await gravacaoDoGrupo(env, item, await validarDadosComImagens(env, body.dados), user.id, 'supervisor');
     const dados = grp.dados;
     const nova = item.versao_atual + 1;
