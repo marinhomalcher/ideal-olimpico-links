@@ -40,7 +40,7 @@ window.AtlasEnvioSimples = (function () {
 <div><label for="es-etapa">Etapa</label><select id="es-etapa"><option value="em">Ensino Médio</option><option value="ef2">Ensino Fundamental II</option></select></div>
 <div id="es-ano-row" hidden><label for="es-ano">Ano de referência</label><select id="es-ano"><option value="">Selecione</option><option>6º ano</option><option>7º ano</option><option>8º ano</option><option>9º ano</option></select></div>
 </div><p class="hint">A disciplina continua escolhida depois de cada envio, para agilizar a digitação de uma prova inteira.</p></section>
-<section class="panel"><h2>2. Conteúdo da questão</h2><p class="description">Cole texto, imagens (Ctrl+V) ou LaTeX. Se colar as cinco alternativas juntas no campo A, elas são separadas automaticamente.</p><div class="grid">
+<section class="panel"><h2>2. Conteúdo da questão</h2><p class="description">Cole texto, imagens (Ctrl+V) ou LaTeX. Se colar as cinco alternativas juntas (no comando ou no campo A), elas são separadas automaticamente.</p><div class="grid">
 <div class="wide"><label for="texto-base">Texto-base ou estímulo (quando houver)</label><textarea id="texto-base" class="long" placeholder="Cole o texto de apoio, gráfico ou material de referência"></textarea></div>
 <div class="wide"><label for="es-referencia">Referência do texto ou da imagem (quando houver)</label><textarea id="es-referencia" placeholder="Fonte em estilo ENEM/INEP, sem hiperlink"></textarea></div>
 <div class="wide"><label for="comando">Comando da questão</label><textarea id="comando" class="long" placeholder="O que o estudante deve responder"></textarea></div>

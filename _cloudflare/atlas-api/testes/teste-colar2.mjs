@@ -107,6 +107,20 @@ ok('Só as alternativas coladas no campo A também separam', (await tx('alt-b'))
 await paste('#alt-a','A\tsó uma alternativa com tab');await page.waitForTimeout(100);
 await page.evaluate(()=>{document.getElementById('alt-a').innerHTML=''});await paste('#alt-a','A\tsó uma alternativa com tab');await page.waitForTimeout(100);
 ok('Uma alternativa só, com letra e tab: a letra sai', (await tx('alt-a'))==='só uma alternativa com tab', await tx('alt-a'));
+// Letra + espaço ("A produção..."), formato comum ao copiar do Word/PDF.
+const limparCampos=()=>page.evaluate(()=>{for(const id of ['comando','alt-a','alt-b','alt-c','alt-d','alt-e'])document.getElementById(id).innerHTML=''});
+const DAVINCI='Da Vinci era polímata e registrava suas ideias e experimentos em códices. Seus esboços revelam sua incessante busca por conhecimento e expressam o(a)\n\nA produção de obras baseadas exclusivamente na fé religiosa, sem espaço para investigações científicas.\nB união de diferentes áreas do conhecimento para ampliar a compreensão do mundo e do ser humano.\nC imitação literal das obras medievais, mantendo o caráter simbólico e bidimensional das imagens.\nD separação entre arte e ciência, valorizando exclusivamente a estética nas obras.\nE abandono da técnica artística para privilegiar apenas o conteúdo intelectual das obras.\n';
+await limparCampos();await paste('#comando',DAVINCI);await page.waitForTimeout(200);
+ok('Letra + espaço colado no comando: comando separado', (await tx('comando'))==='Da Vinci era polímata e registrava suas ideias e experimentos em códices. Seus esboços revelam sua incessante busca por conhecimento e expressam o(a)', await tx('comando'));
+ok('Letra + espaço: A–E preenchidas sem a letra', (await tx('alt-a'))==='produção de obras baseadas exclusivamente na fé religiosa, sem espaço para investigações científicas.'&&(await tx('alt-b')).startsWith('união de diferentes')&&(await tx('alt-e'))==='abandono da técnica artística para privilegiar apenas o conteúdo intelectual das obras.', await tx('alt-a')+' | '+await tx('alt-e'));
+await limparCampos();await paste('#alt-a',DAVINCI.split('\n\n')[1]);await page.waitForTimeout(200);
+ok('Letra + espaço só com as alternativas no campo A', (await tx('alt-a')).startsWith('produção de obras')&&(await tx('alt-d')).startsWith('separação entre arte'), await tx('alt-a'));
+await limparCampos();await paste('#comando','A charge critica a política.\nE o autor ironiza o eleitor ao afirmar que\nA o voto é inútil.\nB a política é feita por todos.\nC o eleitor é responsável.\nD a imprensa é neutra.\nE o povo é passivo.');await page.waitForTimeout(200);
+ok('Letra + espaço: "A"/"E" como palavra no comando não confundem', (await page.innerText('#comando')).trim().replace(/\s+/g,' ')==='A charge critica a política. E o autor ironiza o eleitor ao afirmar que', await page.innerText('#comando'));
+ok('Letra + espaço: alternativas certas mesmo com "A" no comando', (await tx('alt-a'))==='o voto é inútil.'&&(await tx('alt-e'))==='o povo é passivo.', await tx('alt-a'));
+await limparCampos();await paste('#comando','A professora leu o poema.\nE a turma discutiu o tema.');await page.waitForTimeout(200);
+ok('Texto comum começando com "A"/"E": nada é separado', (await tx('alt-a'))===''&&(await tx('comando')).startsWith('A professora'), await tx('alt-a'));
+await page.evaluate(()=>{document.getElementById('comando').textContent='Na construção da argumentação, o texto';document.getElementById('alt-a').textContent='só uma alternativa com tab';for(const l of 'bcde')document.getElementById('alt-'+l).innerHTML=''});
 await page.click('#referencia');await page.evaluate(()=>navigator.clipboard?0:0);
 await page.fill('#referencia',REF1);await page.click('#comando');
 ok('Referência: ao sair do campo, "Acesso em" vai para a linha de baixo', (await page.inputValue('#referencia'))==='MAY, R. H. Disponível em: www.servicioskoinonia.org.\nAcesso em: 12 mar. 2016.', JSON.stringify(await page.inputValue('#referencia')));
