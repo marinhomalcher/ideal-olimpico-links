@@ -415,6 +415,11 @@ const LETRA_DISCIPLINA = Object.freeze({
   'Inglês': 'I', 'Literatura': 'L', 'Matemática': 'M', 'Português': 'P', 'Química': 'Q', 'Sociologia': 'S'
 });
 const MAX_ITEM_BYTES = 1500 * 1024;          // limite por questão (o D1 aceita até 2 MB por linha)
+// Referência no padrão ABNT/ENEM: "Acesso em: ..." sempre na linha de baixo.
+function formatarReferencia(v) {
+  return String(v || '').replace(/\r\n?/g, '\n').replace(/[ \t\u00a0]*\n?[ \t\u00a0]*(Acesso em\s*:)/gi, '\n$1')
+    .replace(/[ \t\u00a0]+$/gm, '').replace(/^\n+/, '').trim();
+}
 const CAMPOS_TEXTO = Object.freeze(['etapa', 'ano', 'origem', 'fonte', 'dificuldade', 'assunto', 'subtema',
   'nivel4', 'nivel5', 'bloom', 'referencia', 'gabarito']);
 const CAMPOS_RICOS = Object.freeze(['texto-base', 'comando', 'alt-a', 'alt-b', 'alt-c', 'alt-d', 'alt-e', 'resolucao']);
@@ -440,7 +445,7 @@ function validarDados(input, opcoes = {}) {
     if (typeof v !== 'string') throw new HttpError(400, 'Campo inválido: ' + campo + '.');
     const limite = campo === 'referencia' ? 1000 : 300;
     if (v.length > limite) throw new HttpError(400, 'Campo grande demais: ' + campo + '.');
-    d[campo] = v.trim();
+    d[campo] = campo === 'referencia' ? formatarReferencia(v) : v.trim();
   }
   for (const campo of CAMPOS_RICOS) {
     const v = input[campo] === undefined || input[campo] === null ? '' : input[campo];
@@ -761,7 +766,7 @@ async function validarTextoGrupo(env, input) {
   if (!texto.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim() && !/<img\b/i.test(texto)) {
     throw new HttpError(400, 'Preencha o texto-base compartilhado do grupo.');
   }
-  const json = JSON.stringify({ 'texto-base': texto, referencia: ref.trim() });
+  const json = JSON.stringify({ 'texto-base': texto, referencia: formatarReferencia(ref) });
   if (new TextEncoder().encode(json).length > MAX_ITEM_BYTES) throw new HttpError(413, 'O texto-base ficou grande demais.');
   return json;
 }
