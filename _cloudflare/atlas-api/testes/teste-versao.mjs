@@ -1,0 +1,40 @@
+import fs from 'node:fs';import { createRequire } from 'node:module';const require=createRequire(import.meta.url);const {chromium}=require('playwright');
+const R=new URL('../../../atlas/', import.meta.url).pathname;
+const results=[];const ok=(n,c,e='')=>results.push([c?'OK  ':'FALHOU',n,String(e).slice(0,160)]);
+let servidor='20261113f';let paginaVersao='20261113f';const pedidos=[];
+const browser=await chromium.launch();const ctx=await browser.newContext();
+await ctx.route('https://idealolimpico.com.br/atlas/**',route=>{const u=new URL(route.request().url());const f=u.pathname.replace('/atlas/','')||'index.html';pedidos.push(u.pathname+u.search);
+  if(f==='versao.json')return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({versao:servidor})});
+  const p=R+f;if(!fs.existsSync(p))return route.fulfill({status:404,body:'nf'});let body=fs.readFileSync(p,'utf8');
+  if(f.endsWith('.html'))body=body.replace(/<meta name="atlas-versao" content="[^"]*">/,'<meta name="atlas-versao" content="'+paginaVersao+'">');
+  route.fulfill({status:200,contentType:f.endsWith('.html')?'text/html':f.endsWith('.js')?'application/javascript':'image/png',body})});
+await ctx.route('https://atlas-api.marinhomalcher.workers.dev/**',r=>r.fulfill({status:200,contentType:'application/json',headers:{'access-control-allow-origin':'*'},body:'{"ok":false}'}));
+await ctx.route('https://accounts.google.com/**',r=>r.fulfill({status:200,contentType:'application/javascript',body:'window.google={accounts:{id:{initialize(){},renderButton(){},disableAutoSelect(){}}}}'}));
+const page=await ctx.newPage();const errors=[];page.on('pageerror',e=>errors.push(e.message));
+await page.goto('https://idealolimpico.com.br/atlas/index.html');await page.waitForTimeout(3600);
+ok('Mesma versão: não recarrega', !pedidos.some(p=>p.includes('_v=')));
+servidor='20261114a';paginaVersao='20261114a';
+await page.goto('https://idealolimpico.com.br/atlas/admin.html?x=1');paginaVersao='20261113f';
+// simula página antiga aberta: carrega com versão antiga
+await page.goto('https://idealolimpico.com.br/atlas/admin.html?x=1');paginaVersao='20261114a';
+await page.waitForURL(/_v=20261114a/,{timeout:6000}).catch(()=>{});
+ok('Versão nova sem digitação: recarrega sozinha com ?_v=', pedidos.some(p=>p.includes('admin.html?x=1&_v=20261114a')), pedidos.filter(p=>p.includes('admin')).join(' '));
+await page.waitForTimeout(500);
+ok('Depois de recarregar, endereço fica limpo e mantém os parâmetros', page.url().endsWith('admin.html?x=1'), page.url());
+// digitando: aviso
+servidor='20261114b';paginaVersao='20261114a';
+await page.evaluate(()=>sessionStorage.clear());
+await page.goto('https://idealolimpico.com.br/atlas/index.html');
+await page.evaluate(()=>{const i=document.createElement('input');i.id='tst';document.body.append(i)});await page.type('#tst','abc');
+await page.waitForTimeout(3600);
+const avisoTxt=await page.evaluate(()=>[...document.querySelectorAll('[role=status]')].map(e=>e.textContent).join('|'));
+ok('Digitando: não recarrega, mostra aviso Atualizar agora', avisoTxt.includes('Atualizar agora')&&!page.url().includes('_v='), avisoTxt);
+paginaVersao='20261114b';await page.click('text=Atualizar agora');await page.waitForTimeout(800);
+ok('Botão Atualizar agora recarrega', pedidos.some(p=>p.includes('index.html?_v=20261114b')));
+// laço: página continua antiga mesmo depois de recarregar
+servidor='20261114c';paginaVersao='20261114b';const antes=pedidos.length;
+await page.goto('https://idealolimpico.com.br/atlas/index.html');await page.waitForTimeout(4500);
+const recargas=pedidos.slice(antes).filter(p=>p.includes('_v=20261114c')).length;
+ok('Cache teimoso: recarrega uma vez só e depois só avisa (sem ciclo)', recargas===1, recargas);
+ok('Sem erros de JavaScript', errors.length===0, errors.join('|'));
+await browser.close();for(const [s,n,e] of results)console.log(s,n,e?'— '+e:'');console.log(results.filter(r=>r[0]!=='OK  ').length+' falha(s) de '+results.length);
