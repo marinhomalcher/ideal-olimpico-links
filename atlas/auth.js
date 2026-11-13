@@ -23,6 +23,10 @@ window.ATLAS_AUTH_READY = (async () => {
     throw new Error('Sem conexão');
   }
   if (!response.ok || data?.ok !== true || !data.usuario) return fail();
+  // Digitador só usa a página de digitação; os outros não usam a página do digitador.
+  const naPaginaDigitador = /\/digitador\.html$/.test(location.pathname);
+  if (data.usuario.papel === 'digitador' && !naPaginaDigitador) { location.replace('digitador.html'); throw new Error('Área do digitador'); }
+  if (data.usuario.papel !== 'digitador' && naPaginaDigitador) { location.replace(data.usuario.papel === 'supervisor' ? 'supervisor.html' : 'professor.html'); throw new Error('Área restrita ao digitador'); }
   // Professor que tentar abrir a área do Supervisor vai para a sua própria área (sem perder o login).
   if (perfil === 'Supervisor' && data.usuario.papel !== 'supervisor') {
     location.replace('professor.html');

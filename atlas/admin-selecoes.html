@@ -67,7 +67,7 @@ aside a+a{margin-top:6px}aside a:not(.atual){background:transparent}
 <section class="login" id="login-view" hidden>
 <div class="panel"><h1>Área do Administrador</h1><p>Entre com a sua conta Google de administrador.</p><div id="google-button"></div><p class="status" id="login-status" role="status"></p></div>
 </section>
-<div class="shell" id="app-view" hidden><aside><small>ÁREA DO ADM</small><a href="admin.html">Professores e disciplinas</a><a href="admin-questoes.html">Questões</a><a href="admin-selecoes.html" class="atual">Seleções recebidas</a></aside><main>
+<div class="shell" id="app-view" hidden><aside><small>ÁREA DO ADM</small><a href="admin.html">Professores e disciplinas</a><a href="admin-questoes.html">Questões</a><a href="admin-enviar.html">Enviar questões</a><a href="admin-relatorio.html">Relatório de produção</a><a href="admin-selecoes.html" class="atual">Seleções recebidas</a></aside><main>
 <div class="crumb">Administrador / Seleções</div><h1>Seleções recebidas</h1><p class="lead">Seleções de questões enviadas pelos supervisores, com série e tipo já definidos. Marque como aplicada só quando enviar a prova aos alunos.</p>
 <p class="status" id="app-status" role="status"></p>
 <section class="panel" id="lista-panel"><div class="tabs" role="tablist"><button type="button" class="active" data-tab="enviada" role="tab" aria-selected="true">Aguardando montagem</button><button type="button" data-tab="aplicada" role="tab" aria-selected="false">Aplicadas</button></div><div id="lista" class="table-wrap"></div></section>
@@ -80,8 +80,8 @@ aside a+a{margin-top:6px}aside a:not(.atual){background:transparent}
 </section>
 </main></div>
 <script src="https://cdn.jsdelivr.net/npm/katex@0.19.1/dist/katex.min.js" integrity="sha384-a1WQdjRj162i159OYq041X6I4K8NenkrI09LlPmiHg0YOb7CR+wJOraXwK9abpnE" crossorigin="anonymous"></script>
-<script src="atlas-editor.js?v=20261111c"></script>
-<script src="atlas-tags.js?v=20261111c"></script>
+<script src="atlas-editor.js?v=20261113a"></script>
+<script src="atlas-tags.js?v=20261113a"></script>
 <script>
 const API='https://atlas-api.marinhomalcher.workers.dev',GOOGLE_CLIENT_ID='432003570373-cscu1nvoldack2luihm9lnlsi9q2p115.apps.googleusercontent.com',TOKEN_KEY='atlas_adm_token';
 const $=s=>document.querySelector(s);

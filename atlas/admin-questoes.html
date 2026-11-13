@@ -58,7 +58,7 @@ aside a+a{margin-top:6px}aside a:not(.atual){background:transparent}
 <div class="panel"><h1>Área do Administrador</h1><p>Entre com a sua conta Google de administrador.</p><div id="google-button"></div><p class="status" id="login-status" role="status"></p></div>
 </section>
 
-<div class="shell" id="app-view" hidden><aside><small>ÁREA DO ADM</small><a href="admin.html">Professores e disciplinas</a><a href="admin-questoes.html" class="atual">Questões</a><a href="admin-selecoes.html">Seleções recebidas</a></aside><main>
+<div class="shell" id="app-view" hidden><aside><small>ÁREA DO ADM</small><a href="admin.html">Professores e disciplinas</a><a href="admin-questoes.html" class="atual">Questões</a><a href="admin-enviar.html">Enviar questões</a><a href="admin-relatorio.html">Relatório de produção</a><a href="admin-selecoes.html">Seleções recebidas</a></aside><main>
 <div class="crumb">Administrador / Questões</div><h1>Questões</h1><p class="lead">Busque uma questão pelo código, desfaça descartes (até 30 dias) e faça os consertos pedidos pelos supervisores.</p>
 <p class="status" id="app-status" role="status"></p>
 <section class="panel"><h2>Buscar questão pelo código</h2><form class="search-row" id="search-form"><input id="codigo" maxlength="8" placeholder="Ex.: M3156359" autocomplete="off" aria-label="Código da questão"><button type="submit" class="primary">Buscar</button></form></section>
@@ -75,9 +75,9 @@ aside a+a{margin-top:6px}aside a:not(.atual){background:transparent}
 </main></div>
 <dialog id="equation-dialog" aria-labelledby="eq-title"><h2 id="eq-title">Inserir equação</h2><label for="equation-input">Escreva a expressão em LaTeX</label><input id="equation-input" placeholder="Ex.: \tan(\frac{\alpha+\beta}{2})"><p class="hint">Aceita LaTeX matemático, incluindo frações, raízes, funções trigonométricas e símbolos gregos. Use \sen para seno em português. Dê dois cliques na equação para editar.</p><div id="equation-preview" aria-label="Prévia da equação"></div><p id="equation-error" class="field-error" role="alert" hidden>Revise a expressão: há um comando ou agrupamento inválido.</p><div class="modal-actions"><button type="button" class="secondary" onclick="this.closest('dialog').close()">Cancelar</button><button type="button" class="primary" id="equation-insert">Inserir</button></div></dialog>
 <script src="https://cdn.jsdelivr.net/npm/katex@0.19.1/dist/katex.min.js" integrity="sha384-a1WQdjRj162i159OYq041X6I4K8NenkrI09LlPmiHg0YOb7CR+wJOraXwK9abpnE" crossorigin="anonymous"></script>
-<script src="atlas-editor.js?v=20261112a"></script>
-<script src="atlas-tags.js?v=20261112a"></script>
-<script src="atlas-classificacao.js?v=20261112a"></script>
+<script src="atlas-editor.js?v=20261113a"></script>
+<script src="atlas-tags.js?v=20261113a"></script>
+<script src="atlas-classificacao.js?v=20261113a"></script>
 <script>
 const API='https://atlas-api.marinhomalcher.workers.dev',GOOGLE_CLIENT_ID='432003570373-cscu1nvoldack2luihm9lnlsi9q2p115.apps.googleusercontent.com',TOKEN_KEY='atlas_adm_token';
 const $=s=>document.querySelector(s);

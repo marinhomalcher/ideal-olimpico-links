@@ -160,9 +160,15 @@ function limparDisciplina(value) {
 
 async function listarProfessores(env) {
   const { results } = await env.DB.prepare(
-    "SELECT id, nome, email, disciplina, papel, ativo FROM usuarios WHERE papel IN ('professor','supervisor') ORDER BY nome COLLATE NOCASE"
+    "SELECT id, nome, email, disciplina, papel, ativo, digitador, acesso_ate FROM usuarios WHERE papel IN ('professor','supervisor') ORDER BY nome COLLATE NOCASE"
   ).all();
-  return results.map(r => ({ ...r, ativo: r.ativo === 1 }));
+  return results.map(r => ({ ...r, ativo: r.ativo === 1, digitador: r.digitador === 1 }));
+}
+function limparAcessoAte(value) {
+  if (value === undefined || value === null || value === '') return null;
+  const v = String(value).trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(v) || Number.isNaN(Date.parse(v + 'T00:00:00Z'))) throw new HttpError(400, 'Data de término do acesso inválida.');
+  return v;
 }
 
 async function emailEmUso(env, email, exceptId = null) {
@@ -300,7 +306,7 @@ async function solicitarCodigoAcesso(request, env) {
 
   const user = await env.DB.prepare(
     "SELECT id, nome, email, disciplina, papel FROM usuarios " +
-    "WHERE email = ? COLLATE NOCASE AND ativo = 1 AND papel IN ('professor','supervisor')"
+    "WHERE email = ? COLLATE NOCASE AND ativo = 1 AND papel IN ('professor','supervisor') AND (acesso_ate IS NULL OR acesso_ate >= date('now','-3 hours'))"
   ).bind(email).first();
   if (!user) return { ok: true };
 
@@ -339,8 +345,8 @@ async function verificarCodigoAcesso(request, env) {
   if (!permitIp || !permitEmail) throw new HttpError(429, 'Muitas tentativas. Aguarde e tente novamente.');
 
   const user = await env.DB.prepare(
-    "SELECT id, nome, email, disciplina, papel FROM usuarios " +
-    "WHERE email = ? COLLATE NOCASE AND ativo = 1 AND papel IN ('professor','supervisor')"
+    "SELECT id, nome, email, disciplina, CASE WHEN digitador = 1 THEN 'digitador' ELSE papel END AS papel FROM usuarios " +
+    "WHERE email = ? COLLATE NOCASE AND ativo = 1 AND papel IN ('professor','supervisor') AND (acesso_ate IS NULL OR acesso_ate >= date('now','-3 hours'))"
   ).bind(email).first();
   if (!user) throw new HttpError(401, 'Código inválido ou expirado.');
   // O perfil NÃO é escolhido pelo navegador: a área de destino vem do papel no banco
@@ -402,7 +408,7 @@ function gerarCodigoItem(disciplina) {
   }
 }
 
-function validarDados(input) {
+function validarDados(input, opcoes = {}) {
   if (!input || typeof input !== 'object' || Array.isArray(input)) throw new HttpError(400, 'Dados da questão inválidos.');
   const d = { rich: true };
   for (const campo of CAMPOS_TEXTO) {
@@ -441,9 +447,11 @@ function validarDados(input) {
   const vazio = v => !String(v).replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim() && !/<img\b/i.test(v);
   if (!['em', 'ef2'].includes(d.etapa)) throw new HttpError(400, 'Escolha a etapa.');
   if (!['autoral', 'enem', 'outros'].includes(d.origem)) throw new HttpError(400, 'Escolha a origem da questão.');
-  if (!['Fácil', 'Média', 'Difícil'].includes(d.dificuldade)) throw new HttpError(400, 'Escolha a dificuldade prevista.');
-  if (!['Lembrar', 'Compreender', 'Aplicar', 'Analisar', 'Avaliar'].includes(d.bloom)) throw new HttpError(400, 'Escolha o nível cognitivo.');
-  if (!d.assunto) throw new HttpError(400, 'Escolha o assunto principal.');
+  // Questões enviadas pelo ADM ou pelo digitador chegam sem classificação: o Supervisor classifica.
+  const semClassificacao = opcoes.importacao === true;
+  if (!(semClassificacao && !d.dificuldade) && !['Fácil', 'Média', 'Difícil'].includes(d.dificuldade)) throw new HttpError(400, 'Escolha a dificuldade prevista.');
+  if (!(semClassificacao && !d.bloom) && !['Lembrar', 'Compreender', 'Aplicar', 'Analisar', 'Avaliar'].includes(d.bloom)) throw new HttpError(400, 'Escolha o nível cognitivo.');
+  if (!semClassificacao && !d.assunto) throw new HttpError(400, 'Escolha o assunto principal.');
   if (!['A', 'B', 'C', 'D', 'E'].includes(d.gabarito)) throw new HttpError(400, 'Escolha o gabarito (A a E).');
   if (vazio(d.comando)) throw new HttpError(400, 'Preencha o comando da questão.');
   for (const l of 'abcde') if (vazio(d['alt-' + l])) throw new HttpError(400, 'Preencha a alternativa ' + l.toUpperCase() + '.');
@@ -499,13 +507,16 @@ async function normalizarImagens(env, texto) {
   }
   return String(texto).replace(RE_IMG_ASSINADA, link => trocas.get(link));
 }
-async function validarDadosComImagens(env, input) {
+async function validarDadosComImagens(env, input, opcoes = {}) {
   if (input && typeof input === 'object') {
     const copia = { ...input };
     for (const campo of CAMPOS_RICOS) if (typeof copia[campo] === 'string') copia[campo] = await normalizarImagens(env, copia[campo]);
-    return validarDados(copia);
+    return validarDados(copia, opcoes);
   }
-  return validarDados(input);
+  return validarDados(input, opcoes);
+}
+function classificacaoCompleta(d) {
+  return !!(d && d.assunto && d.bloom && d.dificuldade);
 }
 function idImagemNovo() {
   const b = new Uint8Array(16); crypto.getRandomValues(b);
@@ -584,7 +595,7 @@ async function migrarImagensAntigas(env, sessao, lote = 15) {
 async function usuarioDaSessao(request, env) {
   const sessao = await sessaoAtual(request, env, 'usuario');
   const user = await env.DB.prepare(
-    "SELECT id, nome, email, disciplina, papel FROM usuarios WHERE id = ? AND ativo = 1 AND papel IN ('professor','supervisor')"
+    "SELECT id, nome, email, disciplina, CASE WHEN digitador = 1 THEN 'digitador' ELSE papel END AS papel FROM usuarios WHERE id = ? AND ativo = 1 AND papel IN ('professor','supervisor') AND (acesso_ate IS NULL OR acesso_ate >= date('now','-3 hours'))"
   ).bind(sessao.usuario_id).first();
   if (!user) throw new HttpError(401, 'Acesso desativado. Entre novamente.');
   return user;
@@ -594,6 +605,8 @@ const SQL_RESUMO_ITEM =
   'SELECT i.id, i.codigo, i.disciplina, i.situacao, i.versao_atual, i.criado_em, i.atualizado_em, i.grupo_id, i.ordem_grupo, (SELECT gg.codigo FROM grupos gg WHERE gg.id = i.grupo_id) AS grupo_codigo, ' +
   'u.nome AS autor, json_extract(v.dados, \'$.assunto\') AS assunto, json_extract(v.dados, \'$.tags\') AS tags, (v.autor_id <> i.autor_id AND ue.papel = \'supervisor\') AS editada_supervisor, (v.autor_id <> i.autor_id AND ue.papel = \'adm\') AS corrigida_adm, ' +
   '(SELECT r.motivo FROM revisoes r WHERE r.item_id = i.id ORDER BY r.id DESC LIMIT 1) AS ultimo_motivo, ' +
+  '(COALESCE(json_extract(v.dados, \'$.assunto\'), \'\') = \'\' OR COALESCE(json_extract(v.dados, \'$.bloom\'), \'\') = \'\' OR COALESCE(json_extract(v.dados, \'$.dificuldade\'), \'\') = \'\') AS classificar, ' +
+  '(CASE WHEN u.papel = \'adm\' THEN \'adm\' WHEN u.digitador = 1 THEN \'digitador\' ELSE \'professor\' END) AS autor_tipo, ' +
   '(i.assinatura IS NOT NULL AND i.assinatura <> \'\' AND EXISTS (SELECT 1 FROM itens rr WHERE rr.disciplina = i.disciplina AND rr.assinatura = i.assinatura AND rr.id <> i.id AND rr.situacao <> \'descartado\')) AS tem_repetida, ' +
   '(SELECT r.decisao FROM revisoes r WHERE r.item_id = i.id ORDER BY r.id DESC LIMIT 1) AS ultima_decisao ' +
   'FROM itens i JOIN usuarios u ON u.id = i.autor_id ' +
@@ -653,6 +666,37 @@ function erroRepetida(repetidas) {
     repetidas.map(r => r.codigo + ' (' + (nomes[r.situacao] || r.situacao) + ')').join(', ') + '.');
   e.extra = { repetidas };
   return e;
+}
+
+// ---------- envio de questões sem classificação (ADM e digitador) ----------
+async function enviarSemClassificacao(env, request, autorId, origemEnvio) {
+  const body = await readJson(request, MAX_ITEM_BYTES + 64 * 1024);
+  const disciplina = limparDisciplina(body.disciplina);
+  const entrada = { ...(body.dados || {}) };
+  for (const k of ['assunto', 'subtema', 'nivel4', 'nivel5', 'bloom', 'dificuldade']) entrada[k] = '';
+  if (!entrada.etapa) entrada.etapa = 'em';
+  const dados = await validarDadosComImagens(env, entrada, { importacao: true });
+  const assinatura = await assinaturaDe(JSON.parse(dados));
+  if (body.confirmar_repetida !== true) {
+    const repetidas = await repetidasDe(env, disciplina, assinatura);
+    if (repetidas.length) throw erroRepetida(repetidas);
+  }
+  for (let tentativa = 0; tentativa < 10; tentativa++) {
+    const codigo = gerarCodigoItem(disciplina);
+    try {
+      await env.DB.batch([
+        env.DB.prepare("INSERT INTO itens (codigo, disciplina, autor_id, situacao, versao_atual, assinatura) VALUES (?, ?, ?, 'analise', 1, ?)")
+          .bind(codigo, disciplina, autorId, assinatura),
+        env.DB.prepare('INSERT INTO item_versoes (item_id, versao, dados, autor_id) SELECT id, 1, ?, ? FROM itens WHERE codigo = ?').bind(dados, autorId, codigo),
+        env.DB.prepare("INSERT INTO eventos (usuario_id, acao, item_id, detalhe) SELECT ?, 'item_enviado', id, ? FROM itens WHERE codigo = ?")
+          .bind(autorId, JSON.stringify({ codigo, versao: 1, sem_classificacao: true, por: origemEnvio }), codigo)
+      ]);
+      return { ok: true, item: { codigo, disciplina, situacao: 'analise' } };
+    } catch (error) {
+      if (!/UNIQUE/i.test(String(error && error.message))) throw error;
+    }
+  }
+  throw new HttpError(503, 'Não foi possível gerar o código da questão. Tente novamente.');
 }
 
 // ---------- grupos de questões (testlets) ----------
@@ -791,6 +835,14 @@ async function criarGrupo(request, env, user) {
 
 async function rotasItens(request, env, path) {
   const user = await usuarioDaSessao(request, env);
+  if (user.papel === 'digitador') {
+    if (path === '/api/itens/digitador' && request.method === 'POST') return await enviarSemClassificacao(env, request, user.id, 'digitador');
+    if (path === '/api/itens/meus' && request.method === 'GET') {
+      const { results } = await env.DB.prepare(SQL_RESUMO_ITEM + 'WHERE i.autor_id = ? ORDER BY i.id DESC LIMIT 300').bind(user.id).all();
+      return { ok: true, itens: results.map(({ id, grupo_id, tags, ...r }) => ({ ...r, tags: tags ? JSON.parse(tags) : [] })) };
+    }
+    throw new HttpError(403, 'Esta área é só para envio de questões pelo digitador.');
+  }
 
   // Enviar questão nova
   if (path === '/api/itens' && request.method === 'POST') {
@@ -909,8 +961,11 @@ async function rotasSupervisor(request, env, path, url) {
     // O Supervisor ajusta conteúdo, tags e classificação (assunto, subtema, detalhamentos, Bloom);
     // etapa, origem, fonte e dificuldade prevista continuam como o professor informou.
     const atualSup = JSON.parse((await env.DB.prepare('SELECT dados FROM item_versoes WHERE item_id = ? AND versao = ?').bind(item.id, item.versao_atual).first()).dados);
-    if (body.dados && typeof body.dados === 'object') for (const k of ['etapa', 'ano', 'origem', 'fonte', 'dificuldade']) body.dados[k] = atualSup[k] ?? '';
-    const grp = await gravacaoDoGrupo(env, item, await validarDadosComImagens(env, body.dados), user.id, 'supervisor');
+    if (body.dados && typeof body.dados === 'object') {
+      for (const k of ['etapa', 'ano', 'origem', 'fonte']) body.dados[k] = atualSup[k] ?? '';
+      if (atualSup.dificuldade) body.dados.dificuldade = atualSup.dificuldade;   // só define quando a questão chegou sem dificuldade
+    }
+    const grp = await gravacaoDoGrupo(env, item, await validarDadosComImagens(env, body.dados, { importacao: !classificacaoCompleta(atualSup) }), user.id, 'supervisor');
     const dados = grp.dados;
     const nova = item.versao_atual + 1;
     try {
@@ -961,6 +1016,13 @@ async function rotasSupervisor(request, env, path, url) {
     if (decisao === 'ajuste' && (motivo.length < 3 || motivo.length > 2000)) throw new HttpError(400, 'Descreva o ajuste necessário.');
     if (decisao === 'descartar' && (motivo.length < 3 || motivo.length > 2000)) throw new HttpError(400, 'Informe o motivo do descarte.');
     if (body.versao !== item.versao_atual) throw new HttpError(409, 'A questão mudou desde que você a abriu. Volte à fila e abra de novo.');
+    if (decisao === 'aprovar') {
+      const dv = JSON.parse((await env.DB.prepare('SELECT dados FROM item_versoes WHERE item_id = ? AND versao = ?').bind(item.id, item.versao_atual).first()).dados);
+      if (!classificacaoCompleta(dv)) throw new HttpError(409, 'Classifique a questão antes de aprovar: assunto, nível cognitivo (Bloom) e dificuldade. Use "Editar item".');
+    }
+    if (decisao === 'ajuste' && item.autor_tipo !== 'professor') {
+      throw new HttpError(409, 'Esta questão foi enviada pela Administração/digitação: não há professor para corrigir. Use "Editar item" para ajustar você mesmo.');
+    }
     // Muda a situação primeiro e só se ela ainda estiver "em análise" nesta versão (evita decisão dupla).
     const nova = { aprovar: 'aprovado', ajuste: 'ajustes', descartar: 'descartado' }[decisao];
     // Descartar vale para questões em análise ou aguardando ajuste; aprovar/ajuste só para "em análise".
@@ -977,7 +1039,7 @@ async function rotasSupervisor(request, env, path, url) {
     ]);
     const autorInfo = await emailDoAutor(env, item.id);
     const frase = { aprovar: 'foi aprovada pelo Supervisor', ajuste: 'precisa de ajuste', descartar: 'foi descartada pelo Supervisor' }[decisao];
-    avisar(env, autorInfo.email, 'ATLAS: a questão ' + item.codigo + ' ' + frase,
+    if (item.autor_tipo === 'professor') avisar(env, autorInfo.email, 'ATLAS: a questão ' + item.codigo + ' ' + frase,
       'Olá, ' + (autorInfo.nome || 'professor(a)') + '.\n\nA sua questão ' + item.codigo + ' ' + frase + '.' +
       (motivo ? '\n\nMotivo: ' + motivo : '') + (decisao === 'ajuste' ? '\n\nAbra o ATLAS, vá em "Minhas questões" e clique em "Corrigir".' : '') +
       '\n\n' + LINK_ATLAS);
@@ -1518,6 +1580,68 @@ async function rotasBackupAdm(request, env, path, sessao) {
   throw new HttpError(404, 'Rota indisponível.');
 }
 
+// ---------- relatório de produção (ADM) ----------
+const AREAS = Object.freeze({
+  LC: ['Português', 'Literatura', 'Inglês', 'Artes'],
+  CH: ['História', 'Geografia', 'Filosofia', 'Sociologia'],
+  CN: ['Física', 'Química', 'Biologia'],
+  MT: ['Matemática']
+});
+// Por autor: questões enviadas em cada mês do ano (horário de Brasília) e a situação delas hoje.
+async function relatorioProducao(env, url) {
+  const ano = Number(url.searchParams.get('ano')) || anoAtualSP();
+  if (ano < 2020 || ano > 2100) throw new HttpError(400, 'Ano inválido.');
+  const recorte = url.searchParams.get('recorte') || 'todos';
+  const valor = (url.searchParams.get('valor') || '').trim();
+  let disciplinas = DISCIPLINAS.slice(), autorId = null;
+  if (recorte === 'area') { if (!AREAS[valor]) throw new HttpError(400, 'Área inválida.'); disciplinas = AREAS[valor]; }
+  else if (recorte === 'disciplina') disciplinas = [limparDisciplina(valor)];
+  else if (recorte === 'professor') { autorId = Number(valor); if (!autorId) throw new HttpError(400, 'Escolha o professor.'); }
+  else if (recorte !== 'todos') throw new HttpError(400, 'Recorte inválido.');
+  const marcas = disciplinas.map(() => '?').join(',');
+  const filtroAutor = autorId ? ' AND i.autor_id = ?' : '';
+  const args = [String(ano), ...disciplinas, ...(autorId ? [autorId] : [])];
+  const { results: meses } = await env.DB.prepare(
+    "SELECT i.autor_id, CAST(strftime('%m', datetime(i.criado_em, '-3 hours')) AS INTEGER) AS mes, COUNT(*) AS n FROM itens i " +
+    "WHERE strftime('%Y', datetime(i.criado_em, '-3 hours')) = ? AND i.disciplina IN (" + marcas + ")" + filtroAutor + " GROUP BY i.autor_id, mes"
+  ).bind(...args).all();
+  const { results: situacoes } = await env.DB.prepare(
+    "SELECT i.autor_id, i.situacao, COUNT(*) AS n FROM itens i " +
+    "WHERE strftime('%Y', datetime(i.criado_em, '-3 hours')) = ? AND i.disciplina IN (" + marcas + ")" + filtroAutor + " GROUP BY i.autor_id, i.situacao"
+  ).bind(...args).all();
+  const { results: correcoes } = await env.DB.prepare(
+    "SELECT i.autor_id, COUNT(*) AS n FROM eventos e JOIN itens i ON i.id = e.item_id " +
+    "WHERE e.acao = 'item_reenviado' AND strftime('%Y', datetime(e.criado_em, '-3 hours')) = ? AND i.disciplina IN (" + marcas + ")" + filtroAutor + " GROUP BY i.autor_id"
+  ).bind(...args).all();
+  // Professores ativos do recorte aparecem mesmo sem envio (para ver quem não está alimentando o banco).
+  let pessoas;
+  if (autorId) {
+    pessoas = (await env.DB.prepare("SELECT id, nome, disciplina, papel, digitador, ativo FROM usuarios WHERE id = ?").bind(autorId).all()).results;
+  } else {
+    pessoas = (await env.DB.prepare(
+      "SELECT id, nome, disciplina, papel, digitador, ativo FROM usuarios WHERE (papel IN ('professor','supervisor') AND digitador = 0 AND ativo = 1 AND disciplina IN (" + marcas + ")) " +
+      "OR id IN (SELECT DISTINCT autor_id FROM itens WHERE strftime('%Y', datetime(criado_em, '-3 hours')) = ? AND disciplina IN (" + marcas + "))"
+    ).bind(...disciplinas, String(ano), ...disciplinas).all()).results;
+  }
+  const linhas = new Map();
+  for (const p of pessoas) {
+    linhas.set(p.id, {
+      id: p.id, nome: p.papel === 'adm' ? 'ADM' : p.nome,
+      tipo: p.papel === 'adm' ? 'adm' : p.digitador === 1 ? 'digitador' : (p.papel === 'supervisor' ? 'supervisor' : 'professor'),
+      disciplina: p.disciplina || '', ativo: p.ativo === 1,
+      meses: Array(12).fill(0), total: 0, aprovado: 0, analise: 0, ajustes: 0, descartado: 0, corrigidas: 0
+    });
+  }
+  for (const r of meses) { const l = linhas.get(r.autor_id); if (l) { l.meses[r.mes - 1] += r.n; l.total += r.n; } }
+  for (const r of situacoes) { const l = linhas.get(r.autor_id); if (l && r.situacao in l) l[r.situacao] += r.n; }
+  for (const r of correcoes) { const l = linhas.get(r.autor_id); if (l) l.corrigidas += r.n; }
+  const ordemTipo = { professor: 0, supervisor: 0, digitador: 1, adm: 2 };
+  const lista = [...linhas.values()].sort((a, b) => (ordemTipo[a.tipo] - ordemTipo[b.tipo]) || (b.total - a.total) || a.nome.localeCompare(b.nome, 'pt-BR'));
+  const totais = { meses: Array(12).fill(0), total: 0, aprovado: 0, analise: 0, ajustes: 0, descartado: 0, corrigidas: 0 };
+  for (const l of lista) { l.meses.forEach((n, k) => { totais.meses[k] += n; }); for (const k of ['total', 'aprovado', 'analise', 'ajustes', 'descartado', 'corrigidas']) totais[k] += l[k]; }
+  return { ok: true, ano, recorte, valor, areas: AREAS, disciplinas: DISCIPLINAS, linhas: lista, totais };
+}
+
 // ---------- rotas da Administração ----------
 async function rotasAdm(request, env, path) {
   if (path === '/api/adm/login' && request.method === 'POST') {
@@ -1540,6 +1664,8 @@ async function rotasAdm(request, env, path) {
     const r = await env.DB.prepare("SELECT COUNT(*) AS n FROM item_versoes WHERE dados LIKE '%data:image/%'").first();
     return { ok: true, versoes_com_imagem_antiga: r.n, r2: !!env.IMAGENS };
   }
+  if (path === '/api/adm/relatorio' && request.method === 'GET') return await relatorioProducao(env, new URL(request.url));
+  if (path === '/api/adm/itens/enviar' && request.method === 'POST') return await enviarSemClassificacao(env, request, await admUsuarioId(env), 'adm');
   const backupAdm = await rotasBackupAdm(request, env, path, sessao);
   if (backupAdm) return backupAdm;
   const selecoesAdm = await rotasSelecoesAdm(request, env, path, new URL(request.url), sessao);
@@ -1559,31 +1685,35 @@ async function rotasAdm(request, env, path) {
   }
   if (path === '/api/adm/professores' && request.method === 'POST') {
     const body = await readJson(request);
-    const nome = limparNome(body.nome), email = limparEmail(body.email), disciplina = limparDisciplina(body.disciplina);
+    const digitador = body.digitador === true;
+    const nome = limparNome(body.nome), email = limparEmail(body.email), disciplina = digitador ? null : limparDisciplina(body.disciplina);
+    const acessoAte = limparAcessoAte(body.acesso_ate);
     if (await emailEmUso(env, email)) throw new HttpError(409, 'Este e-mail já está cadastrado.');
-    const result = await env.DB.prepare("INSERT INTO usuarios (nome, email, disciplina, papel, ativo) VALUES (?, ?, ?, 'professor', 1)")
-      .bind(nome, email, disciplina).run();
+    const result = await env.DB.prepare("INSERT INTO usuarios (nome, email, disciplina, papel, ativo, digitador, acesso_ate) VALUES (?, ?, ?, 'professor', 1, ?, ?)")
+      .bind(nome, email, disciplina, digitador ? 1 : 0, acessoAte).run();
     const id = result.meta?.last_row_id;
-    await registrar(env, 'professor_cadastrado', { adm: sessao.email, id, nome, email, disciplina });
+    await registrar(env, digitador ? 'digitador_cadastrado' : 'professor_cadastrado', { adm: sessao.email, id, nome, email, disciplina, acesso_ate: acessoAte });
     return { ok: true, id, professores: await listarProfessores(env) };
   }
   const match = path.match(/^\/api\/adm\/professores\/(\d+)$/);
   if (match && request.method === 'PUT') {
     const id = Number(match[1]);
-    const atual = await env.DB.prepare("SELECT id, nome, email, disciplina, papel, ativo FROM usuarios WHERE id = ? AND papel IN ('professor','supervisor')")
+    const atual = await env.DB.prepare("SELECT id, nome, email, disciplina, papel, ativo, digitador, acesso_ate FROM usuarios WHERE id = ? AND papel IN ('professor','supervisor')")
       .bind(id).first();
     if (!atual) throw new HttpError(404, 'Professor não encontrado.');
     const body = await readJson(request);
     const nome = body.nome !== undefined ? limparNome(body.nome) : atual.nome;
     const email = body.email !== undefined ? limparEmail(body.email) : atual.email;
-    const disciplina = body.disciplina !== undefined ? limparDisciplina(body.disciplina) : atual.disciplina;
+    const digitador = body.digitador !== undefined ? (body.digitador === true ? 1 : 0) : atual.digitador;
+    const disciplina = digitador ? null : (body.disciplina !== undefined ? limparDisciplina(body.disciplina) : limparDisciplina(atual.disciplina));
     const ativo = body.ativo !== undefined ? (body.ativo ? 1 : 0) : atual.ativo;
+    const acessoAte = body.acesso_ate !== undefined ? limparAcessoAte(body.acesso_ate) : atual.acesso_ate;
     if (email !== atual.email && await emailEmUso(env, email, id)) throw new HttpError(409, 'Este e-mail já está cadastrado.');
     // Quem muda de disciplina ou é desativado deixa de ser supervisor.
-    const papel = (disciplina !== atual.disciplina || !ativo) ? 'professor' : atual.papel;
-    await env.DB.prepare('UPDATE usuarios SET nome = ?, email = ?, disciplina = ?, ativo = ?, papel = ? WHERE id = ?')
-      .bind(nome, email, disciplina, ativo, papel, id).run();
-    await registrar(env, 'professor_alterado', { adm: sessao.email, id, antes: atual, depois: { nome, email, disciplina, ativo, papel } });
+    const papel = (disciplina !== atual.disciplina || !ativo || digitador) ? 'professor' : atual.papel;
+    await env.DB.prepare('UPDATE usuarios SET nome = ?, email = ?, disciplina = ?, ativo = ?, papel = ?, digitador = ?, acesso_ate = ? WHERE id = ?')
+      .bind(nome, email, disciplina, ativo, papel, digitador, acessoAte, id).run();
+    await registrar(env, 'professor_alterado', { adm: sessao.email, id, antes: atual, depois: { nome, email, disciplina, ativo, papel, digitador, acesso_ate: acessoAte } });
     return { ok: true, professores: await listarProfessores(env) };
   }
   if (path === '/api/adm/supervisor' && request.method === 'POST') {
@@ -1591,9 +1721,10 @@ async function rotasAdm(request, env, path) {
     const disciplina = limparDisciplina(body.disciplina);
     const usuarioId = body.usuario_id === null || body.usuario_id === '' ? null : Number(body.usuario_id);
     if (usuarioId !== null) {
-      const prof = await env.DB.prepare("SELECT id, disciplina, ativo FROM usuarios WHERE id = ? AND papel IN ('professor','supervisor')")
+      const prof = await env.DB.prepare("SELECT id, disciplina, ativo, digitador FROM usuarios WHERE id = ? AND papel IN ('professor','supervisor')")
         .bind(usuarioId).first();
       if (!prof) throw new HttpError(404, 'Professor não encontrado.');
+      if (prof.digitador === 1) throw new HttpError(400, 'Digitador não pode ser supervisor.');
       if (prof.disciplina !== disciplina) throw new HttpError(400, 'O supervisor precisa ser professor desta disciplina.');
       if (prof.ativo !== 1) throw new HttpError(400, 'Ative o professor antes de torná-lo supervisor.');
     }
@@ -1635,7 +1766,7 @@ export default {
         if (!ALLOWED_ORIGINS.includes(origin)) throw new HttpError(403, 'Origem não permitida.');
         const sessao = await sessaoAtual(request, env, 'usuario');
         const usuario = await env.DB.prepare(
-          "SELECT id, nome, email, disciplina, papel FROM usuarios WHERE id = ? AND ativo = 1 AND papel IN ('professor','supervisor')"
+          "SELECT id, nome, email, disciplina, CASE WHEN digitador = 1 THEN 'digitador' ELSE papel END AS papel FROM usuarios WHERE id = ? AND ativo = 1 AND papel IN ('professor','supervisor') AND (acesso_ate IS NULL OR acesso_ate >= date('now','-3 hours'))"
         ).bind(sessao.usuario_id).first();
         if (!usuario) throw new HttpError(401, 'Acesso desativado. Entre novamente.');
         return reply({ ok: true, usuario, expira_em: sessao.expira_em }, 200, origin);
