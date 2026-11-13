@@ -1096,8 +1096,9 @@ async function rotasSupervisor(request, env, path, url) {
 // ---------- avisos por e-mail ----------
 // Só envia quando ATLAS_AVISOS_ATIVOS = "1". Sai pela Microsoft (olimpiadas@) e, se falhar, pelo Apps Script.
 // Uma falha no envio nunca desfaz a ação que gerou o aviso.
-function avisar(env, para, assunto, texto) {
-  if (env.ATLAS_AVISOS_ATIVOS !== '1') return;
+function avisar(env, para, assunto, texto, forcar) {
+  // forcar: lembretes ao próprio ADM saem mesmo com os avisos aos professores desligados.
+  if (env.ATLAS_AVISOS_ATIVOS !== '1' && !forcar) return;
   if (!para || (!microsoftConfigurado(env) && (!env.ATLAS_MAILER_URL || !env.ATLAS_MAILER_SECRET))) {
     console.warn('ATLAS aviso não enviado: configuração ou destinatário ausente.');
     return;
@@ -1197,12 +1198,14 @@ async function rotasAdmItens(request, env, path, sessao) {
     const det = await detalheCompleto(env, item);
     const descartadoEm = item.situacao === 'descartado' ? await dataDescarte(env, item.id) : null;
     return { ok: true, item: { ...det, descartado_em: descartadoEm,
-      pode_desfazer: !!descartadoEm && diasDesde(descartadoEm) <= DIAS_DESFAZER_DESCARTE,
+      retirada: !!(await env.DB.prepare('SELECT retirada_id FROM itens WHERE id = ?').bind(item.id).first())?.retirada_id,
+      pode_desfazer: !!descartadoEm && diasDesde(descartadoEm) <= DIAS_DESFAZER_DESCARTE && !(await env.DB.prepare('SELECT retirada_id FROM itens WHERE id = ?').bind(item.id).first())?.retirada_id,
       prazo_dias: DIAS_DESFAZER_DESCARTE } };
   }
 
   if (m[2] && request.method === 'POST') {
     if (item.situacao !== 'descartado') throw new HttpError(409, 'Esta questão não está descartada.');
+    if ((await env.DB.prepare('SELECT retirada_id FROM itens WHERE id = ?').bind(item.id).first())?.retirada_id) throw new HttpError(409, 'Esta questão foi retirada junto com as do professor desligado. Para devolvê-la, use "Questões retiradas" em Professores e disciplinas.');
     const descartadoEm = await dataDescarte(env, item.id);
     if (!descartadoEm || diasDesde(descartadoEm) > DIAS_DESFAZER_DESCARTE) {
       throw new HttpError(409, 'O prazo de ' + DIAS_DESFAZER_DESCARTE + ' dias para desfazer este descarte já terminou.');
@@ -1570,7 +1573,7 @@ async function rotasSelecoesAdm(request, env, path, url, sessao) {
 // Automática todo dia de madrugada (cron no wrangler.toml) e manual pela Administração.
 // Guarda as tabelas de conteúdo e cadastro; não guarda sessões nem códigos de login.
 // As imagens já ficam no R2 e não são copiadas de novo.
-const TABELAS_BACKUP = ['meta', 'usuarios', 'grupos', 'grupo_versoes', 'itens', 'item_versoes', 'revisoes', 'consertos', 'selecoes', 'selecao_itens', 'eventos'];
+const TABELAS_BACKUP = ['meta', 'usuarios', 'retiradas', 'grupos', 'grupo_versoes', 'itens', 'item_versoes', 'revisoes', 'consertos', 'selecoes', 'selecao_itens', 'eventos'];
 const MANTER_BACKUPS = 60;
 
 async function fazerBackup(env, origem) {
@@ -1687,6 +1690,149 @@ async function relatorioProducao(env, url) {
   return { ok: true, ano, recorte, valor, areas: AREAS, disciplinas: DISCIPLINAS, linhas: lista, totais };
 }
 
+// ---------- retirada das questões autorais de professor desligado ----------
+// Etapas: (1) o professor precisa estar DESATIVADO; (2) o ADM confirma o desligamento e informa o motivo;
+// (3) digita o nome completo do professor; (4) confere o total. As questões saem do banco (ficam como
+// descartadas) e podem voltar a qualquer momento durante MESES_RETIRADA meses. Vencido o prazo, o ADM
+// recebe um e-mail e um aviso na Administração perguntando se exclui definitivamente.
+const MESES_RETIRADA = 6, MESES_ADIAR = 3;
+function somarMeses(dataISO, n) {
+  const [a, m, d] = dataISO.split('-').map(Number);
+  const alvo = new Date(Date.UTC(a, m - 1 + n, 1));
+  const ultimo = new Date(Date.UTC(alvo.getUTCFullYear(), alvo.getUTCMonth() + 1, 0)).getUTCDate();
+  alvo.setUTCDate(Math.min(d, ultimo));
+  return alvo.toISOString().slice(0, 10);
+}
+function mesmoNome(a, b) {
+  const n = v => String(v || '').normalize('NFC').trim().replace(/\s+/g, ' ').toLocaleLowerCase('pt-BR');
+  return !!n(a) && n(a) === n(b);
+}
+async function autoraisDe(env, usuarioId) {
+  const { results } = await env.DB.prepare(
+    "SELECT i.id, i.codigo, i.situacao, i.grupo_id, (SELECT COUNT(*) FROM selecao_itens si WHERE si.item_id = i.id) AS em_selecoes FROM itens i " +
+    "JOIN item_versoes v ON v.item_id = i.id AND v.versao = i.versao_atual " +
+    "WHERE i.autor_id = ? AND i.retirada_id IS NULL AND json_extract(v.dados, '$.origem') = 'autoral' ORDER BY i.id"
+  ).bind(usuarioId).all();
+  return results;
+}
+function contarSituacoes(lista) {
+  const c = { aprovado: 0, analise: 0, ajustes: 0, descartado: 0, rascunho: 0 };
+  for (const i of lista) c[i.situacao] = (c[i.situacao] || 0) + 1;
+  return c;
+}
+async function retiradaPorId(env, id) {
+  const r = await env.DB.prepare('SELECT r.*, u.nome, u.email, u.ativo FROM retiradas r JOIN usuarios u ON u.id = r.usuario_id WHERE r.id = ?').bind(id).first();
+  if (!r) throw new HttpError(404, 'Retirada não encontrada.');
+  return r;
+}
+function resumoRetirada(env, r) {
+  const hoje = hojeSP(env);
+  return { id: r.id, usuario_id: r.usuario_id, nome: r.nome, email: r.email, motivo: r.motivo, total: r.total, situacao: r.situacao,
+    prazo_em: r.prazo_em, vencida: r.situacao === 'ativa' && r.prazo_em <= hoje, criado_em: r.criado_em, criado_por: r.criado_por,
+    finalizado_em: r.finalizado_em, detalhe: r.detalhe ? JSON.parse(r.detalhe) : null };
+}
+async function rotasRetiradas(request, env, path, sessao) {
+  if (path === '/api/adm/retiradas' && request.method === 'GET') {
+    const { results } = await env.DB.prepare('SELECT r.*, u.nome, u.email, u.ativo FROM retiradas r JOIN usuarios u ON u.id = r.usuario_id ORDER BY r.id DESC LIMIT 200').all();
+    return { ok: true, meses: MESES_RETIRADA, retiradas: results.map(r => resumoRetirada(env, r)) };
+  }
+  if (path === '/api/adm/retiradas/previa' && request.method === 'GET') {
+    const id = Number(new URL(request.url).searchParams.get('usuario'));
+    const u = await env.DB.prepare("SELECT id, nome, email, disciplina, ativo FROM usuarios WHERE id = ? AND papel IN ('professor','supervisor')").bind(id).first();
+    if (!u) throw new HttpError(404, 'Professor não encontrado.');
+    if (u.ativo) throw new HttpError(409, 'Primeiro desative o cadastro do professor. Só professores desativados podem ter as questões retiradas.');
+    const ativa = await env.DB.prepare("SELECT id FROM retiradas WHERE usuario_id = ? AND situacao = 'ativa'").bind(id).first();
+    const lista = await autoraisDe(env, id);
+    return { ok: true, professor: { id: u.id, nome: u.nome, email: u.email, disciplina: u.disciplina }, total: lista.length,
+      por_situacao: contarSituacoes(lista), em_selecoes: lista.filter(i => i.em_selecoes > 0).length, retirada_ativa: ativa ? ativa.id : null,
+      meses: MESES_RETIRADA, prazo_em: somarMeses(hojeSP(env), MESES_RETIRADA) };
+  }
+  if (path === '/api/adm/retiradas' && request.method === 'POST') {
+    const body = await readJson(request);
+    const id = Number(body.usuario_id);
+    const u = await env.DB.prepare("SELECT id, nome, ativo FROM usuarios WHERE id = ? AND papel IN ('professor','supervisor')").bind(id).first();
+    if (!u) throw new HttpError(404, 'Professor não encontrado.');
+    if (u.ativo) throw new HttpError(409, 'Primeiro desative o cadastro do professor.');
+    if (body.confirmo_desligamento !== true) throw new HttpError(400, 'Confirme que o professor foi desligado da escola.');
+    const motivo = String(body.motivo || '').trim();
+    if (motivo.length < 5 || motivo.length > 300) throw new HttpError(400, 'Informe o motivo (por exemplo: desligado em 10/12/2026).');
+    if (!mesmoNome(body.nome_confirmacao, u.nome)) throw new HttpError(400, 'O nome digitado não confere com o cadastro. Digite o nome completo do professor.');
+    if (await env.DB.prepare("SELECT id FROM retiradas WHERE usuario_id = ? AND situacao = 'ativa'").bind(id).first()) throw new HttpError(409, 'Este professor já tem uma retirada em andamento.');
+    const lista = await autoraisDe(env, id);
+    if (!lista.length) throw new HttpError(409, 'Este professor não tem questões autorais no banco.');
+    if (Number(body.total_esperado) !== lista.length) throw new HttpError(409, 'O número de questões mudou desde a prévia. Feche e abra de novo.');
+    const prazo = somarMeses(hojeSP(env), MESES_RETIRADA);
+    const itens = lista.map(i => ({ id: i.id, codigo: i.codigo, situacao: i.situacao }));
+    const r = await env.DB.prepare('INSERT INTO retiradas (usuario_id, motivo, itens, total, prazo_em, criado_por) VALUES (?, ?, ?, ?, ?, ?)')
+      .bind(id, motivo, JSON.stringify(itens), itens.length, prazo, sessao.email).run();
+    const rid = r.meta.last_row_id;
+    const admId = await admUsuarioId(env);
+    const ops = itens.map(i => env.DB.prepare("UPDATE itens SET situacao = 'descartado', retirada_id = ?, atualizado_em = strftime('%Y-%m-%dT%H:%M:%SZ','now') WHERE id = ? AND retirada_id IS NULL").bind(rid, i.id));
+    ops.push(env.DB.prepare("INSERT INTO eventos (usuario_id, acao, detalhe) VALUES (?, 'questoes_retiradas', ?)").bind(admId, JSON.stringify({ adm: sessao.email, retirada: rid, professor: u.nome, total: itens.length, prazo, motivo })));
+    await env.DB.batch(ops);
+    return { ok: true, retirada: resumoRetirada(env, await retiradaPorId(env, rid)) };
+  }
+  const m = path.match(/^\/api\/adm\/retiradas\/(\d+)\/(desfazer|adiar|excluir)$/);
+  if (!m || request.method !== 'POST') return null;
+  const r = await retiradaPorId(env, Number(m[1]));
+  if (r.situacao !== 'ativa') throw new HttpError(409, 'Esta retirada já foi encerrada.');
+  const body = await readJson(request);
+  const admId = await admUsuarioId(env);
+  const vencida = r.prazo_em <= hojeSP(env);
+  if (m[2] === 'desfazer') {
+    if (!mesmoNome(body.nome_confirmacao, r.nome)) throw new HttpError(400, 'O nome digitado não confere com o cadastro.');
+    const itens = JSON.parse(r.itens);
+    const ops = itens.map(i => env.DB.prepare("UPDATE itens SET situacao = ?, retirada_id = NULL, atualizado_em = strftime('%Y-%m-%dT%H:%M:%SZ','now') WHERE id = ? AND retirada_id = ?").bind(i.situacao, i.id, r.id));
+    ops.push(env.DB.prepare("UPDATE retiradas SET situacao = 'desfeita', finalizado_em = strftime('%Y-%m-%dT%H:%M:%SZ','now') WHERE id = ? AND situacao = 'ativa'").bind(r.id));
+    ops.push(env.DB.prepare("INSERT INTO eventos (usuario_id, acao, detalhe) VALUES (?, 'retirada_desfeita', ?)").bind(admId, JSON.stringify({ adm: sessao.email, retirada: r.id, professor: r.nome, total: itens.length })));
+    await env.DB.batch(ops);
+    return { ok: true, retirada: resumoRetirada(env, await retiradaPorId(env, r.id)) };
+  }
+  if (m[2] === 'adiar') {
+    if (!vencida) throw new HttpError(409, 'O prazo ainda não venceu.');
+    const prazo = somarMeses(hojeSP(env), MESES_ADIAR);
+    await env.DB.prepare('UPDATE retiradas SET prazo_em = ?, aviso_enviado_em = NULL WHERE id = ?').bind(prazo, r.id).run();
+    await registrar(env, 'retirada_adiada', { adm: sessao.email, retirada: r.id, professor: r.nome, prazo });
+    return { ok: true, retirada: resumoRetirada(env, await retiradaPorId(env, r.id)) };
+  }
+  // excluir definitivamente
+  if (!vencida) throw new HttpError(409, 'A exclusão definitiva só é liberada depois do prazo de ' + MESES_RETIRADA + ' meses (' + r.prazo_em.split('-').reverse().join('/') + ').');
+  if (body.confirmo_exclusao !== true) throw new HttpError(400, 'Confirme que entende que a exclusão não pode ser desfeita.');
+  if (!mesmoNome(body.nome_confirmacao, r.nome)) throw new HttpError(400, 'O nome digitado não confere com o cadastro.');
+  // Cópia de segurança completa antes de apagar (se falhar, nada é apagado).
+  const copia = await fazerBackup(env, 'antes-exclusao-' + r.id);
+  const { results: atuais } = await env.DB.prepare('SELECT i.id, i.codigo, i.grupo_id, (SELECT COUNT(*) FROM selecao_itens si WHERE si.item_id = i.id) AS em_selecoes FROM itens i WHERE i.retirada_id = ?').bind(r.id).all();
+  const apagar = atuais.filter(i => !i.em_selecoes), mantidas = atuais.filter(i => i.em_selecoes).map(i => i.codigo);
+  const ops = [];
+  for (const i of apagar) {
+    ops.push(env.DB.prepare('DELETE FROM eventos WHERE item_id = ?').bind(i.id));
+    ops.push(env.DB.prepare('DELETE FROM revisoes WHERE item_id = ?').bind(i.id));
+    ops.push(env.DB.prepare('DELETE FROM consertos WHERE item_id = ?').bind(i.id));
+    ops.push(env.DB.prepare('DELETE FROM item_versoes WHERE item_id = ?').bind(i.id));
+    ops.push(env.DB.prepare('DELETE FROM itens WHERE id = ?').bind(i.id));
+  }
+  for (const g of [...new Set(apagar.map(i => i.grupo_id).filter(Boolean))]) {
+    ops.push(env.DB.prepare('DELETE FROM grupo_versoes WHERE grupo_id = ? AND NOT EXISTS (SELECT 1 FROM itens WHERE grupo_id = ?)').bind(g, g));
+    ops.push(env.DB.prepare('DELETE FROM grupos WHERE id = ? AND NOT EXISTS (SELECT 1 FROM itens WHERE grupo_id = ?)').bind(g, g));
+  }
+  const detalhe = { excluidas: apagar.length, mantidas, backup: copia ? copia.nome : null };
+  ops.push(env.DB.prepare("UPDATE retiradas SET situacao = 'excluida', finalizado_em = strftime('%Y-%m-%dT%H:%M:%SZ','now'), detalhe = ? WHERE id = ?").bind(JSON.stringify(detalhe), r.id));
+  ops.push(env.DB.prepare("INSERT INTO eventos (usuario_id, acao, detalhe) VALUES (?, 'retirada_excluida', ?)").bind(admId, JSON.stringify({ adm: sessao.email, retirada: r.id, professor: r.nome, ...detalhe })));
+  await env.DB.batch(ops);
+  return { ok: true, retirada: resumoRetirada(env, await retiradaPorId(env, r.id)) };
+}
+// Rotina diária: prazo vencido → e-mail ao ADM (uma vez por prazo).
+async function lembrarRetiradas(env) {
+  const { results } = await env.DB.prepare("SELECT r.id, r.total, r.prazo_em, r.criado_em, u.nome FROM retiradas r JOIN usuarios u ON u.id = r.usuario_id WHERE r.situacao = 'ativa' AND r.prazo_em <= ? AND r.aviso_enviado_em IS NULL").bind(hojeSP(env)).all();
+  for (const r of results) {
+    avisar(env, env.ADMIN_EMAIL, 'ATLAS: confirmar exclusão definitiva das questões de ' + r.nome,
+      'As ' + r.total + ' questões autorais de ' + r.nome + ' foram retiradas do banco em ' + r.criado_em.slice(0, 10).split('-').reverse().join('/') +
+      ' e o prazo para desfazer terminou.\n\nEntre na Administração do ATLAS (Professores e disciplinas → Questões retiradas) e escolha: excluir definitivamente, devolver ao banco ou adiar a decisão por mais ' + MESES_ADIAR + ' meses.\n\nNada é apagado sem a sua confirmação.\n\n' + LINK_ATLAS + 'admin.html', true);
+    await env.DB.prepare("UPDATE retiradas SET aviso_enviado_em = strftime('%Y-%m-%dT%H:%M:%SZ','now') WHERE id = ?").bind(r.id).run();
+  }
+  return results.length;
+}
+
 // ---------- rotas da Administração ----------
 async function rotasAdm(request, env, path) {
   if (path === '/api/adm/login' && request.method === 'POST') {
@@ -1711,6 +1857,8 @@ async function rotasAdm(request, env, path) {
   }
   if (path === '/api/adm/relatorio' && request.method === 'GET') return await relatorioProducao(env, new URL(request.url));
   if (path === '/api/adm/itens/enviar' && request.method === 'POST') return await enviarSemClassificacao(env, request, await admUsuarioId(env), 'adm');
+  const retiradas = await rotasRetiradas(request, env, path, sessao);
+  if (retiradas) return retiradas;
   const backupAdm = await rotasBackupAdm(request, env, path, sessao);
   if (backupAdm) return backupAdm;
   const selecoesAdm = await rotasSelecoesAdm(request, env, path, new URL(request.url), sessao);
@@ -1788,6 +1936,7 @@ export default {
   async scheduled(event, envOriginal, ctx) {
     const env = Object.assign(Object.create(envOriginal || {}), { __ctx: ctx });
     ctx.waitUntil(fazerBackup(env, 'automatico').catch(error => console.error('ATLAS backup automático falhou:', error && error.message)));
+    ctx.waitUntil(lembrarRetiradas(env).catch(error => console.error('ATLAS lembrete de retiradas falhou:', error && error.message)));
   },
   async fetch(request, envOriginal, ctx) {
     const env = Object.assign(Object.create(envOriginal || {}), { __ctx: ctx });
