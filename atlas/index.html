@@ -34,6 +34,7 @@ footer{background:#eaf0f6;border-top:1px solid #dce3ec;padding:18px 24px;text-al
 </main>
 <footer><strong>ATLAS</strong> &nbsp;·&nbsp; Banco Inteligente de Itens do Grupo Ideal</footer>
 <div class="overlay" id="overlay" role="dialog" aria-modal="true" aria-labelledby="dialogTitle"><section class="dialog"><button class="close" aria-label="Fechar">×</button><div class="icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3M12 14v3"/></svg></div><h2 id="dialogTitle">Acesso do perfil</h2><p id="dialog-lead">Use o seu <strong>e-mail institucional do Grupo Ideal</strong>. Digite só a parte antes do @; o final <strong>@grupoideal.com.br</strong> já está preenchido.</p><form id="email-step" class="email-step"><label for="email">E-mail institucional</label><div class="email-field"><input id="email" type="text" inputmode="email" placeholder="nome.sobrenome" autocomplete="username" autocapitalize="off" spellcheck="false" maxlength="64" required aria-label="Parte inicial do e-mail institucional"><span>@grupoideal.com.br</span></div><button class="go" id="loginButton" type="submit">Enviar código <span>›</span></button></form><form id="code-step" class="code-step" hidden><p id="sent-to"></p><label for="code">Código de 6 dígitos</label><input id="code" type="text" inputmode="numeric" pattern="[0-9]{6}" minlength="6" maxlength="6" autocomplete="one-time-code" required><label class="remember"><input type="checkbox" id="remember"> Manter acesso por 7 dias neste dispositivo</label><button class="go" id="verifyButton" type="submit">Confirmar código <span>›</span></button></form><p class="login-status" id="login-status" role="status" aria-live="polite"></p></section></div>
+<script src="atlas-ferias.js?v=20261113d"></script>
 <script>
 const API='https://atlas-api.marinhomalcher.workers.dev';
 const overlay=document.querySelector('#overlay'),title=document.querySelector('#dialogTitle'),email=document.querySelector('#email');
@@ -44,15 +45,15 @@ function setStatus(message,info=false){loginStatus.textContent=message;loginStat
 function resetSteps(){emailStep.hidden=false;codeStep.hidden=true;code.value='';requestedEmail='';setStatus('')}
 function closeDialog(){overlay.classList.remove('open');resetSteps()}
 // Sessão guardada (inclusive a de 7 dias): se ainda vale, entra direto, sem pedir código.
-async function sessaoSalva(){let saved;try{saved=JSON.parse(sessionStorage.getItem('atlas_user_auth')||localStorage.getItem('atlas_user_auth')||'null')}catch{return null}
+async function sessaoSalva(avisarFerias){let saved;try{saved=JSON.parse(sessionStorage.getItem('atlas_user_auth')||localStorage.getItem('atlas_user_auth')||'null')}catch{return null}
   if(!saved?.token||!saved?.expira_em||Date.parse(saved.expira_em)<=Date.now())return null;
-  try{const r=await fetch(API+'/api/login/sessao',{headers:{Authorization:'Bearer '+saved.token},cache:'no-store'});const d=await r.json().catch(()=>({}));if(r.ok&&d.ok&&d.usuario)return d.usuario}catch{return null}
+  try{const r=await fetch(API+'/api/login/sessao',{headers:{Authorization:'Bearer '+saved.token},cache:'no-store'});const d=await r.json().catch(()=>({}));if(r.ok&&d.ok&&d.usuario)return d.usuario;if(r.status===423&&d.ferias){if(avisarFerias)window.ATLAS_FERIAS(d.reabre,true);return avisarFerias?'ferias':null}}catch{return null}
   sessionStorage.removeItem('atlas_user_auth');localStorage.removeItem('atlas_user_auth');return null}
 document.querySelectorAll('[data-role]').forEach(button=>button.addEventListener('click',async()=>{
   role=button.dataset.role;
   if(role==='Administrador'){location.href='admin.html';return}
   if(button.dataset.verificando)return;button.dataset.verificando='1';
-  const usuario=await sessaoSalva();delete button.dataset.verificando;
+  const usuario=await sessaoSalva(true);delete button.dataset.verificando;if(usuario==='ferias')return;
   if(usuario){location.href=usuario.papel==='digitador'?'digitador.html':(role==='Supervisor'&&usuario.papel==='supervisor')?'supervisor.html':'professor.html';return}
   title.textContent=`Acesso do ${role}`;resetSteps();overlay.classList.add('open');email.focus();
 }));
@@ -70,6 +71,7 @@ async function api(path,body){
   let response;try{response=await fetch(API+path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body),cache:'no-store'})}
   catch{throw Error('Sem conexão com o servidor do ATLAS.')}
   const data=await response.json().catch(()=>({}));
+  if(response.status===423&&data.ferias){window.ATLAS_FERIAS(data.reabre,true);closeDialog();throw Error(data.error)}
   if(!response.ok||data.ok!==true)throw Error(data.error||'Não foi possível concluir. Tente novamente.');
   return data;
 }
