@@ -879,6 +879,15 @@ async function rotasItens(request, env, path) {
   if (path === '/api/itens/grupo' && request.method === 'POST') return await criarGrupo(request, env, user);
 
   // Minhas questões
+  // Quadro do professor: o que ele enviou em cada mês do ano e como as questões estão hoje.
+  if (path === '/api/itens/meus/resumo' && request.method === 'GET') {
+    const u = new URL(request.url);
+    const ano = Number(u.searchParams.get('ano')) || anoAtualSP();
+    const rel = await relatorioProducao(env, new URL('https://x/?recorte=professor&valor=' + user.id + '&ano=' + ano));
+    const l = rel.linhas[0] || { meses: Array(12).fill(0), total: 0, aprovado: 0, analise: 0, ajustes: 0, descartado: 0, corrigidas: 0 };
+    return { ok: true, ano, mes_atual: Number(new Intl.DateTimeFormat('en', { timeZone: 'America/Sao_Paulo', month: 'numeric' }).format(new Date())),
+      meses: l.meses, total: l.total, aprovado: l.aprovado, analise: l.analise, ajustes: l.ajustes, descartado: l.descartado, corrigidas: l.corrigidas };
+  }
   if (path === '/api/itens/meus' && request.method === 'GET') {
     const { results } = await env.DB.prepare(SQL_RESUMO_ITEM + 'WHERE i.autor_id = ? ORDER BY i.atualizado_em DESC, i.id DESC LIMIT 300')
       .bind(user.id).all();
