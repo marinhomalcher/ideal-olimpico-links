@@ -121,7 +121,7 @@ ok('Letra + espaço: alternativas certas mesmo com "A" no comando', (await tx('a
 await limparCampos();await paste('#comando','A professora leu o poema.\nE a turma discutiu o tema.');await page.waitForTimeout(200);
 ok('Texto comum começando com "A"/"E": nada é separado', (await tx('alt-a'))===''&&(await tx('comando')).startsWith('A professora'), await tx('alt-a'));
 await page.evaluate(()=>{document.getElementById('comando').textContent='Na construção da argumentação, o texto';document.getElementById('alt-a').textContent='só uma alternativa com tab';for(const l of 'bcde')document.getElementById('alt-'+l).innerHTML=''});
-await page.click('#referencia');await page.evaluate(()=>navigator.clipboard?0:0);
+await page.click('[data-ref-para="referencia"]');await page.click('#referencia');
 await page.fill('#referencia',REF1);await page.click('#comando');
 ok('Referência: ao sair do campo, "Acesso em" vai para a linha de baixo', (await page.inputValue('#referencia'))==='MAY, R. H. Disponível em: www.servicioskoinonia.org.\nAcesso em: 12 mar. 2016.', JSON.stringify(await page.inputValue('#referencia')));
 await page.fill('#referencia','');await page.focus('#referencia');await page.evaluate(t=>{const el=document.getElementById('referencia');const dt=new DataTransfer();dt.setData('text/plain',t);el.dispatchEvent(new ClipboardEvent('paste',{clipboardData:dt,bubbles:true,cancelable:true}));el.value=t},REF1);await page.waitForTimeout(100);

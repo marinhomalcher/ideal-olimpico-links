@@ -98,23 +98,31 @@
   function layoutNome(v){return v==='pagina'?'Largura total (1 coluna)':'2 colunas'}
   if(!document.getElementById('atlas-textos-style')){const st=document.createElement('style');st.id='atlas-textos-style';st.textContent=
     '.ref-fonte{font-size:8pt;line-height:1.35;text-align:right;color:#4c4346;margin:4px 0 12px}.texto-titulo{text-align:center;font-weight:bold;margin:16px 0 6px;letter-spacing:.03em}.choice .ref-fonte{margin:2px 0 10px}'+
-    '.texto-extra{border:1px dashed #cbaeb2;border-radius:10px;padding:12px 14px;margin:14px 0;background:#fffafa}.texto-extra-topo{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}.texto-extra-topo b{color:#6e2026}.texto-extra textarea.ref{min-height:54px}'+
+    '.textos-extras,.textos-extras+.btn-mais{grid-column:1/-1}.textos-extras+.btn-mais{justify-self:start}.texto-extra{border-top:1px solid #e6dadd;padding-top:14px;margin:14px 0 0}.texto-extra-topo{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:6px}.texto-extra-topo label{margin:0!important}.texto-extra textarea.ref{min-height:54px;margin-top:6px}.texto-extra .remover-texto{padding:5px 11px;font-size:13px}'+
+    '.btn-ref{border:1px dashed #cbaeb2;background:#fff;color:#98151d;border-radius:8px;padding:7px 12px;font-size:13px;font-weight:bold;cursor:pointer;margin:2px 0 4px}'+
     '.btn-mais{border:1px dashed #98151d;background:#fff;color:#98151d;border-radius:8px;padding:8px 13px;font-weight:bold;cursor:pointer;margin:12px 0 4px}.link-fonte{border:0;background:none;color:#98151d;font-size:12px;font-weight:bold;cursor:pointer;padding:0;margin:-6px 0 10px 44px;text-decoration:underline}.alt-ref{margin:-4px 0 12px 44px}.alt-ref textarea{min-height:46px;font-size:13px;width:100%}'+
     '.layout-box{border:1px solid #e6dadd;border-radius:10px;padding:12px 14px;margin:16px 0 4px}.layout-box>b{display:block;color:#5d5054;font-size:13px;margin-bottom:6px}.layout-ops{display:flex;gap:18px;flex-wrap:wrap}.layout-ops label{display:flex!important;align-items:center;gap:7px;font-weight:normal!important;margin:0!important;cursor:pointer}.layout-ops input{width:17px!important;height:17px;accent-color:#98151d}.layout-aviso{margin:8px 0 0;font-size:12px;color:#8a5a00}'+
     '.largura-bar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:0 0 12px;font-size:12px;color:#70676b}.largura-bar button{border:1px solid #cbaeb2;background:#fff;color:#98151d;border-radius:999px;padding:4px 11px;font-size:12px;font-weight:bold;cursor:pointer}.largura-bar button.on{background:#98151d;color:#fff;border-color:#98151d}.largura-col{max-width:340px}.largura-total{max-width:720px}';
     document.head.append(st)}
+  // Campo de referência fica atrás do botão "+ Inserir referência…"; abre sozinho quando já tem conteúdo
+  // (inclusive quando o valor é posto pelo código, ao editar uma questão) e fecha quando o formulário é limpo.
+  function recolherRef(ta){if(!ta||ta.dataset.recolhe)return;ta.dataset.recolhe='1';const lab=document.querySelector('label[for="'+ta.id+'"]');
+    const bt=document.createElement('button');bt.type='button';bt.className='btn-ref';bt.dataset.refPara=ta.id;bt.textContent='+ Inserir referência do texto ou da imagem';(lab||ta).before(bt);
+    const abrir=v=>{ta.style.display=v?'':'none';if(lab)lab.style.display=v?'':'none';bt.style.display=v?'none':''};
+    const d=Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,'value');Object.defineProperty(ta,'value',{configurable:true,get(){return d.get.call(this)},set(v){d.set.call(this,v);abrir(!!String(v??'').trim())}});
+    bt.addEventListener('click',()=>{abrir(true);ta.focus()});abrir(!!ta.value.trim())}
   // Controles extras de um formulário que já tem os editores (texto-base, referencia, alt-a..e).
   function extras(rich,opcoes={}){const refBase=document.getElementById(opcoes.referencia||'referencia');if(!refBase)return {ler:()=>({}),escrever:()=>{}};
-    ligarRef(refBase);
+    ligarRef(refBase);recolherRef(refBase);
     const area=document.createElement('div');area.className='textos-extras';const mais=document.createElement('button');mais.type='button';mais.className='btn-mais';mais.textContent='+ Adicionar outro texto';
     const ancora=refBase.closest('.wide')||refBase;ancora.after(area);area.after(mais);
     const rotuloBase=document.querySelector('label[for="texto-base"]'),rotuloOriginal=rotuloBase?rotuloBase.textContent:'';const rotuloRef=document.querySelector('label[for="'+refBase.id+'"]'),rotuloRefOriginal=rotuloRef?rotuloRef.textContent:'';
     let cont=0;
-    function numerar(){const blocos=[...area.querySelectorAll('.texto-extra')];blocos.forEach((b,k)=>{const n=ROMANOS[k+1];b.querySelector('.texto-extra-topo b').textContent='Texto '+n;b.querySelector('label.lt').textContent='Texto '+n;b.querySelector('label.lr').textContent='Referência do texto '+n+' (quando houver)'});
+    function numerar(){const blocos=[...area.querySelectorAll('.texto-extra')];blocos.forEach((b,k)=>{const n=ROMANOS[k+1];b.querySelector('label.lt').textContent='Texto '+n;b.querySelector('label.lr').textContent='Referência do texto '+n+' (quando houver)'});
       if(rotuloBase)rotuloBase.textContent=blocos.length?'Texto I':rotuloOriginal;if(rotuloRef)rotuloRef.textContent=blocos.length?'Referência do texto I (quando houver)':rotuloRefOriginal;mais.hidden=blocos.length>=3}
     function adicionar(t={}){if(area.querySelectorAll('.texto-extra').length>=3)return null;cont++;const id='texto-extra-'+cont,rid='ref-extra-'+cont;const b=document.createElement('div');b.className='texto-extra';
-      b.innerHTML='<div class="texto-extra-topo"><b></b><button type="button" class="secondary remover-texto">Remover este texto</button></div><label class="lt" for="'+id+'"></label><textarea id="'+id+'" class="long" placeholder="Cole o texto, a imagem ou o gráfico"></textarea><label class="lr" for="'+rid+'"></label><textarea id="'+rid+'" class="ref" placeholder="Fonte em estilo ENEM/INEP, sem hiperlink"></textarea>';
-      area.append(b);rich.adicionar(id);ligarRef(b.querySelector('#'+rid));if(t.texto)rich.write(id,t.texto);b.querySelector('#'+rid).value=t.referencia||'';
+      b.innerHTML='<div class="texto-extra-topo"><label class="lt" for="'+id+'"></label><button type="button" class="secondary remover-texto">Remover este texto</button></div><textarea id="'+id+'" class="long" placeholder="Cole o texto, a imagem ou o gráfico"></textarea><label class="lr" for="'+rid+'"></label><textarea id="'+rid+'" class="ref" placeholder="Fonte em estilo ENEM/INEP, sem hiperlink"></textarea>';
+      area.append(b);rich.adicionar(id);ligarRef(b.querySelector('#'+rid));recolherRef(b.querySelector('#'+rid));if(t.texto)rich.write(id,t.texto);b.querySelector('#'+rid).value=t.referencia||'';
       b.querySelector('.remover-texto').addEventListener('click',()=>{rich.remover(id);b.remove();numerar();area.dispatchEvent(new Event('input',{bubbles:true}))});numerar();return b}
     mais.addEventListener('click',()=>{const b=adicionar();if(b){const ed=b.querySelector('.rich-editor');if(ed)ed.focus();area.dispatchEvent(new Event('input',{bubbles:true}))}});
     // fonte em cada alternativa

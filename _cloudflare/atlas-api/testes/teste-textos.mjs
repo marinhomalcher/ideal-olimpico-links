@@ -136,10 +136,20 @@ const paste=(sel,text)=>page.evaluate(([sel,text])=>{const el=document.querySele
 db.exec('DELETE FROM login_rate_limits');await page.goto('https://idealolimpico.com.br/atlas/');await page.click('[data-role="Professor"]');await page.fill('#email','edi.franco');await page.click('#loginButton');await page.waitForSelector('#code-step:not([hidden])');await page.fill('#code',lastCode());await page.click('#verifyButton');
 await page.waitForURL(/professor\.html/);await page.waitForFunction(()=>!document.querySelector('#questao-form').hidden);
 ok('Tela: botão "+ Adicionar outro texto" e formato 2 colunas marcado', await page.isVisible('text=+ Adicionar outro texto')&&await page.isChecked('.layout-box input[value="coluna"]'));
-await paste('#texto-base','Mas logo se viu que a retirada americana seria praticamente equivalente.');await page.fill('#referencia','WESSON, R. G. A nova política externa dos Estados Unidos. Rio de Janeiro: Zahar, 1978 (fragmento).');
+ok('Tela: referência fica atrás do botão "+ Inserir referência"', await page.isVisible('[data-ref-para="referencia"]')&&await page.isHidden('#referencia')&&await page.isHidden('label[for="referencia"]'));
+await paste('#texto-base','Mas logo se viu que a retirada americana seria praticamente equivalente.');await page.click('[data-ref-para="referencia"]');
+ok('Tela: clicar no botão abre o campo de referência', await page.isVisible('#referencia')&&await page.isHidden('[data-ref-para="referencia"]'));
+await page.fill('#referencia','WESSON, R. G. A nova política externa dos Estados Unidos. Rio de Janeiro: Zahar, 1978 (fragmento).');
 await page.click('text=+ Adicionar outro texto');await page.waitForSelector('.texto-extra');
-ok('Tela: ao adicionar, os rótulos viram Texto I e Texto II', (await page.textContent('label[for="texto-base"]'))==='Texto I'&&(await page.textContent('.texto-extra-topo b'))==='Texto II');
-await paste('.texto-extra .rich-editor','O que as pessoas não compreendiam, e que os Governos não lhes comunicavam.');await page.fill('.texto-extra textarea.ref','DEUTSCHER, I. Mitos da Guerra Fria. Disponível em: x.org. Acesso em: 1 jan. 2020.');await page.click('#comando');
+ok('Tela: ao adicionar, os rótulos viram Texto I e Texto II', (await page.textContent('label[for="texto-base"]'))==='Texto I'&&(await page.textContent('.texto-extra label.lt'))==='Texto II');
+{const wBase=(await page.locator('#texto-base').boundingBox()).width,wExtra=(await page.locator('.texto-extra .rich-editor').boundingBox()).width;
+ok('Tela: Texto II abre embaixo, com a mesma largura do Texto I', Math.abs(wBase-wExtra)<40&&(await page.locator('.texto-extra').boundingBox()).y>(await page.locator('#referencia').boundingBox()).y, wBase+' x '+wExtra);}
+{const refAtual=await page.inputValue('#referencia');await page.evaluate(()=>{document.getElementById('referencia').value=''});const fechou=await page.isHidden('#referencia')&&await page.isVisible('[data-ref-para="referencia"]');
+await page.evaluate(v=>{document.getElementById('referencia').value=v},refAtual);
+ok('Tela: campo de referência fecha ao limpar e abre sozinho quando a questão já tem referência', fechou&&await page.isVisible('#referencia')&&(await page.inputValue('#referencia'))===refAtual);}
+await page.locator('#questao-form').screenshot({path:S+'textos-extras.png'});
+ok('Tela: Texto II também tem o botão de referência', await page.isVisible('.texto-extra .btn-ref')&&await page.isHidden('.texto-extra textarea.ref'));
+await paste('.texto-extra .rich-editor','O que as pessoas não compreendiam, e que os Governos não lhes comunicavam.');await page.click('.texto-extra .btn-ref');await page.fill('.texto-extra textarea.ref','DEUTSCHER, I. Mitos da Guerra Fria. Disponível em: x.org. Acesso em: 1 jan. 2020.');await page.click('#comando');
 ok('Tela: referência do Texto II também quebra o "Acesso em"', (await page.inputValue('.texto-extra textarea.ref')).includes('.\nAcesso em'));
 await page.click('text=+ Adicionar outro texto');await page.click('text=+ Adicionar outro texto');
 ok('Tela: no máximo 4 textos (botão some)', (await page.$$('.texto-extra')).length===3&&await page.isHidden('text=+ Adicionar outro texto'));

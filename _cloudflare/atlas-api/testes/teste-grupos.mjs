@@ -192,7 +192,7 @@ async function preencherQ(cmd,gab){await page.selectOption('#assunto','Romantism
 await preencherQ('Pergunta um do poema','A');
 await page.evaluate(()=>{try{if(typeof tagsCampo!=='undefined'&&tagsCampo.get().length<2)tagsCampo.set(['teste','ui'])}catch{}});await page.click('#grupo-adicionar');
 ok('Tela: sem texto-base, não adiciona ao grupo', (await page.textContent('#status')).includes('texto-base é obrigatório') && (await page.textContent('#grupo-qtd'))==='(0)');
-await paste('#texto-base','Poema de Gonçalves Dias para as questões.');await page.fill('#referencia','DIAS, G. Canção do exílio.');
+await paste('#texto-base','Poema de Gonçalves Dias para as questões.');await page.click('[data-ref-para="referencia"]');await page.fill('#referencia','DIAS, G. Canção do exílio.');
 await page.evaluate(()=>{try{if(typeof tagsCampo!=='undefined'&&tagsCampo.get().length<2)tagsCampo.set(['teste','ui'])}catch{}});await page.click('#grupo-adicionar');
 ok('Tela: questão 1 adicionada e campos da questão limpos (texto fica)', (await page.textContent('#grupo-qtd'))==='(1)' && (await page.textContent('#comando'))==='' && (await page.textContent('#texto-base')).includes('Gonçalves Dias'));
 await paste('#comando','Pergunta dois do poema');for(const l of 'abcde')await paste('#alt-'+l,'Dois opção '+l);await page.selectOption('#gabarito','D');
