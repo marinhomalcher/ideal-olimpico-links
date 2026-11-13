@@ -423,6 +423,36 @@ function formatarReferencia(v) {
 const CAMPOS_TEXTO = Object.freeze(['etapa', 'ano', 'origem', 'fonte', 'dificuldade', 'assunto', 'subtema',
   'nivel4', 'nivel5', 'bloom', 'referencia', 'gabarito']);
 const CAMPOS_RICOS = Object.freeze(['texto-base', 'comando', 'alt-a', 'alt-b', 'alt-c', 'alt-d', 'alt-e', 'resolucao']);
+function validarRico(nome, v) {
+  if (typeof v !== 'string') throw new HttpError(400, 'Campo inválido: ' + nome + '.');
+  if (HTML_PROIBIDO.test(v)) throw new HttpError(400, 'O campo "' + nome + '" contém conteúdo não permitido.');
+  for (const img of v.match(/<img\b[^>]*>/gi) || []) {
+    const src = (img.match(/\ssrc\s*=\s*"([^"]*)"/i) || [])[1] || '';
+    if (!/^data:image\/(png|jpeg|webp);base64,/i.test(src) && !/^atlas:img\/[0-9a-f]{32}$/.test(src)) {
+      throw new HttpError(400, 'O campo "' + nome + '" tem uma imagem de origem não permitida. Cole a imagem de novo.');
+    }
+  }
+  return v;
+}
+// Textos de apoio além do primeiro (Texto II, III, IV): cada um com texto (rico) e referência.
+const MAX_TEXTOS_EXTRAS = 3;
+function limparTextosExtras(lista) {
+  if (lista === undefined || lista === null) return [];
+  if (!Array.isArray(lista)) throw new HttpError(400, 'Textos de apoio inválidos.');
+  const out = [];
+  for (const t of lista) {
+    if (!t || typeof t !== 'object') throw new HttpError(400, 'Textos de apoio inválidos.');
+    const texto = validarRico('texto ' + (out.length + 2), t.texto === undefined || t.texto === null ? '' : t.texto);
+    const ref = t.referencia === undefined || t.referencia === null ? '' : t.referencia;
+    if (typeof ref !== 'string' || ref.length > 1000) throw new HttpError(400, 'Referência de texto inválida.');
+    const vazio = !texto.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim() && !/<img\b/i.test(texto);
+    if (vazio && !ref.trim()) continue;
+    if (vazio) throw new HttpError(400, 'O texto ' + ['II', 'III', 'IV'][out.length] + ' tem referência mas está vazio.');
+    out.push({ texto, referencia: formatarReferencia(ref) });
+  }
+  if (out.length > MAX_TEXTOS_EXTRAS) throw new HttpError(400, 'Use no máximo 4 textos de apoio por questão.');
+  return out;
+}
 const HTML_PROIBIDO = /<\s*\/?\s*(script|iframe|object|embed|style|link|meta|form|base)\b|\son[a-z]+\s*=|javascript\s*:|vbscript\s*:/i;
 
 function gerarCodigoItem(disciplina) {
@@ -459,6 +489,15 @@ function validarDados(input, opcoes = {}) {
     }
     d[campo] = v;
   }
+  d.textos_extras = limparTextosExtras(input.textos_extras);
+  // Fonte (referência) da imagem de cada alternativa — opcional; sai em letra pequena.
+  for (const l of 'abcde') {
+    const v = input['ref-' + l] === undefined || input['ref-' + l] === null ? '' : input['ref-' + l];
+    if (typeof v !== 'string' || v.length > 1000) throw new HttpError(400, 'Fonte da alternativa ' + l.toUpperCase() + ' inválida.');
+    d['ref-' + l] = formatarReferencia(v);
+  }
+  // Formato na prova: 2 colunas (padrão) ou largura total.
+  d.layout = input.layout === 'pagina' ? 'pagina' : 'coluna';
   // Tags (palavras-chave): até 12, cada uma com até 40 caracteres, minúsculas, sem repetir.
   const tagsBrutas = input.tags === undefined || input.tags === null ? [] : input.tags;
   if (!Array.isArray(tagsBrutas) && typeof tagsBrutas !== 'string') throw new HttpError(400, 'Tags inválidas.');
@@ -541,6 +580,7 @@ async function validarDadosComImagens(env, input, opcoes = {}) {
   if (input && typeof input === 'object') {
     const copia = { ...input };
     for (const campo of CAMPOS_RICOS) if (typeof copia[campo] === 'string') copia[campo] = await normalizarImagens(env, copia[campo]);
+    if (Array.isArray(copia.textos_extras)) copia.textos_extras = await Promise.all(copia.textos_extras.map(async t => (t && typeof t.texto === 'string') ? { ...t, texto: await normalizarImagens(env, t.texto) } : t));
     return validarDados(copia, opcoes);
   }
   return validarDados(input, opcoes);
@@ -667,6 +707,8 @@ function textoPlano(html) {
 }
 async function assinaturaDe(dados) {
   const partes = ['texto-base', 'comando', 'alt-a', 'alt-b', 'alt-c', 'alt-d', 'alt-e'].map(c => textoPlano(dados && dados[c]));
+  // Textos II, III... entram junto do texto I (questões antigas, sem textos extras, mantêm a mesma assinatura).
+  if (dados && Array.isArray(dados.textos_extras)) partes[0] += dados.textos_extras.map(t => textoPlano(t && t.texto)).join('');
   if (!partes.slice(1).join('')) return '';
   return sha256Hex(partes.join('|'));
 }
@@ -766,7 +808,10 @@ async function validarTextoGrupo(env, input) {
   if (!texto.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim() && !/<img\b/i.test(texto)) {
     throw new HttpError(400, 'Preencha o texto-base compartilhado do grupo.');
   }
-  const json = JSON.stringify({ 'texto-base': texto, referencia: formatarReferencia(ref) });
+  let extras = input.textos_extras;
+  if (Array.isArray(extras)) extras = await Promise.all(extras.map(async t => (t && typeof t.texto === 'string') ? { ...t, texto: await normalizarImagens(env, t.texto) } : t));
+  const json = JSON.stringify({ 'texto-base': texto, referencia: formatarReferencia(ref), textos_extras: limparTextosExtras(extras),
+    layout: input.layout === 'pagina' ? 'pagina' : 'coluna' });
   if (new TextEncoder().encode(json).length > MAX_ITEM_BYTES) throw new HttpError(413, 'O texto-base ficou grande demais.');
   return json;
 }
@@ -785,7 +830,8 @@ async function injetarGrupo(env, grupoId, dados, versao = null) {
   const g = await dadosDoGrupo(env, grupoId, versao);
   if (!g) return { dados, grupo: null };
   return {
-    dados: { ...dados, 'texto-base': g.dados['texto-base'] || '', referencia: g.dados.referencia || '' },
+    dados: { ...dados, 'texto-base': g.dados['texto-base'] || '', referencia: g.dados.referencia || '',
+      textos_extras: Array.isArray(g.dados.textos_extras) ? g.dados.textos_extras : [], layout: g.dados.layout === 'pagina' ? 'pagina' : 'coluna' },
     grupo: { codigo: g.codigo, versao: g.versao, versao_atual: g.versao_atual, membros: g.membros }
   };
 }
@@ -794,12 +840,16 @@ async function injetarGrupo(env, grupoId, dados, versao = null) {
 async function gravacaoDoGrupo(env, item, dadosJson, autorId, papel) {
   if (!item.grupo_id) return { dados: dadosJson, ops: [] };
   const d = JSON.parse(dadosJson);
-  const textoNovo = { 'texto-base': d['texto-base'] || '', referencia: d.referencia || '' };
-  d['texto-base'] = ''; d.referencia = '';
+  const canon = x => JSON.stringify({ t: x['texto-base'] || '', r: x.referencia || '', e: Array.isArray(x.textos_extras) ? x.textos_extras : [] });
+  const textoNovo = { 'texto-base': d['texto-base'] || '', referencia: d.referencia || '', textos_extras: d.textos_extras || [], layout: d.layout === 'pagina' ? 'pagina' : 'coluna' };
+  d['texto-base'] = ''; d.referencia = ''; d.textos_extras = [];
   const g = await dadosDoGrupo(env, item.grupo_id);
   const ops = [];
-  if (g && (textoNovo['texto-base'] !== (g.dados['texto-base'] || '') || textoNovo.referencia !== (g.dados.referencia || ''))) {
-    if (papel !== 'adm' && g.membros.some(m => m.situacao === 'aprovado')) {
+  const textoMudou = g && canon(textoNovo) !== canon(g.dados);
+  const layoutMudou = g && textoNovo.layout !== (g.dados.layout === 'pagina' ? 'pagina' : 'coluna');
+  if (g && (textoMudou || layoutMudou)) {
+    // Mudar só o formato (1 ou 2 colunas) é permitido mesmo com questões do grupo já aprovadas.
+    if (textoMudou && papel !== 'adm' && g.membros.some(m => m.situacao === 'aprovado')) {
       throw new HttpError(409, 'O texto-base é compartilhado com questões do grupo ' + g.codigo + ' que já foram aprovadas. Para mudá-lo, peça um conserto ao administrador.');
     }
     const textoJson = await validarTextoGrupo(env, textoNovo);
@@ -825,11 +875,11 @@ async function criarGrupo(request, env, user) {
   const textoGrupo = JSON.parse(textoJson);
   for (let k = 0; k < lista.length; k++) {
     try {
-      const dj = await validarDadosComImagens(env, { ...(lista[k] || {}), 'texto-base': '', referencia: '' });
+      const dj = await validarDadosComImagens(env, { ...(lista[k] || {}), 'texto-base': '', referencia: '', textos_extras: [], layout: textoGrupo.layout });
       exigirTags(dj);
       const d = JSON.parse(dj);
       dadosItens.push(JSON.stringify(d));
-      assinaturas.push(await assinaturaDe({ ...d, 'texto-base': textoGrupo['texto-base'] }));
+      assinaturas.push(await assinaturaDe({ ...d, 'texto-base': textoGrupo['texto-base'], textos_extras: textoGrupo.textos_extras }));
     } catch (error) {
       if (error instanceof HttpError) throw new HttpError(error.status, 'Questão ' + (k + 1) + ' do grupo: ' + error.message);
       throw error;
