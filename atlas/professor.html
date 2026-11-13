@@ -1,6 +1,7 @@
 <!doctype html>
 <html lang="pt-BR">
 <head>
+<meta name="atlas-versao" content="20261113f"><script src="atlas-versao.js?v=20261113f" defer></script>
 <meta charset="utf-8"><meta name="robots" content="noindex, nofollow"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>ATLAS | Nova questão</title>
 <script src="auth.js?v=20261113e"></script>
@@ -114,7 +115,7 @@ window.addEventListener('error',e=>{try{status.textContent='Algo deu errado nest
 window.addEventListener('unhandledrejection',e=>{try{status.textContent='Algo deu errado: '+((e.reason&&e.reason.message)||'erro desconhecido')+'. Recarregue com Ctrl + F5 e tente de novo.'}catch{}});
 const RASCUNHO='atlas_rascunho_questao';
 window.ATLAS_ANTES_DE_SAIR=()=>{if(!loggedUser)return;try{localStorage.setItem(RASCUNHO,JSON.stringify({usuario:loggedUser.id,dados:collect(),correcting,salvoEm:Date.now()}))}catch{}};
-function restaurarRascunho(){let r;try{r=JSON.parse(localStorage.getItem(RASCUNHO)||'null')}catch{}if(!r||r.usuario!==loggedUser.id||Date.now()-r.salvoEm>7*864e5)return false;localStorage.removeItem(RASCUNHO);correcting=r.correcting||null;preencher(r.dados||{});if(r.modoGrupo&&typeof trocarModo==='function'){document.querySelector('input[name="modo"][value="grupo"]').checked=true;grupoItens=Array.isArray(r.grupoItens)?r.grupoItens:[];trocarModo(true)}if(window.ATLAS_RENOVAR_IMAGENS)window.ATLAS_RENOVAR_IMAGENS(r.dados||{}).then(d=>{for(const id of AtlasRich.ids)if(d[id]!==(r.dados||{})[id])rich.write(id,d[id]||'')}).catch(()=>{});if(correcting)enviar.textContent='Reenviar para análise';aviso('<strong>Rascunho recuperado.</strong> Seu login tinha vencido; os dados preenchidos foram guardados e voltaram para a tela. Confira e envie novamente.');return true}
+function restaurarRascunho(){let r;try{r=JSON.parse(localStorage.getItem(RASCUNHO)||'null')}catch{}if(!r||r.usuario!==loggedUser.id||Date.now()-r.salvoEm>7*864e5)return false;localStorage.removeItem(RASCUNHO);correcting=r.correcting||null;preencher(r.dados||{});if(r.modoGrupo&&typeof trocarModo==='function'){document.querySelector('input[name="modo"][value="grupo"]').checked=true;grupoItens=Array.isArray(r.grupoItens)?r.grupoItens:[];trocarModo(true)}if(window.ATLAS_RENOVAR_IMAGENS)window.ATLAS_RENOVAR_IMAGENS(r.dados||{}).then(d=>{for(const id of AtlasRich.ids)if(d[id]!==(r.dados||{})[id])rich.write(id,d[id]||'')}).catch(()=>{});if(correcting)enviar.textContent='Reenviar para análise';aviso('<strong>Rascunho recuperado.</strong> Os dados que você tinha preenchido foram guardados e voltaram para a tela. Confira e envie.');return true}
 const MESES_LONGOS=['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
 let resumoDados=null;
 const MESES_TAB=[1,2,3,4,5,6,7,8,9,10,11];// índices: fevereiro (1) a dezembro (11)
