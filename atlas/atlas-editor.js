@@ -39,9 +39,17 @@
   // Tira linhas em branco do começo e do fim (colagens costumam trazer quebras sobrando).
   function aparar(el){const vazio=n=>(n.nodeType===3&&!n.textContent.replace(/\u00a0/g,' ').trim())||(n.nodeType===1&&n.tagName==='BR')||(n.nodeType===1&&['DIV','P','SPAN'].includes(n.tagName)&&!n.classList.contains('atlas-equation')&&!n.textContent.replace(/\u00a0/g,' ').trim()&&!n.querySelector('img,.atlas-equation,table'));while(el.firstChild&&vazio(el.firstChild))el.firstChild.remove();while(el.lastChild&&vazio(el.lastChild))el.lastChild.remove();let n=el.lastChild;while(n&&n.nodeType===1&&!n.classList.contains('atlas-equation')&&n.lastChild){while(n.lastChild&&vazio(n.lastChild))n.lastChild.remove();n=n.lastChild}if(n&&n.nodeType===3)n.textContent=n.textContent.replace(/[\s\u00a0]+$/,'');let m=el.firstChild;while(m&&m.nodeType===1&&!m.classList.contains('atlas-equation')&&m.firstChild){while(m.firstChild&&vazio(m.firstChild))m.firstChild.remove();m=m.firstChild}if(m&&m.nodeType===3)m.textContent=m.textContent.replace(/^[\n\r]+/,'')}
   function oldText(value){return escape(value||'').replace(/\n/g,'<br>')}
-  function separarAlternativas(texto){const linhas=String(texto).replace(/\r\n?/g,'\n').split('\n');const re=/^\s*\(?\s*([A-Ea-e])(?:\s*[\).:\-–—]\s*|\t+\s*|\s*$)(.*)$/;const letras='ABCDE';const antes=[],alts=[];let k=-1;
-    for(const linha of linhas){const m=linha.match(re);if(m&&k<4&&m[1].toUpperCase()===letras[k+1]){k++;alts[k]=[m[2]];continue}if(k<0)antes.push(linha);else alts[k].push(linha)}
-    if(k!==4)return null;const limpa=v=>v.join('\n').replace(/[ \t ]+$/gm,'').replace(/^\n+|\n+$/g,'').trim();const r={antes:limpa(antes),alts:alts.map(limpa)};return r.alts.every(Boolean)?r:null}
+  // Alternativas coladas juntas. 1ª tentativa: A) / A. / A: / A- / A[tab] / letra sozinha na linha.
+  // 2ª tentativa: "A texto" (letra MAIÚSCULA + espaço). Como "A" e "E" também são palavras, só vale com a
+  // sequência A..E completa; havendo mais de uma, fica a que começa no último "A " (as alternativas vêm no fim).
+  function separarAlternativas(texto){const linhas=String(texto).replace(/\r\n?/g,'\n').split('\n');const letras='ABCDE';
+    const tentar=(re,inicio)=>{const antes=linhas.slice(0,inicio),alts=[];let k=-1;
+      for(const linha of linhas.slice(inicio)){const m=linha.match(re);if(m&&k<4&&m[1].toUpperCase()===letras[k+1]){k++;alts[k]=[m[2]];continue}if(k<0)antes.push(linha);else alts[k].push(linha)}
+      if(k!==4)return null;const limpa=v=>v.join('\n').replace(/[ \t\u00a0]+$/gm,'').replace(/^\n+|\n+$/g,'').trim();const r={antes:limpa(antes),alts:alts.map(limpa)};return r.alts.every(Boolean)?r:null};
+    const r=tentar(/^\s*\(?\s*([A-Ea-e])(?:\s*[\).:\-–—]\s*|\t+\s*|\s*$)(.*)$/,0);if(r)return r;
+    const solta=/^\s*([A-E])[ \u00a0]+(\S.*)$/;
+    for(let i=linhas.length-1;i>=0;i--){const m=linhas[i].match(solta);if(m&&m[1]==='A'){const s=tentar(solta,i);if(s)return s}}
+    return null}
   function tirarLetra(texto){const t=String(texto);return /\n/.test(t.trim())?t:t.replace(/^\s*\(?\s*[A-Ea-e](?:\s*[\).:\-–—]\s+|\t+\s*)/,'')}
   // Referência no padrão ABNT/ENEM: "Acesso em: ..." sempre na linha de baixo.
   function formatarReferencia(v){return String(v||'').replace(/\r\n?/g,'\n').replace(/[ \t\u00a0]*\n?[ \t\u00a0]*(Acesso em\s*:)/gi,'\n$1').replace(/[ \t\u00a0]+$/gm,'').replace(/^\n+/,'').trim()}
