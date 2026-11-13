@@ -1,7 +1,6 @@
 # Servidor do ATLAS (banco de questões).
 name = "atlas-api"
 main = "worker.js"
-migrations_dir = "migrations"
 compatibility_date = "2026-11-07"
 workers_dev = true
 preview_urls = false
@@ -26,6 +25,8 @@ MS_REMETENTE = "olimpiadas@grupoideal.com.br"
 binding = "DB"
 database_name = "atlas-teste"
 database_id = "10ee40e4-fcc3-466a-ad9b-b4f25a95d0f1"
+# Migrações aplicadas sozinhas no deploy (comando de implantação na Cloudflare; veja CONTINUIDADE.md).
+migrations_dir = "migrations"
 
 # Imagens das questões (bucket privado; entregue só com link assinado pelo servidor).
 [[r2_buckets]]
