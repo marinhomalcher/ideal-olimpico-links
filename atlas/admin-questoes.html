@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="pt-BR">
 <head>
-<meta name="atlas-versao" content="20261113f"><script src="atlas-versao.js?v=20261113f" defer></script>
+<meta name="atlas-versao" content="20261113g"><script src="atlas-versao.js?v=20261113g" defer></script>
 <meta charset="utf-8"><meta name="robots" content="noindex, nofollow"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="referrer" content="strict-origin-when-cross-origin">
 <title>ATLAS | Questões (Administração)</title>
@@ -149,7 +149,7 @@ async function abrir(codigo){
   const fp=$('#fix-pending');if(pend){fp.innerHTML='<p><strong>Pedido de conserto pendente</strong> — '+escapeHTML(pend.solicitante)+', '+escapeHTML(quando(pend.criado_em))+'</p><p>'+escapeHTML(pend.motivo)+'</p><p class="hint">Ao salvar a correção, o pedido é marcado como feito e o Supervisor é avisado.</p>';fp.hidden=false}else fp.hidden=true;
   $('#fix-item').hidden=item.situacao!=='aprovado';$('#fix-item').textContent=pend?'Fazer o conserto':'Corrigir questão';$('#refuse-fix').hidden=!pend;
   $('#undo-discard').hidden=!item.pode_desfazer;
-  const note=$('#undo-note');if(item.situacao==='descartado'){const dias=item.descartado_em?Math.floor((Date.now()-Date.parse(item.descartado_em))/86400000):null;
+  const note=$('#undo-note');if(item.retirada){note.textContent='Retirada do banco junto com as questões autorais do professor desligado. Para devolvê-la, use "Questões retiradas" em Professores e disciplinas.';note.hidden=false}else if(item.situacao==='descartado'){const dias=item.descartado_em?Math.floor((Date.now()-Date.parse(item.descartado_em))/86400000):null;
     note.textContent=item.pode_desfazer?'Descartada em '+quando(item.descartado_em)+'. Ainda dá para desfazer (prazo de '+item.prazo_dias+' dias; restam '+Math.max(0,item.prazo_dias-dias)+').':'Descartada em '+quando(item.descartado_em)+'. O prazo de '+item.prazo_dias+' dias para desfazer já terminou.';note.hidden=false}else note.hidden=true;
   $('#details').hidden=false;$('#details').scrollIntoView({behavior:'smooth',block:'start'})}
 async function situacaoImagens(){try{const s=await api('/api/adm/imagens/situacao');const p=$('#img-panel');if(!s.versoes_com_imagem_antiga){p.hidden=true;return}p.hidden=false;$('#img-info').textContent=s.versoes_com_imagem_antiga+' versão(ões) de questões ainda têm imagens guardadas dentro do texto (formato antigo). Mover para o R2 deixa o banco leve; o conteúdo e a aparência das questões não mudam.'}catch{}}

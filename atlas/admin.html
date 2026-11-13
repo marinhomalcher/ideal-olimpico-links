@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="pt-BR">
 <head>
-<meta name="atlas-versao" content="20261113f"><script src="atlas-versao.js?v=20261113f" defer></script>
+<meta name="atlas-versao" content="20261113g"><script src="atlas-versao.js?v=20261113g" defer></script>
 <meta charset="utf-8"><meta name="robots" content="noindex, nofollow"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="referrer" content="strict-origin-when-cross-origin">
 <title>ATLAS | Administração</title>
@@ -10,6 +10,7 @@
 </style>
 <style>aside a+a{margin-top:6px}aside a:not(.atual){background:transparent}.status.error{color:#a21923}</style>
 <style>.chk{display:flex!important;align-items:center;gap:8px;font-weight:bold;margin:14px 0 4px!important}.chk input{width:18px;height:18px;accent-color:#98151d}.badge.dig{background:#eef1fb;color:#2e4b8f}.prazo{display:block;color:#7a5600;font-size:11.5px}.prazo.vencido{color:#a21923;font-weight:bold}</style>
+<style>.ret-alerta{background:#fff4dc;border:1px solid #e9c46a;border-left:5px solid #b7791f;border-radius:11px;padding:14px 16px;margin:0 0 16px;color:#5c4206}.ret-alerta strong{display:block;font-size:16px;margin-bottom:4px}.ret-alerta .row-actions{margin-top:10px}#ret-dialog{width:min(600px,calc(100% - 30px))}#ret-dialog h2{color:var(--red);margin:0 0 6px}.ret-passo{font-size:12px;color:var(--muted);font-weight:bold;letter-spacing:.06em;text-transform:uppercase}.ret-numeros{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}.ret-numeros span{background:var(--soft);color:#76232a;border-radius:999px;padding:4px 10px;font-size:12.5px;font-weight:bold}.ret-perigo{background:#fff3f4;border:1px solid #dca8ad;color:#70171e;border-radius:9px;padding:11px 13px;margin:12px 0}.ret-chk{display:flex!important;gap:9px;align-items:flex-start;font-weight:bold;margin:14px 0 4px!important}.ret-chk input{width:18px;height:18px;margin-top:1px;accent-color:#98151d;flex:0 0 auto}.sit-ret{font-weight:bold}.sit-ret.ativa{color:#8a5a00}.sit-ret.desfeita{color:#267347}.sit-ret.excluida{color:#76696d}</style>
 </head>
 <body>
 <header><div class="brand"><img src="ideal-logo.png" alt="Ideal 50 anos"><span>ATLAS</span></div><div class="role"><a class="back-link" href="index.html">← Voltar ao início</a><span id="user-box" class="user" hidden><span id="user-email"></span><button type="button" class="secondary" id="logout">Sair</button></span><span id="role-label">Área do Administrador</span></div></header>
@@ -21,11 +22,14 @@
 <div class="shell" id="app-view" hidden><aside><small>ÁREA DO ADM</small><a href="admin.html" class="atual">Professores e disciplinas</a><a href="admin-questoes.html">Questões</a><a href="admin-enviar.html">Enviar questões</a><a href="admin-relatorio.html">Relatório de produção</a><a href="admin-selecoes.html">Seleções recebidas</a></aside><main>
 <div class="crumb">Administrador / Cadastros</div><h1>Professores e disciplinas</h1><p class="lead">Cadastre os professores, vincule cada um à sua disciplina e escolha o supervisor de cada disciplina.</p>
 <p class="status" id="app-status" role="status"></p>
+<div id="ret-alertas"></div>
 <section class="panel"><h2>Supervisores por disciplina</h2><p class="hint">Escolha um professor da disciplina ou cadastre um novo. Cada disciplina tem um supervisor.</p><div class="sup-grid" id="supervisors"></div></section>
 <section class="panel"><h2>Professores cadastrados</h2><p class="hint">A disciplina definida aqui será carregada no cadastro de questões. O Professor não escolhe a disciplina.</p><div class="summary" id="summary"></div><div class="toolbar"><input id="search" type="search" placeholder="Buscar por professor, e-mail ou disciplina"><button class="primary" id="add">+ Cadastrar novo professor</button></div><div class="table-wrap" id="list"></div></section>
+<section class="panel" id="ret-painel"><h2>Questões retiradas (professores desligados)</h2><p class="hint">Quando um professor é desligado, desative o cadastro dele e use <strong>Retirar questões autorais</strong> na linha dele. As questões saem do banco, mas podem voltar durante 6 meses. Vencido o prazo, o ATLAS pergunta a você (aqui e por e-mail) se exclui definitivamente.</p><div class="table-wrap" id="ret-lista"><div class="empty">Nenhuma retirada.</div></div></section>
 <section class="panel"><h2>Cópias de segurança</h2><p class="hint">O banco do ATLAS é copiado automaticamente todo dia às 3h17 (horário de Brasília) para o armazenamento R2. Ficam guardadas as 60 cópias mais recentes. As imagens já ficam guardadas no R2.</p><p id="backup-ultimo"></p><div class="toolbar"><button type="button" class="secondary" id="backup-agora">Fazer cópia agora</button><button type="button" class="secondary" id="backup-ver">Ver cópias guardadas</button></div><p class="status" id="backup-status" role="status"></p><div class="table-wrap" id="backup-lista" hidden style="max-height:320px;overflow:auto"></div></section>
 </main></div>
 
+<dialog id="ret-dialog"><div id="ret-corpo"></div></dialog>
 <dialog id="dialog"><form id="teacher-form"><h2 id="dialog-title">Cadastrar novo professor</h2><input type="hidden" id="teacher-id"><input type="hidden" id="as-supervisor"><label for="name">Nome do professor</label><input id="name" required maxlength="120" placeholder="Nome e sobrenome"><label for="email">E-mail institucional</label><input id="email" type="text" inputmode="email" autocomplete="off" placeholder="nome.sobrenome@grupoideal.com.br"><p class="hint">Se digitar só a parte antes do @, completamos com @grupoideal.com.br.</p><label class="chk"><input type="checkbox" id="is-digitador"> Digitador (só digita questões; não analisa)</label><div id="subject-row"><label for="subject">Disciplina</label><select id="subject" required></select></div><div id="digitador-row" hidden><p class="hint" style="margin:6px 0 0">O digitador escolhe a disciplina de cada questão que digita. Ele não classifica: o Supervisor da disciplina faz a classificação.</p></div><label for="acesso-ate">Acesso até (opcional)</label><input id="acesso-ate" type="date"><p class="hint" style="margin:6px 0 0">Depois dessa data, o login deixa de funcionar. Deixe em branco para acesso sem prazo.</p><p class="field-error" id="error" hidden></p><div class="dialog-actions"><button type="button" class="secondary" id="cancel">Cancelar</button><button type="submit" class="primary" id="save">Salvar cadastro</button></div></form></dialog>
 
 <script>
@@ -61,7 +65,7 @@ async function showApp(email){
   status($('#app-status'),'Carregando professores…');
   const data=await api('/api/adm/professores');subjects=data.disciplinas||subjects;teachers=data.professores||[];
   subject.replaceChildren(new Option('Selecione a disciplina',''),...subjects.map(s=>new Option(s,s)));
-  status($('#app-status'),'');render();carregarBackups(false);
+  status($('#app-status'),'');await carregarRetiradas();render();carregarBackups(false);
 }
 function hojeSP(){return new Intl.DateTimeFormat('en-CA',{timeZone:'America/Sao_Paulo'}).format(new Date())}
 function prazoHTML(t){if(!t.acesso_ate)return '';const v=t.acesso_ate<hojeSP();const [a,m,d]=t.acesso_ate.split('-');return `<span class="prazo${v?' vencido':''}">${v?'Acesso vencido em ':'Acesso até '}${d}/${m}/${a}</span>`}
@@ -76,9 +80,11 @@ function render(){
   const rows=teachers.filter(t=>`${t.nome} ${t.email} ${t.disciplina}`.toLocaleLowerCase('pt-BR').includes(term)).sort(byName);
   $('#summary').innerHTML=`<span class="chip">${teachers.filter(t=>!t.digitador).length} professores cadastrados</span>${teachers.some(t=>t.digitador)?`<span class="chip">${teachers.filter(t=>t.digitador).length} digitador(es)</span>`:''}<span class="chip">${active.length} ativos</span><span class="chip">${teachers.filter(t=>t.papel==='supervisor').length} supervisores</span>`;
   if(!rows.length){list.innerHTML='<div class="empty">Nenhum professor encontrado.</div>';return}
-  list.innerHTML='<table><thead><tr><th>Professor</th><th>E-mail</th><th>Disciplina</th><th>Situação</th><th>Ações</th></tr></thead><tbody>'+rows.map(t=>`<tr data-id="${t.id}"><td>${escapeHTML(t.nome)}${t.papel==='supervisor'?'<span class="badge">Supervisor</span>':''}${t.digitador?'<span class="badge dig">Digitador</span>':''}${prazoHTML(t)}</td><td>${escapeHTML(t.email)}</td><td>${t.digitador?'<small>Todas (escolhe por questão)</small>':`<select class="row-subject" aria-label="Disciplina de ${escapeHTML(t.nome)}">${subjects.map(s=>`<option${s===t.disciplina?' selected':''}>${escapeHTML(s)}</option>`).join('')}</select>`}</td><td class="${t.ativo?'status-active':'status-off'}">${t.ativo?'Ativo':'Inativo'}</td><td><div class="row-actions"><button class="secondary edit">Editar</button><button class="${t.ativo?'danger':'primary'} toggle">${t.ativo?'Desativar':'Ativar'}</button></div></td></tr>`).join('')+'</tbody></table>';
+  list.innerHTML='<table><thead><tr><th>Professor</th><th>E-mail</th><th>Disciplina</th><th>Situação</th><th>Ações</th></tr></thead><tbody>'+rows.map(t=>`<tr data-id="${t.id}"><td>${escapeHTML(t.nome)}${t.papel==='supervisor'?'<span class="badge">Supervisor</span>':''}${t.digitador?'<span class="badge dig">Digitador</span>':''}${prazoHTML(t)}</td><td>${escapeHTML(t.email)}</td><td>${t.digitador?'<small>Todas (escolhe por questão)</small>':`<select class="row-subject" aria-label="Disciplina de ${escapeHTML(t.nome)}">${subjects.map(s=>`<option${s===t.disciplina?' selected':''}>${escapeHTML(s)}</option>`).join('')}</select>`}</td><td class="${t.ativo?'status-active':'status-off'}">${t.ativo?'Ativo':'Inativo'}</td><td><div class="row-actions"><button class="secondary edit">Editar</button><button class="${t.ativo?'danger':'primary'} toggle">${t.ativo?'Desativar':'Ativar'}</button>${!t.ativo&&!t.digitador?(retiradaAtivaDe(t.id)?'<button class="secondary ver-ret">Ver retirada</button>':'<button class="danger retirar">Retirar questões autorais</button>'):''}</div></td></tr>`).join('')+'</tbody></table>';
   list.querySelectorAll('.row-subject').forEach(sel=>sel.addEventListener('change',()=>update(Number(sel.closest('tr').dataset.id),{disciplina:sel.value},'Disciplina alterada.')));
   list.querySelectorAll('.edit').forEach(b=>b.addEventListener('click',()=>openEdit(Number(b.closest('tr').dataset.id))));
+  list.querySelectorAll('.retirar').forEach(b=>b.addEventListener('click',()=>iniciarRetirada(Number(b.closest('tr').dataset.id))));
+  list.querySelectorAll('.ver-ret').forEach(b=>b.addEventListener('click',()=>$('#ret-painel').scrollIntoView({behavior:'smooth'})));
   list.querySelectorAll('.toggle').forEach(b=>b.addEventListener('click',()=>{const t=teachers.find(x=>x.id===Number(b.closest('tr').dataset.id));update(t.id,{ativo:!t.ativo},t.ativo?'Professor desativado.':'Professor ativado.')}));
 }
 async function run(action,okMessage){status($('#app-status'),'Salvando…');try{const data=await action();if(data.professores)teachers=data.professores;render();status($('#app-status'),okMessage);return data}catch(e){if(e.message!=='__sessao__'){status($('#app-status'),e.message,true);render()}throw e}}
@@ -112,6 +118,70 @@ form.addEventListener('submit',async event=>{event.preventDefault();const id=$('
     dialog.close();render();status($('#app-status'),id?'Cadastro atualizado.':dig?'Digitador cadastrado. Ele entra pela página inicial, como Professor, com o código enviado ao e-mail.':(asSup?`Professor cadastrado e definido como supervisor de ${asSup}.`:'Professor cadastrado.'));
   }catch(e){if(e.message!=='__sessao__'){err.textContent=e.message;err.hidden=false}}
   finally{$('#save').disabled=false}});
+
+// ---------- retirada das questões autorais (professor desligado) ----------
+let retiradas=[];const retDialog=$('#ret-dialog'),retCorpo=$('#ret-corpo');
+const dataBR=d=>d?String(d).slice(0,10).split('-').reverse().join('/'):'—';
+function retiradaAtivaDe(id){return retiradas.find(r=>r.usuario_id===id&&r.situacao==='ativa')}
+function mesmoNomeJS(a,b){const n=v=>String(v||'').normalize('NFC').trim().replace(/\s+/g,' ').toLocaleLowerCase('pt-BR');return !!n(a)&&n(a)===n(b)}
+async function carregarRetiradas(){try{const d=await api('/api/adm/retiradas');retiradas=d.retiradas||[]}catch(e){if(e.message==='__sessao__')throw e;retiradas=[]}desenharRetiradas()}
+function desenharRetiradas(){const box=$('#ret-lista');const al=$('#ret-alertas');al.replaceChildren();
+  for(const r of retiradas.filter(x=>x.vencida)){const d=document.createElement('div');d.className='ret-alerta';d.setAttribute('role','alert');
+    d.innerHTML='<strong></strong><p style="margin:0"></p><div class="row-actions"></div>';d.querySelector('strong').textContent='Decisão pendente: questões de '+r.nome;
+    d.querySelector('p').textContent='As '+r.total+' questões autorais retiradas em '+dataBR(r.criado_em)+' completaram o prazo para desfazer. Exclua definitivamente, devolva ao banco ou adie a decisão por mais 3 meses.';
+    const a=d.querySelector('.row-actions');for(const [t,c,f] of [['Excluir definitivamente','danger',()=>acaoRetirada(r,'excluir')],['Devolver ao banco','secondary',()=>acaoRetirada(r,'desfazer')],['Adiar 3 meses','secondary',()=>adiarRetirada(r)]]){const b=document.createElement('button');b.type='button';b.className=c;b.textContent=t;b.addEventListener('click',f);a.append(b)}al.append(d)}
+  if(!retiradas.length){box.innerHTML='<div class="empty">Nenhuma retirada.</div>';return}
+  const nomes={ativa:'Retiradas (dá para devolver)',desfeita:'Devolvidas ao banco',excluida:'Excluídas definitivamente'};
+  const t=document.createElement('table');t.innerHTML='<thead><tr><th>Professor</th><th>Questões</th><th>Retiradas em</th><th>Situação</th><th>Prazo / fim</th><th>Ações</th></tr></thead>';const tb=document.createElement('tbody');
+  for(const r of retiradas){const tr=document.createElement('tr');const c=(x,cls)=>{const td=document.createElement('td');if(cls)td.className=cls;td.textContent=x;tr.append(td);return td};
+    const n=c(r.nome);const sm=document.createElement('small');sm.textContent=r.motivo;n.append(sm);c(String(r.total));c(dataBR(r.criado_em));
+    const st=c(nomes[r.situacao]||r.situacao,'sit-ret '+r.situacao);if(r.situacao==='excluida'&&r.detalhe){const sm2=document.createElement('small');sm2.textContent=r.detalhe.excluidas+' apagadas'+(r.detalhe.mantidas?.length?'; '+r.detalhe.mantidas.length+' mantidas (estão em provas já montadas)':'');st.append(sm2)}
+    c(r.situacao==='ativa'?(r.vencida?'Prazo vencido em '+dataBR(r.prazo_em):'Até '+dataBR(r.prazo_em)):dataBR(r.finalizado_em));
+    const a=c('');const w=document.createElement('div');w.className='row-actions';a.append(w);
+    if(r.situacao==='ativa'){const b=document.createElement('button');b.type='button';b.className='secondary';b.textContent='Devolver ao banco';b.addEventListener('click',()=>acaoRetirada(r,'desfazer'));w.append(b);
+      if(r.vencida){const e=document.createElement('button');e.type='button';e.className='danger';e.textContent='Excluir definitivamente';e.addEventListener('click',()=>acaoRetirada(r,'excluir'));w.append(e)}}
+    tb.append(tr)}
+  t.append(tb);box.replaceChildren(t)}
+function passo(html){retCorpo.innerHTML=html;if(!retDialog.open)retDialog.showModal()}
+function botoes(...lista){const d=document.createElement('div');d.className='dialog-actions';for(const [t,c,f,id] of lista){const b=document.createElement('button');b.type='button';b.className=c;b.textContent=t;if(id)b.id=id;b.addEventListener('click',f);d.append(b)}retCorpo.append(d);return d}
+function erroRet(msg){let p=retCorpo.querySelector('.field-error');if(!p){p=document.createElement('p');p.className='field-error';retCorpo.querySelector('.dialog-actions').before(p)}p.textContent=msg;p.hidden=false}
+function contagem(btn,seg,texto){btn.disabled=true;let n=seg;btn.textContent=texto+' ('+n+')';const t=setInterval(()=>{n--;if(n<=0){clearInterval(t);btn.disabled=false;btn.textContent=texto}else btn.textContent=texto+' ('+n+')'},1000)}
+async function iniciarRetirada(id){let p;try{p=await api('/api/adm/retiradas/previa?usuario='+id)}catch(e){if(e.message!=='__sessao__')status($('#app-status'),e.message,true);return}
+  const nome=p.professor.nome;
+  if(p.retirada_ativa){status($('#app-status'),'Este professor já tem uma retirada em andamento.',true);return}
+  if(!p.total){passo('<h2>Nada para retirar</h2><p></p>');retCorpo.querySelector('p').textContent=nome+' não tem questões autorais no banco.';botoes(['Fechar','secondary',()=>retDialog.close()]);return}
+  const s=p.por_situacao;
+  // Etapa 1: confirmar o desligamento
+  passo('<p class="ret-passo">Etapa 1 de 3</p><h2>Retirar questões autorais</h2><p id="r1-txt"></p><div class="ret-numeros" id="r1-num"></div><p class="hint" id="r1-sel"></p><label class="ret-chk"><input type="checkbox" id="r1-chk"><span id="r1-chk-txt"></span></label><label for="r1-motivo">Motivo e data do desligamento</label><input id="r1-motivo" maxlength="300" placeholder="Ex.: desligado da escola em 10/12/2026">');
+  $('#r1-txt').textContent=nome+' tem '+p.total+' questão(ões) marcada(s) como Autoral no banco:';
+  for(const [k,t] of [['aprovado','aprovadas'],['analise','em análise'],['ajustes','com ajuste pedido'],['descartado','já descartadas']])if(s[k]){const b=document.createElement('span');b.textContent=s[k]+' '+t;$('#r1-num').append(b)}
+  $('#r1-sel').textContent=p.em_selecoes?p.em_selecoes+' delas já estão em provas/seleções montadas: lá elas continuam como estão.':'';
+  $('#r1-chk-txt').textContent='Confirmo que '+nome+' foi desligado(a) da escola.';
+  botoes(['Cancelar','secondary',()=>retDialog.close()],['Continuar','primary',()=>{const mot=$('#r1-motivo').value.trim();if(!$('#r1-chk').checked)return erroRet('Marque a confirmação do desligamento.');if(mot.length<5)return erroRet('Informe o motivo e a data do desligamento.');etapa2(p,mot)}]);}
+function etapa2(p,motivo){const nome=p.professor.nome;
+  passo('<p class="ret-passo">Etapa 2 de 3</p><h2>Confirme o professor</h2><p>Para evitar engano, digite o nome completo do professor exatamente como está no cadastro:</p><p><strong id="r2-nome"></strong></p><input id="r2-input" autocomplete="off" placeholder="Nome completo">');
+  $('#r2-nome').textContent=nome;
+  const d=botoes(['Voltar','secondary',()=>iniciarRetirada(p.professor.id)],['Continuar','primary',()=>{if(!mesmoNomeJS($('#r2-input').value,nome))return erroRet('O nome digitado não confere.');etapa3(p,motivo,$('#r2-input').value)},'r2-ok']);
+  const ok=$('#r2-ok');ok.disabled=true;$('#r2-input').addEventListener('input',()=>{ok.disabled=!mesmoNomeJS($('#r2-input').value,nome)});$('#r2-input').focus()}
+function etapa3(p,motivo,nomeDigitado){const nome=p.professor.nome;
+  passo('<p class="ret-passo">Etapa 3 de 3</p><h2>Última confirmação</h2><div class="ret-perigo" id="r3-txt"></div><p class="hint" id="r3-hint"></p>');
+  $('#r3-txt').textContent=p.total+' questão(ões) autoral(is) de '+nome+' vão sair do banco agora (não aparecem mais para os supervisores nem nas seleções novas).';
+  $('#r3-hint').textContent='Você pode devolvê-las ao banco até '+dataBR(p.prazo_em)+'. Depois dessa data, o ATLAS pergunta a você, aqui e por e-mail, se exclui definitivamente. Nada é apagado sem a sua confirmação.';
+  botoes(['Cancelar','secondary',()=>retDialog.close()],['Retirar '+p.total+' questão(ões)','danger',async()=>{const b=$('#r3-ok');b.disabled=true;
+    try{await api('/api/adm/retiradas',{method:'POST',body:{usuario_id:p.professor.id,confirmo_desligamento:true,motivo,nome_confirmacao:nomeDigitado,total_esperado:p.total}});retDialog.close();await carregarRetiradas();render();status($('#app-status'),p.total+' questão(ões) de '+nome+' retiradas do banco. Dá para devolver até '+dataBR(p.prazo_em)+'.')}
+    catch(e){b.disabled=false;if(e.message!=='__sessao__')erroRet(e.message)}},'r3-ok']);
+  contagem($('#r3-ok'),5,'Retirar '+p.total+' questão(ões)')}
+function acaoRetirada(r,acao){const excluir=acao==='excluir';
+  passo('<h2></h2><div id="ra-txt"></div><label class="ret-chk" id="ra-chk-box" hidden><input type="checkbox" id="ra-chk"><span>Entendo que a exclusão definitiva não pode ser desfeita.</span></label><p>Digite o nome completo do professor para confirmar:</p><p><strong id="ra-nome"></strong></p><input id="ra-input" autocomplete="off" placeholder="Nome completo">');
+  retCorpo.querySelector('h2').textContent=excluir?'Excluir definitivamente':'Devolver ao banco';$('#ra-nome').textContent=r.nome;
+  const t=$('#ra-txt');t.className=excluir?'ret-perigo':'hint';t.textContent=excluir?'As '+r.total+' questões de '+r.nome+' serão apagadas do banco para sempre. Antes, o ATLAS faz uma cópia de segurança completa. Questões que já estão em provas/seleções montadas não são apagadas.':'As questões de '+r.nome+' voltam ao banco, cada uma na situação em que estava antes da retirada.';
+  $('#ra-chk-box').hidden=!excluir;
+  botoes(['Cancelar','secondary',()=>retDialog.close()],[excluir?'Excluir definitivamente':'Devolver ao banco',excluir?'danger':'primary',async()=>{if(excluir&&!$('#ra-chk').checked)return erroRet('Marque que entende que não pode ser desfeito.');if(!mesmoNomeJS($('#ra-input').value,r.nome))return erroRet('O nome digitado não confere.');
+    const b=$('#ra-ok');b.disabled=true;try{const d=await api('/api/adm/retiradas/'+r.id+'/'+acao,{method:'POST',body:{nome_confirmacao:$('#ra-input').value,confirmo_exclusao:excluir}});retDialog.close();await carregarRetiradas();render();
+      status($('#app-status'),excluir?('Exclusão feita: '+d.retirada.detalhe.excluidas+' questão(ões) apagadas'+(d.retirada.detalhe.mantidas.length?'; '+d.retirada.detalhe.mantidas.length+' mantidas porque estão em provas já montadas':'')+'.'):'Questões de '+r.nome+' devolvidas ao banco.')}
+    catch(e){b.disabled=false;if(e.message!=='__sessao__')erroRet(e.message)}},'ra-ok']);
+  if(excluir)contagem($('#ra-ok'),5,'Excluir definitivamente')}
+async function adiarRetirada(r){try{const d=await api('/api/adm/retiradas/'+r.id+'/adiar',{method:'POST',body:{}});await carregarRetiradas();render();status($('#app-status'),'Decisão adiada: as questões de '+r.nome+' continuam retiradas até '+dataBR(d.retirada.prazo_em)+'.')}catch(e){if(e.message!=='__sessao__')status($('#app-status'),e.message,true)}}
 (async()=>{if(!getToken())return showLogin();try{const s=await api('/api/adm/sessao');await showApp(s.email)}catch(e){if(e.message!=='__sessao__')showLogin(e.message)}})();
 </script>
 </body></html>
