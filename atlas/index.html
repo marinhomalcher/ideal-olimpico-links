@@ -53,12 +53,12 @@ document.querySelectorAll('[data-role]').forEach(button=>button.addEventListener
   if(role==='Administrador'){location.href='admin.html';return}
   if(button.dataset.verificando)return;button.dataset.verificando='1';
   const usuario=await sessaoSalva();delete button.dataset.verificando;
-  if(usuario){location.href=(role==='Supervisor'&&usuario.papel==='supervisor')?'supervisor.html':'professor.html';return}
+  if(usuario){location.href=usuario.papel==='digitador'?'digitador.html':(role==='Supervisor'&&usuario.papel==='supervisor')?'supervisor.html':'professor.html';return}
   title.textContent=`Acesso do ${role}`;resetSteps();overlay.classList.add('open');email.focus();
 }));
 // Aviso no topo quando já há sessão válida.
 sessaoSalva().then(u=>{if(!u)return;const box=document.createElement('div');box.className='sessao-ativa';box.setAttribute('role','status');
-  const txt=document.createElement('span');txt.textContent='Você está conectado como '+u.nome+(u.papel==='supervisor'?' (Supervisor de '+u.disciplina+')':' ('+u.disciplina+')')+'.';
+  const txt=document.createElement('span');txt.textContent='Você está conectado como '+u.nome+(u.papel==='supervisor'?' (Supervisor de '+u.disciplina+')':u.papel==='digitador'?' (Digitador)':' ('+u.disciplina+')')+'.';
   const sair=document.createElement('button');sair.type='button';sair.textContent='Sair';sair.addEventListener('click',async()=>{let saved;try{saved=JSON.parse(sessionStorage.getItem('atlas_user_auth')||localStorage.getItem('atlas_user_auth')||'null')}catch{}sessionStorage.removeItem('atlas_user_auth');localStorage.removeItem('atlas_user_auth');try{if(saved?.token)await fetch(API+'/api/login/sair',{method:'POST',headers:{Authorization:'Bearer '+saved.token},cache:'no-store'})}catch{}box.remove()});
   box.append(txt,sair);document.querySelector('main')?.prepend(box)});
 document.querySelector('.close').addEventListener('click',closeDialog);
@@ -99,6 +99,7 @@ codeStep.addEventListener('submit',async event=>{
     const remember=document.querySelector('#remember').checked;
     sessionStorage.removeItem('atlas_user_auth');localStorage.removeItem('atlas_user_auth');
     (remember?localStorage:sessionStorage).setItem('atlas_user_auth',JSON.stringify({token:data.token,expira_em:data.expira_em,usuario:data.usuario}));
+    if(data.usuario?.papel==='digitador'){location.href='digitador.html';return}
     if(role==='Supervisor'&&!isSupervisor){setStatus('Seu cadastro é de Professor. Abrindo a área do Professor…',true);setTimeout(()=>location.href='professor.html',1600);return}
     location.href=(role==='Supervisor'&&isSupervisor)?'supervisor.html':'professor.html';
   }catch(error){setStatus(error.message)}
