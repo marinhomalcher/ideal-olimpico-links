@@ -1,6 +1,6 @@
 # ATLAS — continuidade (para o assistente que pegar o trabalho)
 
-Atualizado em **14/11/2026**, depois das migrações automáticas do D1 no deploy. Responsável: **Marinho (João Marinho Malcher), Grupo Ideal**. O ADM é só ele.
+Atualizado em **14/11/2026**, depois das migrações automáticas do D1 no deploy e do merge feito pelo assistente. Responsável: **Marinho (João Marinho Malcher), Grupo Ideal**. O ADM é só ele.
 
 Leia isto inteiro antes de mexer. Converse com o Marinho **sempre em português**, passo a passo, com **link direto**, sem jargão ("console", "branch") sem explicar.
 
@@ -21,12 +21,12 @@ O repositório é **público**: nada de segredo no código. Segredos só no pain
 
 ## 2. Como entregar uma mudança
 
-1. Branch nova a partir da `main` → commit → PR. **Nunca** commit direto na `main`; **o merge é sempre do Marinho**.
+1. Branch nova a partir da `main` → commit → PR. **Nunca** commit direto na `main`. **O próprio assistente faz o merge** (autorizado pelo Marinho em 13/11/2026), depois dos testes passarem, e conta ao Marinho o que foi ao ar.
 2. Mudou alguma coisa em `atlas/`? Rode `python3 _cloudflare/atlas-api/nova-versao.py AAAAMMDDx` (nova versão a cada entrega). As páginas abertas se recarregam sozinhas.
 3. Mudou o banco? Crie `migrations/000N_*.sql` (número seguinte), acrescente o mesmo bloco no fim de `schema.sql` (`-- ---------- vN ----------`), suba `meta.schema_versao`. **O SQL é aplicado sozinho no merge**: o comando de implantação do Worker na Cloudflare (Workers & Pages → atlas-api → Settings → Build → Deploy command) é
    `npx wrangler d1 migrations apply atlas-teste --remote && npx wrangler deploy`
-   — aplica as migrações pendentes (controle na tabela `d1_migrations` do banco) e só então publica o Worker; se uma migração falhar, nada é publicado e o Worker antigo continua no ar. O comando das branches que não são a `main` **não** aplica migrações. Regras: nunca edite nem renomeie uma migração já mergeada (crie outra); escreva o SQL para rodar uma vez só, de ponta a ponta; avise o Marinho no PR que há migração. As migrações 0003–0008 foram aplicadas à mão antes disso e marcadas como aplicadas em `d1_migrations`. Ao zerar o banco, mantenha também `d1_migrations`.
-4. Rode os testes (abaixo) antes de abrir o PR. Depois do merge, confira que `main` ficou igual à sua branch.
+   — aplica as migrações pendentes (controle na tabela `d1_migrations` do banco) e só então publica o Worker; se uma migração falhar, nada é publicado e o Worker antigo continua no ar. O comando das branches que não são a `main` **não** aplica migrações. Regras: nunca edite nem renomeie uma migração já mergeada (crie outra); escreva o SQL para rodar uma vez só, de ponta a ponta; diga no PR e ao Marinho que há migração. As migrações 0003–0008 foram aplicadas à mão antes disso e marcadas como aplicadas em `d1_migrations`. Ao zerar o banco, mantenha também `d1_migrations`.
+4. Rode os testes (abaixo) antes de abrir o PR. Depois do merge, confira que `main` ficou igual à sua branch e que a implantação do `atlas-api` apareceu na Cloudflare (o Marinho pode mandar print de Workers e Pages → atlas-api → Implantações).
 
 ## 3. Testes
 
