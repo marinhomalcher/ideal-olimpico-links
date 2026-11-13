@@ -85,7 +85,7 @@ ${'abcde'.split('').map(l => `<div class="alt"><strong>${l.toUpperCase()}</stron
     }
     function validar() { tentou = true; const f = faltando(); marcar(f); if (f.length) { status.textContent = 'Faltam campos obrigatórios. Veja a lista acima.'; const c = document.getElementById(f[0][0]); c.focus(); c.scrollIntoView({ behavior: 'smooth', block: 'center' }); return false; } return true; }
     function coletar() {
-      const d = { etapa: etapa.value, ano: $('#es-ano').value, origem: 'acervo', fonte: '', referencia: $('#es-referencia').value.trim(), gabarito: $('#es-gabarito').value, tags: [], rich: true };
+      const d = { etapa: etapa.value, ano: $('#es-ano').value, origem: 'acervo', fonte: '', referencia: AtlasRich.formatarReferencia($('#es-referencia').value), gabarito: $('#es-gabarito').value, tags: [], rich: true };
       for (const id of AtlasRich.ids) d[id] = rich.valid(id) ? rich.read(id) : '';
       return d;
     }
@@ -93,7 +93,7 @@ ${'abcde'.split('').map(l => `<div class="alt"><strong>${l.toUpperCase()}</stron
       const d = coletar(), body = v => AtlasRich.clean(v);
       let h = '<h2>Prévia da questão</h2><p class="hint">' + esc($('#es-disciplina').value) + ' · Acervo Ideal · sem classificação (o Supervisor classifica)</p>';
       if (d['texto-base']) h += '<div class="stem">' + body(d['texto-base']) + '</div>';
-      if (d.referencia) h += '<p class="hint">' + esc(d.referencia) + '</p>';
+      if (d.referencia) h += '<p class="hint">' + esc(d.referencia).replace(/\n/g, '<br>') + '</p>';
       h += '<div class="stem">' + body(d.comando) + '</div>';
       for (const l of 'abcde') h += '<div class="choice"><strong>' + l.toUpperCase() + ')</strong> ' + body(d['alt-' + l]) + '</div>';
       h += '<p class="answer">Gabarito: ' + esc(d.gabarito) + '</p>';

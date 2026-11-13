@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="pt-BR">
 <head>
-<meta name="atlas-versao" content="20261113g"><script src="atlas-versao.js?v=20261113g" defer></script>
+<meta name="atlas-versao" content="20261113h"><script src="atlas-versao.js?v=20261113h" defer></script>
 <meta charset="utf-8"><meta name="robots" content="noindex, nofollow"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>ATLAS | Digitação de questões</title>
 <script src="auth.js?v=20261113d"></script>
@@ -34,8 +34,8 @@ img[style*="width"]{max-height:none!important;height:auto!important}
 <section class="panel mine" id="meus-itens" aria-labelledby="meus-title"><h2 id="meus-title">Minhas questões</h2><p class="description">Questões que você enviou e a situação de cada uma.</p><div id="meus-lista" class="table-wrap"><p class="hint">Carregando…</p></div></section>
 </main></div>
 <script src="https://cdn.jsdelivr.net/npm/katex@0.19.1/dist/katex.min.js" integrity="sha384-a1WQdjRj162i159OYq041X6I4K8NenkrI09LlPmiHg0YOb7CR+wJOraXwK9abpnE" crossorigin="anonymous"></script>
-<script src="atlas-editor.js?v=20261113b"></script>
-<script src="atlas-envio-simples.js?v=20261113b"></script>
+<script src="atlas-editor.js?v=20261113h"></script>
+<script src="atlas-envio-simples.js?v=20261113h"></script>
 <script>
 const nomeSit={analise:'Em análise',ajustes:'Ajuste solicitado',aprovado:'Aprovada',rascunho:'Rascunho',descartado:'Descartada'};
 async function carregarMeus(){const box=document.querySelector('#meus-lista');try{const {itens}=await ATLAS_API('/api/itens/meus');if(!itens.length){box.innerHTML='<p class="hint">Você ainda não enviou nenhuma questão.</p>';return}

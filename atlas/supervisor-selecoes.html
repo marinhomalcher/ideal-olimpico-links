@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="pt-BR">
 <head>
-<meta name="atlas-versao" content="20261113g"><script src="atlas-versao.js?v=20261113g" defer></script>
+<meta name="atlas-versao" content="20261113h"><script src="atlas-versao.js?v=20261113h" defer></script>
 <meta charset="utf-8"><meta name="robots" content="noindex, nofollow"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>ATLAS | Seleções para provas</title>
 <script src="auth.js?v=20261113d"></script>
@@ -104,7 +104,7 @@ aside a+a{margin-top:6px}aside a:not(.atual){background:transparent}
 </main></div>
 <dialog id="preview" class="preview-dialog" aria-labelledby="preview-titulo"><h2 id="preview-titulo">Questão</h2><div id="preview-corpo"></div><div class="modal-actions"><button type="button" class="secondary" onclick="this.closest('dialog').close()">Fechar</button></div></dialog>
 <script src="https://cdn.jsdelivr.net/npm/katex@0.19.1/dist/katex.min.js" integrity="sha384-a1WQdjRj162i159OYq041X6I4K8NenkrI09LlPmiHg0YOb7CR+wJOraXwK9abpnE" crossorigin="anonymous"></script>
-<script src="atlas-editor.js?v=20261113b"></script>
+<script src="atlas-editor.js?v=20261113h"></script>
 <script src="atlas-tags.js?v=20261113b"></script>
 <script>
 
@@ -113,7 +113,7 @@ function escapeHTML(value){return String(value??'').replace(/[&<>"']/g,c=>({'&':
 function quando(v){const d=new Date(v);return Number.isNaN(d.getTime())?'—':d.toLocaleString('pt-BR')}
 function textoPuro(html){const t=document.createElement('template');t.innerHTML=String(html||'');t.content.querySelectorAll('.katex-mathml,annotation').forEach(n=>n.remove());return (t.content.textContent||'').replace(/\s+/g,' ').trim()}
 function questaoHTML(d){const body=v=>AtlasRich.clean(v||'');let html='<div class="question">';
-  if(d['texto-base'])html+='<div class="stem">'+body(d['texto-base'])+'</div>';if(d.referencia)html+='<p class="hint">'+escapeHTML(d.referencia)+'</p>';
+  if(d['texto-base'])html+='<div class="stem">'+body(d['texto-base'])+'</div>';if(d.referencia)html+='<p class="hint">'+escapeHTML(d.referencia).replace(/\n/g,'<br>')+'</p>';
   const command=body(d.comando);html+='<div class="stem">'+command+'</div>';
   for(const l of 'abcde')html+='<div class="choice"><b>'+l.toUpperCase()+')</b> '+body(d['alt-'+l])+'</div>';
   html+='<p class="hint">Gabarito: '+escapeHTML(d.gabarito)+'</p>';if(d.resolucao)html+='<div class="stem"><b>Resolução e comentários:</b><br>'+body(d.resolucao)+'</div>';return html+'</div>'}
