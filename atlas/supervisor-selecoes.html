@@ -1,10 +1,10 @@
 <!doctype html>
 <html lang="pt-BR">
 <head>
-<meta name="atlas-versao" content="20261113i"><script src="atlas-versao.js?v=20261113i" defer></script>
+<meta name="atlas-versao" content="20261114a"><script src="atlas-versao.js?v=20261114a" defer></script>
 <meta charset="utf-8"><meta name="robots" content="noindex, nofollow"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>ATLAS | Seleções para provas</title>
-<script src="auth.js?v=20261113i"></script>
+<script src="auth.js?v=20261114a"></script>
 <style>
 .question img{display:block;max-width:100%;max-height:380px;height:auto;margin:10px 0}.question table{border-collapse:collapse;margin:12px 0;max-width:100%;width:auto}.question td,.question th{border:1px solid #a99498;padding:7px 10px;min-width:64px}.question .atlas-equation{display:inline-block;vertical-align:middle;max-width:100%;overflow-x:auto}
 
@@ -104,8 +104,8 @@ aside a+a{margin-top:6px}aside a:not(.atual){background:transparent}
 </main></div>
 <dialog id="preview" class="preview-dialog" aria-labelledby="preview-titulo"><h2 id="preview-titulo">Questão</h2><div id="preview-corpo"></div><div class="modal-actions"><button type="button" class="secondary" onclick="this.closest('dialog').close()">Fechar</button></div></dialog>
 <script src="https://cdn.jsdelivr.net/npm/katex@0.19.1/dist/katex.min.js" integrity="sha384-a1WQdjRj162i159OYq041X6I4K8NenkrI09LlPmiHg0YOb7CR+wJOraXwK9abpnE" crossorigin="anonymous"></script>
-<script src="atlas-editor.js?v=20261113i"></script>
-<script src="atlas-tags.js?v=20261113i"></script>
+<script src="atlas-editor.js?v=20261114a"></script>
+<script src="atlas-tags.js?v=20261114a"></script>
 <script>
 
 const originLabel={autoral:'Autoral',enem:'ENEM',outros:'Outros',adaptada:'Adaptada',acervo:'Acervo Ideal'};
@@ -113,9 +113,9 @@ function escapeHTML(value){return String(value??'').replace(/[&<>"']/g,c=>({'&':
 function quando(v){const d=new Date(v);return Number.isNaN(d.getTime())?'—':d.toLocaleString('pt-BR')}
 function textoPuro(html){const t=document.createElement('template');t.innerHTML=String(html||'');t.content.querySelectorAll('.katex-mathml,annotation').forEach(n=>n.remove());return (t.content.textContent||'').replace(/\s+/g,' ').trim()}
 function questaoHTML(d){const body=v=>AtlasRich.clean(v||'');let html='<div class="question">';
-  if(d['texto-base'])html+='<div class="stem">'+body(d['texto-base'])+'</div>';if(d.referencia)html+='<p class="hint">'+escapeHTML(d.referencia).replace(/\n/g,'<br>')+'</p>';
+  html+=AtlasRich.textosHTML(d);
   const command=body(d.comando);html+='<div class="stem">'+command+'</div>';
-  for(const l of 'abcde')html+='<div class="choice"><b>'+l.toUpperCase()+')</b> '+body(d['alt-'+l])+'</div>';
+  for(const l of 'abcde')html+='<div class="choice"><b>'+l.toUpperCase()+')</b> '+body(d['alt-'+l])+'</div>'+AtlasRich.altRefHTML(d,l);
   html+='<p class="hint">Gabarito: '+escapeHTML(d.gabarito)+'</p>';if(d.resolucao)html+='<div class="stem"><b>Resolução e comentários:</b><br>'+body(d.resolucao)+'</div>';return html+'</div>'}
 function serieTipo(s){return s.serie+'ª série '+s.tipo}
 function usoTexto(u){return u.situacao==='aplicada'?'Aplicada: '+u.serie+'ª '+u.tipo+' '+u.ano:'Na seleção #'+u.selecao+' ('+u.serie+'ª '+u.tipo+', enviada)'}

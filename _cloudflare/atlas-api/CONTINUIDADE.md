@@ -1,6 +1,6 @@
 # ATLAS — continuidade (para o assistente que pegar o trabalho)
 
-Atualizado em **13/11/2026**, depois do PR #77. Responsável: **Marinho (João Marinho Malcher), Grupo Ideal**. O ADM é só ele.
+Atualizado em **14/11/2026**, depois de vários textos/fonte nas alternativas/formato. Responsável: **Marinho (João Marinho Malcher), Grupo Ideal**. O ADM é só ele.
 
 Leia isto inteiro antes de mexer. Converse com o Marinho **sempre em português**, passo a passo, com **link direto**, sem jargão ("console", "branch") sem explicar.
 
@@ -28,7 +28,7 @@ O repositório é **público**: nada de segredo no código. Segredos só no pain
 
 ## 3. Testes
 
-`_cloudflare/atlas-api/testes/` — 18 suítes. Usam SQLite real (`node:sqlite`) no lugar do D1, R2 falso em memória e Playwright (Chromium) nas telas. Nenhum e-mail real sai.
+`_cloudflare/atlas-api/testes/` — 19 suítes. Usam SQLite real (`node:sqlite`) no lugar do D1, R2 falso em memória e Playwright (Chromium) nas telas. Nenhum e-mail real sai.
 
 ```
 cd _cloudflare/atlas-api/testes && ./rodar.sh            # todas
@@ -59,6 +59,7 @@ cd _cloudflare/atlas-api/testes && ./rodar.sh            # todas
 - Digitador: entra como professor e cai em `digitador.html`; envia por disciplina, sem classificar.
 - Questões do ADM/digitador: aprovação bloqueada até haver assunto, Bloom, dificuldade e ≥ 2 tags; sem "pedir ajuste" e sem e-mail.
 - Avisos por e-mail **ligados** (`ATLAS_AVISOS_ATIVOS = "1"`).
+- **Vários textos de apoio** (até 4; `dados.textos_extras = [{texto, referencia}]`, o 1º continua em `texto-base`/`referencia`; títulos TEXTO I, II… automáticos), **fonte por alternativa** (`ref-a`…`ref-e`), referências em fonte 8 à direita, e **formato na prova** (`layout` = `coluna` padrão | `pagina`; no grupo vale para todas as questões; mudar só o formato é permitido mesmo com questão do grupo aprovada). Componente comum: `AtlasRich.extras()` em `atlas-editor.js`.
 
 ## 6. Próximos passos combinados
 

@@ -67,6 +67,7 @@ ${'abcde'.split('').map(l => `<div class="alt"><strong>${l.toUpperCase()}</stron
     area.classList.add('envio-simples'); area.innerHTML = HTML;
     const $ = s => area.querySelector(s) || document.querySelector(s);
     const rich = AtlasRich.setup();
+    const extrasCampo = AtlasRich.extras(rich, { referencia: 'es-referencia' });
     const form = $('#es-form'), status = $('#es-status'), previa = $('#es-previa'), btn = $('#es-enviar'), resumo = $('#es-resumo');
     const etapa = $('#es-etapa');
     const enviadas = [];
@@ -87,18 +88,18 @@ ${'abcde'.split('').map(l => `<div class="alt"><strong>${l.toUpperCase()}</stron
     function coletar() {
       const d = { etapa: etapa.value, ano: $('#es-ano').value, origem: 'acervo', fonte: '', referencia: AtlasRich.formatarReferencia($('#es-referencia').value), gabarito: $('#es-gabarito').value, tags: [], rich: true };
       for (const id of AtlasRich.ids) d[id] = rich.valid(id) ? rich.read(id) : '';
+      Object.assign(d, extrasCampo.ler());
       return d;
     }
     function mostrarPrevia() {
       const d = coletar(), body = v => AtlasRich.clean(v);
       let h = '<h2>Prévia da questão</h2><p class="hint">' + esc($('#es-disciplina').value) + ' · Acervo Ideal · sem classificação (o Supervisor classifica)</p>';
-      if (d['texto-base']) h += '<div class="stem">' + body(d['texto-base']) + '</div>';
-      if (d.referencia) h += '<p class="hint">' + esc(d.referencia).replace(/\n/g, '<br>') + '</p>';
+      h += AtlasRich.textosHTML(d);
       h += '<div class="stem">' + body(d.comando) + '</div>';
-      for (const l of 'abcde') h += '<div class="choice"><strong>' + l.toUpperCase() + ')</strong> ' + body(d['alt-' + l]) + '</div>';
+      for (const l of 'abcde') h += '<div class="choice"><strong>' + l.toUpperCase() + ')</strong> ' + body(d['alt-' + l]) + '</div>' + AtlasRich.altRefHTML(d, l);
       h += '<p class="answer">Gabarito: ' + esc(d.gabarito) + '</p>';
       if (d.resolucao) h += '<div class="stem"><strong>Resolução:</strong><br>' + body(d.resolucao) + '</div>';
-      previa.innerHTML = h; previa.hidden = false; previsto = true; status.textContent = 'Confira a prévia. Depois, clique em Enviar para o Supervisor.'; previa.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      previa.innerHTML = h; AtlasRich.barraLargura(previa, d.layout); previa.hidden = false; previsto = true; status.textContent = 'Confira a prévia. Depois, clique em Enviar para o Supervisor.'; previa.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
     function invalidar() { previsto = false; previa.hidden = true; if (tentou) marcar(faltando()); }
     form.addEventListener('input', invalidar); form.addEventListener('change', invalidar);
@@ -113,7 +114,7 @@ ${'abcde'.split('').map(l => `<div class="alt"><strong>${l.toUpperCase()}</stron
         const r = await opcoes.enviar({ disciplina, dados: coletar(), confirmar_repetida: confirmarRepetida });
         confirmarRepetida = false;
         // Mantém disciplina, etapa e ano para a próxima questão da mesma prova.
-        rich.clear(); $('#es-referencia').value = ''; $('#es-gabarito').value = ''; previa.hidden = true; previsto = false; tentou = false; marcar([]);
+        rich.clear(); extrasCampo.escrever({}); $('#es-referencia').value = ''; $('#es-gabarito').value = ''; previa.hidden = true; previsto = false; tentou = false; marcar([]);
         enviadas.push(r.item.codigo); $('#es-sessao').hidden = false; $('#es-sessao-n').textContent = String(enviadas.length);
         const s = document.createElement('span'); s.textContent = r.item.codigo; $('#es-sessao-lista').append(s);
         const ok = $('#es-ok'); ok.textContent = 'Questão enviada para o Supervisor de ' + disciplina + '. Código: ' + r.item.codigo + '. Pode digitar a próxima.'; ok.hidden = false;
