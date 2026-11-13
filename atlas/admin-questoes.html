@@ -75,9 +75,9 @@ aside a+a{margin-top:6px}aside a:not(.atual){background:transparent}
 </main></div>
 <dialog id="equation-dialog" aria-labelledby="eq-title"><h2 id="eq-title">Inserir equação</h2><label for="equation-input">Escreva a expressão em LaTeX</label><input id="equation-input" placeholder="Ex.: \tan(\frac{\alpha+\beta}{2})"><p class="hint">Aceita LaTeX matemático, incluindo frações, raízes, funções trigonométricas e símbolos gregos. Use \sen para seno em português. Dê dois cliques na equação para editar.</p><div id="equation-preview" aria-label="Prévia da equação"></div><p id="equation-error" class="field-error" role="alert" hidden>Revise a expressão: há um comando ou agrupamento inválido.</p><div class="modal-actions"><button type="button" class="secondary" onclick="this.closest('dialog').close()">Cancelar</button><button type="button" class="primary" id="equation-insert">Inserir</button></div></dialog>
 <script src="https://cdn.jsdelivr.net/npm/katex@0.19.1/dist/katex.min.js" integrity="sha384-a1WQdjRj162i159OYq041X6I4K8NenkrI09LlPmiHg0YOb7CR+wJOraXwK9abpnE" crossorigin="anonymous"></script>
-<script src="atlas-editor.js?v=20261113a"></script>
-<script src="atlas-tags.js?v=20261113a"></script>
-<script src="atlas-classificacao.js?v=20261113a"></script>
+<script src="atlas-editor.js?v=20261113b"></script>
+<script src="atlas-tags.js?v=20261113b"></script>
+<script src="atlas-classificacao.js?v=20261113b"></script>
 <script>
 const API='https://atlas-api.marinhomalcher.workers.dev',GOOGLE_CLIENT_ID='432003570373-cscu1nvoldack2luihm9lnlsi9q2p115.apps.googleusercontent.com',TOKEN_KEY='atlas_adm_token';
 const $=s=>document.querySelector(s);
@@ -108,7 +108,7 @@ async function onCredential(resp){
 
 window.ATLAS_ENVIAR_IMAGEM=async blob=>{const headers={'Content-Type':blob.type||'image/jpeg'};const t=getToken();if(t)headers.Authorization='Bearer '+t;let r;try{r=await fetch(API+'/api/adm/imagens',{method:'POST',headers,body:blob,cache:'no-store'})}catch{throw new Error('sem conexão')}const d=await r.json().catch(()=>({}));if(!r.ok||!d.ok)throw new Error(d.error||'falha no envio');return d.url};
 const rich=AtlasRich.setup();const tagsEdit=AtlasTags.setup('tags-edit');let current=null;
-const originLabel={autoral:'Autoral',enem:'ENEM',outros:'Outros',adaptada:'Adaptada'};
+const originLabel={autoral:'Autoral',enem:'ENEM',outros:'Outros',adaptada:'Adaptada',acervo:'Acervo Ideal'};
 const sitLabel={analise:'Em análise',ajustes:'Aguardando ajuste',aprovado:'Aprovada',descartado:'Descartada'};
 function quando(v){const d=new Date(v);return Number.isNaN(d.getTime())?'—':d.toLocaleString('pt-BR')}
 function msg(t,e=false){status($('#app-status'),t,e)}

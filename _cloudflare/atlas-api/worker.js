@@ -446,7 +446,8 @@ function validarDados(input, opcoes = {}) {
   d.tags = tags;
   const vazio = v => !String(v).replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim() && !/<img\b/i.test(v);
   if (!['em', 'ef2'].includes(d.etapa)) throw new HttpError(400, 'Escolha a etapa.');
-  if (!['autoral', 'enem', 'outros'].includes(d.origem)) throw new HttpError(400, 'Escolha a origem da questão.');
+  // 'acervo' = prova antiga da escola, enviada pelo ADM ou pelo digitador (sem fonte conhecida).
+  if (!['autoral', 'enem', 'outros', 'acervo'].includes(d.origem)) throw new HttpError(400, 'Escolha a origem da questão.');
   // Questões enviadas pelo ADM ou pelo digitador chegam sem classificação: o Supervisor classifica.
   const semClassificacao = opcoes.importacao === true;
   if (!(semClassificacao && !d.dificuldade) && !['Fácil', 'Média', 'Difícil'].includes(d.dificuldade)) throw new HttpError(400, 'Escolha a dificuldade prevista.');
@@ -605,7 +606,7 @@ const SQL_RESUMO_ITEM =
   'SELECT i.id, i.codigo, i.disciplina, i.situacao, i.versao_atual, i.criado_em, i.atualizado_em, i.grupo_id, i.ordem_grupo, (SELECT gg.codigo FROM grupos gg WHERE gg.id = i.grupo_id) AS grupo_codigo, ' +
   'u.nome AS autor, json_extract(v.dados, \'$.assunto\') AS assunto, json_extract(v.dados, \'$.tags\') AS tags, (v.autor_id <> i.autor_id AND ue.papel = \'supervisor\') AS editada_supervisor, (v.autor_id <> i.autor_id AND ue.papel = \'adm\') AS corrigida_adm, ' +
   '(SELECT r.motivo FROM revisoes r WHERE r.item_id = i.id ORDER BY r.id DESC LIMIT 1) AS ultimo_motivo, ' +
-  '(COALESCE(json_extract(v.dados, \'$.assunto\'), \'\') = \'\' OR COALESCE(json_extract(v.dados, \'$.bloom\'), \'\') = \'\' OR COALESCE(json_extract(v.dados, \'$.dificuldade\'), \'\') = \'\') AS classificar, ' +
+  '(COALESCE(json_extract(v.dados, \'$.assunto\'), \'\') = \'\' OR COALESCE(json_extract(v.dados, \'$.bloom\'), \'\') = \'\' OR COALESCE(json_extract(v.dados, \'$.dificuldade\'), \'\') = \'\' OR ((u.papel = \'adm\' OR u.digitador = 1) AND json_array_length(COALESCE(json_extract(v.dados, \'$.tags\'), \'[]\')) < 2)) AS classificar, ' +
   '(CASE WHEN u.papel = \'adm\' THEN \'adm\' WHEN u.digitador = 1 THEN \'digitador\' ELSE \'professor\' END) AS autor_tipo, ' +
   '(i.assinatura IS NOT NULL AND i.assinatura <> \'\' AND EXISTS (SELECT 1 FROM itens rr WHERE rr.disciplina = i.disciplina AND rr.assinatura = i.assinatura AND rr.id <> i.id AND rr.situacao <> \'descartado\')) AS tem_repetida, ' +
   '(SELECT r.decisao FROM revisoes r WHERE r.item_id = i.id ORDER BY r.id DESC LIMIT 1) AS ultima_decisao ' +
@@ -673,7 +674,9 @@ async function enviarSemClassificacao(env, request, autorId, origemEnvio) {
   const body = await readJson(request, MAX_ITEM_BYTES + 64 * 1024);
   const disciplina = limparDisciplina(body.disciplina);
   const entrada = { ...(body.dados || {}) };
-  for (const k of ['assunto', 'subtema', 'nivel4', 'nivel5', 'bloom', 'dificuldade']) entrada[k] = '';
+  for (const k of ['assunto', 'subtema', 'nivel4', 'nivel5', 'bloom', 'dificuldade', 'fonte']) entrada[k] = '';
+  // Prova antiga da escola: origem fixa "Acervo Ideal"; as tags ficam com o Supervisor.
+  entrada.origem = 'acervo'; entrada.tags = [];
   if (!entrada.etapa) entrada.etapa = 'em';
   const dados = await validarDadosComImagens(env, entrada, { importacao: true });
   const assinatura = await assinaturaDe(JSON.parse(dados));
@@ -1019,6 +1022,7 @@ async function rotasSupervisor(request, env, path, url) {
     if (decisao === 'aprovar') {
       const dv = JSON.parse((await env.DB.prepare('SELECT dados FROM item_versoes WHERE item_id = ? AND versao = ?').bind(item.id, item.versao_atual).first()).dados);
       if (!classificacaoCompleta(dv)) throw new HttpError(409, 'Classifique a questão antes de aprovar: assunto, nível cognitivo (Bloom) e dificuldade. Use "Editar item".');
+      if (item.autor_tipo !== 'professor' && !(Array.isArray(dv.tags) && dv.tags.length >= 2)) throw new HttpError(409, 'Coloque pelo menos 2 tags antes de aprovar. Use "Editar item".');
     }
     if (decisao === 'ajuste' && item.autor_tipo !== 'professor') {
       throw new HttpError(409, 'Esta questão foi enviada pela Administração/digitação: não há professor para corrigir. Use "Editar item" para ajustar você mesmo.');

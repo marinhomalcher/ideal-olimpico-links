@@ -22,7 +22,6 @@ window.AtlasEnvioSimples = (function () {
 .envio-simples .repetida-box{background:#d9480f;color:#fff;border-radius:11px;padding:14px 16px;margin:10px 0;box-shadow:0 4px 14px #d9480f40}.envio-simples .repetida-box strong{font-size:16px}.envio-simples .repetida-box p{margin:4px 0 0}.envio-simples .repetida-box .secondary{background:#fff;border-color:#fff;color:#a8320a}.envio-simples .repetida-box .primary{background:#7a1f05;border-color:#7a1f05}.envio-simples .repetida-box .actions{margin-top:8px}
 .envio-simples .ok-box{background:#ecf7f0;border:1px solid #b9dfc6;color:#1f5f39;border-radius:8px;padding:12px 14px;margin:0 0 16px;font-weight:bold}
 .envio-simples .preview{border:1px solid #e6dadd;background:#fff;border-radius:10px;padding:20px;margin-top:14px}.envio-simples .preview .stem{text-align:justify;text-align-last:left}.envio-simples .preview .stem+.choice{margin-top:1.1em}.envio-simples .preview .choice{margin:7px 0}.envio-simples .preview .answer{font-size:12px;color:#87656b;margin-top:15px}
-.envio-simples #es-fonte{text-transform:uppercase}
 .envio-simples .sessao-lista{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}.envio-simples .sessao-lista span{font-family:ui-monospace,Consolas,monospace;font-weight:bold;background:#fbecef;color:#7a1219;border-radius:999px;padding:3px 10px;font-size:13px}
 .rich-editor{width:100%;min-height:90px;border:1px solid #d8cdd0;background:white;border-radius:8px;padding:10px 12px;outline:none;white-space:pre-wrap;overflow-wrap:anywhere}.rich-editor.long{min-height:145px}.rich-editor:focus{outline:3px solid #9b111a25;border-color:#98151d}.rich-editor:empty:before{content:attr(data-placeholder);color:#8a7f82;pointer-events:none}
 .rich-editor img,.preview img{max-width:100%;max-height:380px;height:auto;display:block;margin:10px 0}img[style*="width"]{max-height:none!important;height:auto!important}
@@ -36,14 +35,11 @@ window.AtlasEnvioSimples = (function () {
   const HTML = `
 <div id="es-ok" class="ok-box" role="status" hidden></div>
 <form id="es-form" novalidate>
-<section class="panel"><h2>1. Disciplina e origem</h2><p class="description">Escolha só a disciplina. Assunto, subtema, nível cognitivo e dificuldade são classificados depois pelo Supervisor da disciplina.</p><div class="grid">
+<section class="panel"><h2>1. Disciplina</h2><p class="description">Escolha só a disciplina. Assunto, subtema, nível cognitivo, dificuldade e tags são definidos depois pelo Supervisor da disciplina. A questão entra no banco como <strong>Acervo Ideal</strong> (prova antiga da escola).</p><div class="grid">
 <div><label for="es-disciplina">Disciplina</label><select id="es-disciplina"><option value="">Selecione a disciplina</option>${DISCIPLINAS.map(d => `<option>${d}</option>`).join('')}</select></div>
 <div><label for="es-etapa">Etapa</label><select id="es-etapa"><option value="em">Ensino Médio</option><option value="ef2">Ensino Fundamental II</option></select></div>
 <div id="es-ano-row" hidden><label for="es-ano">Ano de referência</label><select id="es-ano"><option value="">Selecione</option><option>6º ano</option><option>7º ano</option><option>8º ano</option><option>9º ano</option></select></div>
-<div><label for="es-origem">Origem</label><select id="es-origem"><option value="">Selecione</option><option value="autoral">Autoral</option><option value="enem">ENEM</option><option value="outros">Outros</option></select></div>
-<div class="wide" id="es-fonte-row" hidden><label for="es-fonte">Fonte (opcional)</label><input id="es-fonte" autocomplete="off" placeholder="Ex.: IDEAL 2023, FUVEST 2024"></div>
-<div class="wide"><label for="es-tags">Tags (opcional)</label><input id="es-tags" placeholder="Ex.: gráfico, ecologia — tecle Enter ou vírgula após cada uma"><p class="hint">Opcional. O Supervisor pode completar depois.</p></div>
-</div><p class="hint">A disciplina e a origem continuam escolhidas depois de cada envio, para agilizar a digitação de uma prova inteira.</p></section>
+</div><p class="hint">A disciplina continua escolhida depois de cada envio, para agilizar a digitação de uma prova inteira.</p></section>
 <section class="panel"><h2>2. Conteúdo da questão</h2><p class="description">Cole texto, imagens (Ctrl+V) ou LaTeX. Se colar as cinco alternativas juntas no campo A, elas são separadas automaticamente.</p><div class="grid">
 <div class="wide"><label for="texto-base">Texto-base ou estímulo (quando houver)</label><textarea id="texto-base" class="long" placeholder="Cole o texto de apoio, gráfico ou material de referência"></textarea></div>
 <div class="wide"><label for="es-referencia">Referência do texto ou da imagem (quando houver)</label><textarea id="es-referencia" placeholder="Fonte em estilo ENEM/INEP, sem hiperlink"></textarea></div>
@@ -70,17 +66,15 @@ ${'abcde'.split('').map(l => `<div class="alt"><strong>${l.toUpperCase()}</stron
     const st = document.createElement('style'); st.textContent = CSS; document.head.append(st);
     area.classList.add('envio-simples'); area.innerHTML = HTML;
     const $ = s => area.querySelector(s) || document.querySelector(s);
-    const rich = AtlasRich.setup(); const tags = AtlasTags.setup('es-tags');
+    const rich = AtlasRich.setup();
     const form = $('#es-form'), status = $('#es-status'), previa = $('#es-previa'), btn = $('#es-enviar'), resumo = $('#es-resumo');
-    const origem = $('#es-origem'), fonte = $('#es-fonte'), etapa = $('#es-etapa');
+    const etapa = $('#es-etapa');
     const enviadas = [];
     let previsto = false, tentou = false, confirmarRepetida = false;
     if (opcoes.disciplinaFixa) { $('#es-disciplina').value = opcoes.disciplinaFixa; }
-    origem.addEventListener('change', () => { $('#es-fonte-row').hidden = origem.value !== 'outros'; if (origem.value !== 'outros') fonte.value = ''; });
     etapa.addEventListener('change', () => { $('#es-ano-row').hidden = etapa.value !== 'ef2'; if (etapa.value !== 'ef2') $('#es-ano').value = ''; });
-    fonte.addEventListener('input', () => { const a = fonte.selectionStart, b = fonte.selectionEnd; fonte.value = fonte.value.toLocaleUpperCase('pt-BR'); fonte.setSelectionRange(a, b); });
 
-    const obrigatorios = [['es-disciplina', 'Disciplina'], ['es-origem', 'Origem'], ['comando', 'Comando da questão'], ['alt-a', 'Alternativa A'], ['alt-b', 'Alternativa B'], ['alt-c', 'Alternativa C'], ['alt-d', 'Alternativa D'], ['alt-e', 'Alternativa E'], ['es-gabarito', 'Gabarito']];
+    const obrigatorios = [['es-disciplina', 'Disciplina'], ['comando', 'Comando da questão'], ['alt-a', 'Alternativa A'], ['alt-b', 'Alternativa B'], ['alt-c', 'Alternativa C'], ['alt-d', 'Alternativa D'], ['alt-e', 'Alternativa E'], ['es-gabarito', 'Gabarito']];
     function preenchido(id) { return AtlasRich.ids.includes(id) ? rich.valid(id) : !!document.getElementById(id).value.trim(); }
     function faltando() { const f = obrigatorios.filter(([id]) => !preenchido(id)); if (etapa.value === 'ef2' && !$('#es-ano').value) f.push(['es-ano', 'Ano de referência']); return f; }
     function marcar(lista) {
@@ -91,13 +85,13 @@ ${'abcde'.split('').map(l => `<div class="alt"><strong>${l.toUpperCase()}</stron
     }
     function validar() { tentou = true; const f = faltando(); marcar(f); if (f.length) { status.textContent = 'Faltam campos obrigatórios. Veja a lista acima.'; const c = document.getElementById(f[0][0]); c.focus(); c.scrollIntoView({ behavior: 'smooth', block: 'center' }); return false; } return true; }
     function coletar() {
-      const d = { etapa: etapa.value, ano: $('#es-ano').value, origem: origem.value, fonte: origem.value === 'outros' ? fonte.value.trim().toLocaleUpperCase('pt-BR') : '', referencia: $('#es-referencia').value.trim(), gabarito: $('#es-gabarito').value, tags: tags.get(), rich: true };
+      const d = { etapa: etapa.value, ano: $('#es-ano').value, origem: 'acervo', fonte: '', referencia: $('#es-referencia').value.trim(), gabarito: $('#es-gabarito').value, tags: [], rich: true };
       for (const id of AtlasRich.ids) d[id] = rich.valid(id) ? rich.read(id) : '';
       return d;
     }
     function mostrarPrevia() {
       const d = coletar(), body = v => AtlasRich.clean(v);
-      let h = '<h2>Prévia da questão</h2><p class="hint">' + esc($('#es-disciplina').value) + ' · sem classificação (o Supervisor classifica)</p>' + (d.tags.length ? '<p>' + AtlasTags.html(d.tags) + '</p>' : '');
+      let h = '<h2>Prévia da questão</h2><p class="hint">' + esc($('#es-disciplina').value) + ' · Acervo Ideal · sem classificação (o Supervisor classifica)</p>';
       if (d['texto-base']) h += '<div class="stem">' + body(d['texto-base']) + '</div>';
       if (d.referencia) h += '<p class="hint">' + esc(d.referencia) + '</p>';
       h += '<div class="stem">' + body(d.comando) + '</div>';
@@ -118,8 +112,8 @@ ${'abcde'.split('').map(l => `<div class="alt"><strong>${l.toUpperCase()}</stron
       try {
         const r = await opcoes.enviar({ disciplina, dados: coletar(), confirmar_repetida: confirmarRepetida });
         confirmarRepetida = false;
-        // Mantém disciplina, etapa, ano, origem e fonte para a próxima questão da mesma prova.
-        rich.clear(); tags.set([]); $('#es-referencia').value = ''; $('#es-gabarito').value = ''; previa.hidden = true; previsto = false; tentou = false; marcar([]);
+        // Mantém disciplina, etapa e ano para a próxima questão da mesma prova.
+        rich.clear(); $('#es-referencia').value = ''; $('#es-gabarito').value = ''; previa.hidden = true; previsto = false; tentou = false; marcar([]);
         enviadas.push(r.item.codigo); $('#es-sessao').hidden = false; $('#es-sessao-n').textContent = String(enviadas.length);
         const s = document.createElement('span'); s.textContent = r.item.codigo; $('#es-sessao-lista').append(s);
         const ok = $('#es-ok'); ok.textContent = 'Questão enviada para o Supervisor de ' + disciplina + '. Código: ' + r.item.codigo + '. Pode digitar a próxima.'; ok.hidden = false;
