@@ -43,6 +43,28 @@ class HttpError extends Error {
   constructor(status, message) { super(message); this.status = status; }
 }
 
+// ---------- férias: ATLAS fechado para professores, supervisores e digitadores ----------
+// Julho inteiro e de 15 de dezembro a 31 de janeiro (horário de Brasília). Só a Administração entra.
+function hojeSP(env) {
+  const teste = env && env.ATLAS_HOJE_TESTE;   // só para testes automáticos (AAAA-MM-DD)
+  if (teste && /^\d{4}-\d{2}-\d{2}$/.test(teste)) return teste;
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(new Date());
+}
+function emFerias(env) {
+  const [, m, d] = hojeSP(env).split('-').map(Number);
+  return m === 7 || m === 1 || (m === 12 && d >= 15);
+}
+function voltaDasFerias(env) {
+  const [a, m] = hojeSP(env).split('-').map(Number);
+  return m === 7 ? '1º de agosto' : '1º de fevereiro';
+}
+function bloquearFerias(env) {
+  if (!emFerias(env)) return;
+  const e = new HttpError(423, 'FÉRIAS. O ATLAS está fechado para professores e supervisores e reabre em ' + voltaDasFerias(env) + '.');
+  e.extra = { ferias: true, reabre: voltaDasFerias(env) };
+  throw e;
+}
+
 // ---------- utilidades ----------
 function b64urlToBytes(text) {
   const b64 = text.replace(/-/g, '+').replace(/_/g, '/') + '='.repeat((4 - text.length % 4) % 4);
@@ -278,6 +300,7 @@ async function solicitarCodigoAcesso(request, env) {
   if (!env.ATLAS_MAILER_SECRET || (!env.ATLAS_MAILER_URL && !microsoftConfigurado(env))) {
     throw new HttpError(503, 'O envio de códigos ainda não está configurado.');
   }
+  bloquearFerias(env);
   const body = await readJson(request);
   const email = String(body.email || '').trim().toLowerCase();
   if (email.length > 120 || !EMAIL_LOGIN_ATLAS.test(email)) {
@@ -329,6 +352,7 @@ async function solicitarCodigoAcesso(request, env) {
 }
 async function verificarCodigoAcesso(request, env) {
   if (!env.ATLAS_MAILER_SECRET) throw new HttpError(503, 'O login ainda não está configurado.');
+  bloquearFerias(env);
   const body = await readJson(request);
   const email = String(body.email || '').trim().toLowerCase();
   const codigo = body.codigo;
@@ -595,6 +619,7 @@ async function migrarImagensAntigas(env, sessao, lote = 15) {
 
 async function usuarioDaSessao(request, env) {
   const sessao = await sessaoAtual(request, env, 'usuario');
+  bloquearFerias(env);
   const user = await env.DB.prepare(
     "SELECT id, nome, email, disciplina, CASE WHEN digitador = 1 THEN 'digitador' ELSE papel END AS papel FROM usuarios WHERE id = ? AND ativo = 1 AND papel IN ('professor','supervisor') AND (acesso_ate IS NULL OR acesso_ate >= date('now','-3 hours'))"
   ).bind(sessao.usuario_id).first();
@@ -885,8 +910,15 @@ async function rotasItens(request, env, path) {
     const ano = Number(u.searchParams.get('ano')) || anoAtualSP();
     const rel = await relatorioProducao(env, new URL('https://x/?recorte=professor&valor=' + user.id + '&ano=' + ano));
     const l = rel.linhas[0] || { meses: Array(12).fill(0), total: 0, aprovado: 0, analise: 0, ajustes: 0, descartado: 0, corrigidas: 0 };
+    // Situação de hoje das questões enviadas em cada mês.
+    const { results: rs } = await env.DB.prepare(
+      "SELECT CAST(strftime('%m', datetime(criado_em, '-3 hours')) AS INTEGER) AS mes, situacao, COUNT(*) AS n FROM itens " +
+      "WHERE autor_id = ? AND strftime('%Y', datetime(criado_em, '-3 hours')) = ? GROUP BY mes, situacao"
+    ).bind(user.id, String(ano)).all();
+    const porMes = Array.from({ length: 12 }, () => ({ enviadas: 0, aprovado: 0, analise: 0, ajustes: 0, descartado: 0 }));
+    for (const r of rs) { const m = porMes[r.mes - 1]; m.enviadas += r.n; if (r.situacao in m) m[r.situacao] += r.n; }
     return { ok: true, ano, mes_atual: Number(new Intl.DateTimeFormat('en', { timeZone: 'America/Sao_Paulo', month: 'numeric' }).format(new Date())),
-      meses: l.meses, total: l.total, aprovado: l.aprovado, analise: l.analise, ajustes: l.ajustes, descartado: l.descartado, corrigidas: l.corrigidas };
+      meses: l.meses, por_mes: porMes, total: l.total, aprovado: l.aprovado, analise: l.analise, ajustes: l.ajustes, descartado: l.descartado, corrigidas: l.corrigidas };
   }
   if (path === '/api/itens/meus' && request.method === 'GET') {
     const { results } = await env.DB.prepare(SQL_RESUMO_ITEM + 'WHERE i.autor_id = ? ORDER BY i.atualizado_em DESC, i.id DESC LIMIT 300')
@@ -1778,6 +1810,7 @@ export default {
       if (url.pathname === '/api/login/sessao' && request.method === 'GET') {
         if (!ALLOWED_ORIGINS.includes(origin)) throw new HttpError(403, 'Origem não permitida.');
         const sessao = await sessaoAtual(request, env, 'usuario');
+        bloquearFerias(env);
         const usuario = await env.DB.prepare(
           "SELECT id, nome, email, disciplina, CASE WHEN digitador = 1 THEN 'digitador' ELSE papel END AS papel FROM usuarios WHERE id = ? AND ativo = 1 AND papel IN ('professor','supervisor') AND (acesso_ate IS NULL OR acesso_ate >= date('now','-3 hours'))"
         ).bind(sessao.usuario_id).first();
