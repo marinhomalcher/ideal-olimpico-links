@@ -61,7 +61,7 @@ cd _cloudflare/atlas-api/testes && ./rodar.sh            # todas
 - Digitador: entra como professor e cai em `digitador.html`; envia por disciplina, sem classificar.
 - Questões do ADM/digitador: aprovação bloqueada até haver assunto, Bloom, dificuldade e ≥ 2 tags; sem "pedir ajuste" e sem e-mail.
 - Avisos por e-mail **ligados** (`ATLAS_AVISOS_ATIVOS = "1"`).
-- **Vários textos de apoio** (até 4; `dados.textos_extras = [{texto, referencia}]`, o 1º continua em `texto-base`/`referencia`; títulos TEXTO I, II… automáticos), **fonte por alternativa** (`ref-a`…`ref-e`), referências em fonte 8 à direita, e **formato na prova** (`layout` = `coluna` padrão | `pagina`; no grupo vale para todas as questões; mudar só o formato é permitido mesmo com questão do grupo aprovada). Componente comum: `AtlasRich.extras()` em `atlas-editor.js`.
+- **Vários textos de apoio** (até 4; `dados.textos_extras = [{texto, referencia}]`, o 1º continua em `texto-base`/`referencia`; títulos TEXTO I, II… automáticos), **fonte por alternativa** (`ref-a`…`ref-e`), referências em fonte 8 à direita, e **formato na prova** (`layout` = `coluna` padrão | `pagina`; no grupo vale para todas as questões; mudar só o formato é permitido mesmo com questão do grupo aprovada). Textos II–IV abrem embaixo, em largura total como o Texto I; a referência de cada texto fica atrás do botão "+ Inserir referência do texto ou da imagem" (abre sozinha quando já tem conteúdo). Componente comum: `AtlasRich.extras()` em `atlas-editor.js`.
 
 ## 6. Próximos passos combinados
 
