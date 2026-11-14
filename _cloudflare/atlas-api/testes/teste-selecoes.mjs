@@ -11,6 +11,7 @@ const REPO = new URL('../../../', import.meta.url).pathname;   // raiz do reposi
 const worker = (await import(REPO + '_cloudflare/atlas-api/worker.js?' + Date.now())).default;
 const results = [];
 const ok = (name, cond, extra = '') => results.push([cond ? 'OK  ' : 'FALHOU', name, String(extra).slice(0, 160)]);
+const ANO = Number(new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo', year: 'numeric' }).format(new Date()));   // ano atual (os relatórios usam o relógio real)
 
 // ---- D1 falso (SQLite real) ----
 const db = new DatabaseSync(':memory:');
@@ -155,7 +156,7 @@ ok('Supervisor vê devolvida com motivo e pode editar', r.data.selecao.situacao=
 await call('/api/supervisor/selecoes/'+s1,{method:'PUT',token:tMarcio,body:{itens:[q3,q4,q2]}});
 await call('/api/supervisor/selecoes/'+s1+'/enviar',{method:'POST',token:tMarcio,body:{}});
 r=await call('/api/adm/selecoes/'+s1+'/aplicar',{method:'POST',token:tAdm,body:{}});
-ok('ADM marca como aplicada (ano atual)', r.status===200 && r.data.selecao.ano===2026, JSON.stringify(r.data));
+ok('ADM marca como aplicada (ano atual)', r.status===200 && r.data.selecao.ano===ANO, JSON.stringify(r.data));
 r=await call('/api/adm/selecoes/'+s1+'/devolver',{method:'POST',token:tAdm,body:{motivo:'tarde demais'}});
 ok('Aplicada não volta', r.status===409);
 // regra de uso
@@ -168,18 +169,18 @@ b=await banco(s1m);
 ok('Outro tipo (MED) continua oferecendo', [q3,q4,q2].every(c=>b.some(i=>i.codigo===c)));
 b=await banco(s2r);
 ok('Outra série no mesmo ano continua oferecendo', [q3,q4,q2].every(c=>b.some(i=>i.codigo===c)));
-ok('Mostra onde a questão foi aplicada', b.find(i=>i.codigo===q3).usos.some(u=>u.situacao==='aplicada' && u.serie===1 && u.tipo==='REG' && u.ano===2026));
+ok('Mostra onde a questão foi aplicada', b.find(i=>i.codigo===q3).usos.some(u=>u.situacao==='aplicada' && u.serie===1 && u.tipo==='REG' && u.ano===ANO));
 r=await call('/api/supervisor/selecoes/'+s1r,{method:'PUT',token:tMarcio,body:{itens:[q3]}});
 ok('Servidor recusa questão já usada para a turma', r.status===409);
-// coorte: aplicada na 1ª REG em 2025 -> bloqueia 2ª REG em 2026, libera 1ª REG em 2026
-db.prepare('UPDATE selecoes SET ano=2025 WHERE id=?').run(s1);
+// coorte: aplicada na 1ª REG no ano passado -> bloqueia a 2ª REG deste ano, libera a 1ª REG deste ano
+db.prepare('UPDATE selecoes SET ano=? WHERE id=?').run(ANO-1,s1);
 b=await banco(s2r);
-ok('Coorte: aplicada na 1ª em 2025 não aparece para a 2ª em 2026 (mesmo tipo)', !b.some(i=>[q3,q4,q2].includes(i.codigo)));
+ok('Coorte: aplicada na 1ª no ano passado não aparece para a 2ª deste ano (mesmo tipo)', !b.some(i=>[q3,q4,q2].includes(i.codigo)));
 b=await banco(s1r);
-ok('Coorte: a 1ª série de 2026 (nova turma) pode usar', [q3,q4,q2].every(c=>b.some(i=>i.codigo===c)));
+ok('Coorte: a 1ª série deste ano (nova turma) pode usar', [q3,q4,q2].every(c=>b.some(i=>i.codigo===c)));
 b=await banco(await nova(3,'REG'));
-ok('Coorte: 3ª em 2026 não é a mesma turma', [q3,q4,q2].every(c=>b.some(i=>i.codigo===c)));
-db.prepare('UPDATE selecoes SET ano=2026 WHERE id=?').run(s1);
+ok('Coorte: 3ª deste ano não é a mesma turma', [q3,q4,q2].every(c=>b.some(i=>i.codigo===c)));
+db.prepare('UPDATE selecoes SET ano=? WHERE id=?').run(ANO,s1);
 // conflito na aplicação e item que fica indisponível no rascunho
 const sa=await nova(2,'MED'), sb=await nova(2,'MED');
 await call('/api/supervisor/selecoes/'+sa,{method:'PUT',token:tMarcio,body:{itens:[q1]}});
@@ -221,10 +222,10 @@ async function login(card,user){db.exec('DELETE FROM login_rate_limits');await p
 await login('Supervisor','marcio.alex');await page.waitForURL(/supervisor\.html/);
 await page.click('aside a[href="supervisor-selecoes.html"]');await page.waitForURL(/supervisor-selecoes\.html/);
 await page.waitForFunction(()=>document.querySelectorAll('#lista tbody tr').length>0);
-ok('Tela Sup: lista de seleções', (await page.textContent('#lista')).includes('Aplicada em 2026'));
+ok('Tela Sup: lista de seleções', (await page.textContent('#lista')).includes('Aplicada em '+ANO));
 await page.click('#nova');await page.check('input[name=serie][value="1"]');await page.check('input[name=tipo][value="MED"]');await page.fill('#novo-titulo','Simulado tela');await page.click('#nova-form button[type=submit]');
 await page.waitForSelector('#sel-view:not([hidden])');await page.waitForFunction(()=>document.querySelectorAll('#banco .qcard').length>0);
-ok('Tela Sup: seleção nova aberta com banco', (await page.textContent('#sel-titulo')).includes('1ª série MED') && (await page.textContent('#banco')).includes('Aplicada: 1ª REG 2026'));
+ok('Tela Sup: seleção nova aberta com banco', (await page.textContent('#sel-titulo')).includes('1ª série MED') && (await page.textContent('#banco')).includes('Aplicada: 1ª REG '+ANO));
 await page.locator('#banco .qcard',{hasText:q4}).getByText('Adicionar').click();
 await page.locator('#banco .qcard',{hasText:q3}).getByText('Adicionar').click();
 await page.waitForFunction(()=>document.querySelector('#savestate').textContent==='Salvo');

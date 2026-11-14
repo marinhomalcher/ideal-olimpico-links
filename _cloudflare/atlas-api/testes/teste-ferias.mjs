@@ -11,6 +11,7 @@ const REPO = new URL('../../../', import.meta.url).pathname;   // raiz do reposi
 const worker = (await import(REPO + '_cloudflare/atlas-api/worker.js?' + Date.now())).default;
 const results = [];
 const ok = (name, cond, extra = '') => results.push([cond ? 'OK  ' : 'FALHOU', name, String(extra).slice(0, 160)]);
+const ANO = Number(new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo', year: 'numeric' }).format(new Date()));   // ano atual (os relatórios usam o relógio real)
 
 // ---- D1 falso (SQLite real) ----
 const db = new DatabaseSync(':memory:');
@@ -83,7 +84,7 @@ ok('ADM entra', !!tAdm);
 const tEdi=await tok('edi.franco@grupoideal.com.br');
 const base={etapa:'em',origem:'autoral',dificuldade:'Média',assunto:'Romantismo',bloom:'Aplicar',comando:'C','alt-a':'A','alt-b':'B','alt-c':'C','alt-d':'D','alt-e':'E',gabarito:'A'};
 const cs=[];for(let k=0;k<3;k++){const r=await call('/api/itens',{method:'POST',token:tEdi,body:{dados:{...base,comando:'Edi '+k}}});cs.push(r.data.item.codigo)}
-db.exec("UPDATE itens SET criado_em='2026-03-10T15:00:00Z' WHERE codigo='"+cs[0]+"'");
+db.exec("UPDATE itens SET criado_em='"+ANO+"-03-10T15:00:00Z' WHERE codigo='"+cs[0]+"'");db.exec("UPDATE itens SET criado_em='"+ANO+"-11-13T15:00:00Z' WHERE codigo IN ('"+cs[1]+"','"+cs[2]+"')");   /* as outras fora de março, em qualquer época do ano */
 let r=await call('/api/itens/meus/resumo',{token:tEdi});
 ok('Resumo traz por_mes com a situação de cada mês', r.data.por_mes.length===12&&r.data.por_mes[2].enviadas===1&&r.data.por_mes[2].analise===1&&r.data.por_mes.reduce((t,m)=>t+m.enviadas,0)===3, JSON.stringify(r.data.por_mes[2]));
 const casos=[['2026-06-30',false],['2026-07-01',true],['2026-07-31',true],['2026-08-01',false],['2026-12-14',false],['2026-12-15',true],['2026-12-31',true],['2027-01-15',true],['2027-01-31',true],['2027-02-01',false]];
@@ -124,7 +125,7 @@ await ctx.route('https://idealolimpico.com.br/atlas/**', route=>{const f=new URL
 await ctx.route('https://cdn.jsdelivr.net/npm/katex@0.19.1/dist/**', r2=>{const p=new URL(r2.request().url()).pathname.replace('/npm/katex@0.19.1/dist/','');r2.fulfill({status:200,headers:{'content-type':p.endsWith('.js')?'application/javascript':p.endsWith('.css')?'text/css':'font/'+p.split('.').pop(),'access-control-allow-origin':'*'},body:fs.readFileSync(K+p)})});
 await ctx.route('https://accounts.google.com/**', r2=>r2.fulfill({status:200,contentType:'application/javascript',body:'window.google={accounts:{id:{initialize(){},renderButton(){},disableAutoSelect(){}}}}'}));
 await ctx.route('https://atlas-api.marinhomalcher.workers.dev/**', async route=>{const u=route.request().url().replace('https://atlas-api.marinhomalcher.workers.dev','http://localhost:8794');const resp=await route.fetch({url:u,headers:{...route.request().headers(),origin:ORIGIN}});route.fulfill({response:resp})});
-const page=await ctx.newPage(); await page.clock.setFixedTime(new Date('2026-11-13T15:00:00Z')); const errors=[]; page.on('pageerror',e=>errors.push(e.message)); const dialogs=[];page.on('dialog',d=>{dialogs.push(d.message());d.dismiss()});
+const page=await ctx.newPage(); const errors=[]; page.on('pageerror',e=>errors.push(e.message)); const dialogs=[];page.on('dialog',d=>{dialogs.push(d.message());d.dismiss()});
 // aberto: resumo com tabela
 env.ATLAS_HOJE_TESTE='2026-11-13';
 db.exec('DELETE FROM login_rate_limits');await page.goto('https://idealolimpico.com.br/atlas/');await page.click('[data-role="Professor"]');await page.fill('#email','edi.franco');await page.click('#loginButton');await page.waitForSelector('#code-step:not([hidden])');await page.fill('#code',lastCode());await page.click('#verifyButton');
@@ -132,7 +133,8 @@ await page.waitForURL(/professor\.html/);await page.waitForFunction(()=>document
 ok('Tela: sem tabela de meses (só o resumo)', !(await page.$('#resumo-tabela')));
 const opts=await page.$$eval('#resumo-mes-sel option',o=>o.map(x=>x.textContent));
 ok('Tela: filtro tem Ano todo e fevereiro a dezembro, sem julho nem janeiro', opts[0]==='Ano todo'&&opts[1]==='Fevereiro'&&opts.at(-1)==='Dezembro'&&!opts.includes('Julho')&&!opts.includes('Janeiro'), opts.join('|'));
-ok('Tela: filtro começa no mês atual', (await page.inputValue('#resumo-mes-sel'))==='10'&&(await page.textContent('#resumo-mes-rot')).includes('novembro'));
+{const mesReal=Number(new Intl.DateTimeFormat('en',{timeZone:'America/Sao_Paulo',month:'numeric'}).format(new Date()));const esperado=(mesReal-1>=1&&mesReal-1!==6)?String(mesReal-1):'ano';   /* janeiro e julho não estão no filtro: começa em "Ano todo" */
+ok('Tela: filtro começa no mês atual', (await page.inputValue('#resumo-mes-sel'))===esperado, (await page.inputValue('#resumo-mes-sel'))+' / '+esperado);}
 await page.selectOption('#resumo-mes-sel','2');
 ok('Tela: escolher março filtra os cartões', (await page.textContent('#resumo-mes'))==='1'&&(await page.textContent('#resumo-mes-rot')).includes('março'));
 await page.selectOption('#resumo-mes-sel','ano');

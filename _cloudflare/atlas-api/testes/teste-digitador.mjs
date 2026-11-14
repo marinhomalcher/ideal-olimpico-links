@@ -11,6 +11,7 @@ const REPO = new URL('../../../', import.meta.url).pathname;   // raiz do reposi
 const worker = (await import(REPO + '_cloudflare/atlas-api/worker.js?' + Date.now())).default;
 const results = [];
 const ok = (name, cond, extra = '') => results.push([cond ? 'OK  ' : 'FALHOU', name, String(extra).slice(0, 160)]);
+const ANO = Number(new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo', year: 'numeric' }).format(new Date()));   // ano atual (os relatórios usam o relógio real)
 
 // ---- D1 falso (SQLite real) ----
 const db = new DatabaseSync(':memory:');
@@ -146,8 +147,9 @@ ok('Sem e-mail ao "autor" ADM', mails.length===mailsAntes, mails.length-mailsAnt
 const tEdi=await tok('edi.franco@grupoideal.com.br');
 const base={etapa:'em',origem:'autoral',dificuldade:'Média',assunto:'Romantismo',bloom:'Aplicar',comando:'C','alt-a':'A','alt-b':'B','alt-c':'C','alt-d':'D','alt-e':'E',gabarito:'A'};
 const cs=[];for(let k=0;k<3;k++){r=await call('/api/itens',{method:'POST',token:tEdi,body:{dados:{...base,comando:'Edi '+k}}});cs.push(r.data.item.codigo)}
-db.exec("UPDATE itens SET criado_em='2026-03-10T15:00:00Z' WHERE codigo='"+cs[0]+"'");
-db.exec("UPDATE itens SET criado_em='2026-01-01T02:00:00Z' WHERE codigo='"+cs[1]+"'"); // 31/12/2025 23h em Brasília
+db.exec("UPDATE itens SET criado_em='"+ANO+"-03-10T15:00:00Z' WHERE codigo='"+cs[0]+"'");
+db.exec("UPDATE itens SET criado_em='"+ANO+"-01-01T02:00:00Z' WHERE codigo='"+cs[1]+"'"); // 31/12 do ano anterior, 23h em Brasília
+db.exec("UPDATE itens SET criado_em='"+ANO+"-11-13T15:00:00Z' WHERE codigo='"+cs[2]+"'"); // fora de março, em qualquer época do ano
 let v=(await call('/api/itens/'+cs[2],{token:tMarcio})).data.item.versao_atual;
 await call('/api/supervisor/itens/'+cs[2]+'/decisao',{method:'POST',token:tMarcio,body:{decisao:'ajuste',motivo:'arrume',versao:v}});
 let a=(await call('/api/itens/'+cs[2],{token:tEdi})).data.item;
@@ -156,30 +158,30 @@ ok('Professor reenvia correção', r.status===200, r.data?.error);
 v=(await call('/api/itens/'+cs[0],{token:tMarcio})).data.item.versao_atual;
 await call('/api/supervisor/itens/'+cs[0]+'/decisao',{method:'POST',token:tMarcio,body:{decisao:'descartar',motivo:'fora do padrão',versao:v}});
 const mesAtual=Number(new Intl.DateTimeFormat('en',{timeZone:'America/Sao_Paulo',month:'numeric'}).format(new Date()));
-r=await call('/api/adm/relatorio?ano=2026',{token:tAdm});
+r=await call('/api/adm/relatorio?ano='+ANO+'',{token:tAdm});
 ok('Relatório geral responde', r.status===200, r.data?.error);
 const L=n=>r.data.linhas.find(l=>l.nome===n);
 let edi=L('Edi Franco');
-ok('Edi: março 1, mês atual 1, total 2 (a de 31/12/2025 fica em 2025)', edi&&edi.meses[2]===1&&edi.meses[mesAtual-1]===(mesAtual===3?2:1)&&edi.total===2, JSON.stringify(edi));
+ok('Edi: março 1, novembro 1, total 2 (a de 31/12 do ano anterior fica no ano anterior)', edi&&edi.meses[2]===1&&edi.meses[10]===1&&edi.total===2, JSON.stringify(edi));
 ok('Edi: 1 descartada, 1 em análise, 1 corrigida', edi.descartado===1&&edi.analise===1&&edi.corrigidas===1, JSON.stringify(edi));
 ok('Linha ADM chamada "ADM" com 1 aprovada', L('ADM')&&L('ADM').aprovado===1&&L('ADM').tipo==='adm');
 ok('Linha do digitador com o nome dele', L('Helio Junho de Souza Santos')?.tipo==='digitador'&&L('Helio Junho de Souza Santos').total===1);
 ok('Professores ativos sem envio aparecem com zero', L('Felipe Augusto')&&L('Felipe Augusto').total===0);
 ok('Totais somam as linhas', r.data.totais.total===r.data.linhas.reduce((s,l)=>s+l.total,0)&&r.data.totais.total===4, r.data.totais.total);
-r=await call('/api/adm/relatorio?ano=2025',{token:tAdm});
-ok('Fuso de Brasília: envio de 31/12/2025 23h conta em dezembro de 2025', r.data.linhas.find(l=>l.nome==='Edi Franco').meses[11]===1);
-r=await call('/api/adm/relatorio?ano=2026&recorte=area&valor=CN',{token:tAdm});
+r=await call('/api/adm/relatorio?ano='+(ANO-1),{token:tAdm});
+ok('Fuso de Brasília: envio de 31/12 23h conta em dezembro do ano anterior', r.data.linhas.find(l=>l.nome==='Edi Franco').meses[11]===1);
+r=await call('/api/adm/relatorio?ano='+ANO+'&recorte=area&valor=CN',{token:tAdm});
 ok('Por área CN: só Química/Física/Biologia', r.status===200&&r.data.linhas.every(l=>['Química','Física','Biologia',''].includes(l.disciplina))&&r.data.linhas.some(l=>l.nome==='Felipe Augusto')&&!r.data.linhas.some(l=>l.nome==='Edi Franco'), JSON.stringify(r.data.linhas.map(l=>l.nome)));
-r=await call('/api/adm/relatorio?ano=2026&recorte=area&valor=MT',{token:tAdm});
+r=await call('/api/adm/relatorio?ano='+ANO+'&recorte=area&valor=MT',{token:tAdm});
 ok('Por área MT: digitador aparece (questão de Matemática)', r.data.linhas.some(l=>l.tipo==='digitador'&&l.total===1), JSON.stringify(r.data.linhas.map(l=>l.nome)));
-r=await call('/api/adm/relatorio?ano=2026&recorte=disciplina&valor=Literatura',{token:tAdm});
+r=await call('/api/adm/relatorio?ano='+ANO+'&recorte=disciplina&valor=Literatura',{token:tAdm});
 ok('Por disciplina Literatura: Edi, Márcio, Telma e ADM', ['Edi Franco','Márcio Alex','Telma Paes','ADM'].every(n=>r.data.linhas.some(l=>l.nome===n))&&!r.data.linhas.some(l=>l.tipo==='digitador'), JSON.stringify(r.data.linhas.map(l=>l.nome)));
 const idEdi=db.prepare("SELECT id FROM usuarios WHERE nome='Edi Franco'").get().id;
-r=await call('/api/adm/relatorio?ano=2026&recorte=professor&valor='+idEdi,{token:tAdm});
+r=await call('/api/adm/relatorio?ano='+ANO+'&recorte=professor&valor='+idEdi,{token:tAdm});
 ok('Por professor: só a Edi', r.data.linhas.length===1&&r.data.linhas[0].total===2);
-r=await call('/api/adm/relatorio?ano=2026&recorte=area&valor=XX',{token:tAdm});
+r=await call('/api/adm/relatorio?ano='+ANO+'&recorte=area&valor=XX',{token:tAdm});
 ok('Área inválida recusada', r.status===400);
-r=await call('/api/adm/relatorio?ano=2026',{token:tMarcio});
+r=await call('/api/adm/relatorio?ano='+ANO+'',{token:tMarcio});
 ok('Relatório só para o ADM', r.status===401||r.status===403, r.status);
 r=await call('/api/itens/meus/resumo',{token:tEdi});
 ok('Resumo do professor: mês atual, total, situações e correções', r.status===200&&r.data.meses[2]===1&&r.data.por_mes[2].descartado===1&&r.data.total===2&&r.data.descartado===1&&r.data.analise===1&&r.data.corrigidas===1&&r.data.mes_atual===mesAtual, JSON.stringify(r.data));
