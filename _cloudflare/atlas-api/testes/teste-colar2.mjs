@@ -132,6 +132,7 @@ await page.selectOption('#origem','enem');await page.selectOption('#dificuldade'
 await paste('#texto-base','Uma boa ética não se baseia em regras e normas.');await page.evaluate(()=>tagsCampo.set(['argumentação','ética']));
 for(const l of 'bcde')await page.evaluate(id=>{if(!document.getElementById(id).textContent.trim())document.getElementById(id).textContent='x'},'alt-'+l);
 await page.click('#visualizar');await page.waitForSelector('#previsao:not([hidden])');
+ok('Prévia: letras das alternativas sem negrito', !/<(b|strong)>[A-E]\)/.test(await page.innerHTML('#previsao'))&&(await page.innerHTML('#previsao')).includes('A) '));
 ok('Prévia mostra a referência em duas linhas', (await page.innerHTML('#previsao')).includes('servicioskoinonia.org.<br>Acesso em'));
 await page.locator('#previsao').screenshot({path:S+'previa-ref.png'});
 ok('Sem erros de JavaScript', errors.length===0, errors.join('|'));

@@ -1,10 +1,10 @@
 <!doctype html>
 <html lang="pt-BR">
 <head>
-<meta name="atlas-versao" content="20261114c"><script src="atlas-versao.js?v=20261114c" defer></script>
+<meta name="atlas-versao" content="20261114d"><script src="atlas-versao.js?v=20261114d" defer></script>
 <meta charset="utf-8"><meta name="robots" content="noindex, nofollow"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>ATLAS | Análise do Supervisor</title>
-<script src="auth.js?v=20261114c"></script>
+<script src="auth.js?v=20261114d"></script>
 <style>
 .question img{display:block;max-width:100%;max-height:380px;height:auto;margin:10px 0}.question table{border-collapse:collapse;margin:12px 0;max-width:100%;width:auto}.question td,.question th{border:1px solid #a99498;padding:7px 10px;min-width:64px}.question .atlas-equation{display:inline-block;vertical-align:middle;max-width:100%;overflow-x:auto}
 
@@ -55,9 +55,9 @@ dialog .modal-actions{display:flex;justify-content:flex-end;gap:9px;margin-top:1
 </main></div>
 <dialog id="equation-dialog" aria-labelledby="eq-title"><h2 id="eq-title">Inserir equação</h2><label for="equation-input">Escreva a expressão em LaTeX</label><input id="equation-input" placeholder="Ex.: \tan(\frac{\alpha+\beta}{2})"><p class="hint">Aceita LaTeX matemático, incluindo frações, raízes, funções trigonométricas e símbolos gregos. Use \sen para seno em português. Dê dois cliques na equação para editar.</p><div id="equation-preview" aria-label="Prévia da equação"></div><p id="equation-error" class="field-error" role="alert" hidden>Revise a expressão: há um comando ou agrupamento inválido.</p><div class="modal-actions"><button type="button" class="secondary" onclick="this.closest('dialog').close()">Cancelar</button><button type="button" class="primary" id="equation-insert">Inserir</button></div></dialog>
 <script src="https://cdn.jsdelivr.net/npm/katex@0.19.1/dist/katex.min.js" integrity="sha384-a1WQdjRj162i159OYq041X6I4K8NenkrI09LlPmiHg0YOb7CR+wJOraXwK9abpnE" crossorigin="anonymous"></script>
-<script src="atlas-editor.js?v=20261114c"></script>
-<script src="atlas-tags.js?v=20261114c"></script>
-<script src="atlas-classificacao.js?v=20261114c"></script>
+<script src="atlas-editor.js?v=20261114d"></script>
+<script src="atlas-tags.js?v=20261114d"></script>
+<script src="atlas-classificacao.js?v=20261114d"></script>
 <script>
 const rich=AtlasRich.setup();const tagsEdit=AtlasTags.setup('tags-edit');const extrasCampo=AtlasRich.extras(rich);let current=null;
 const list=document.querySelector('#list'),queue=document.querySelector('#queue'),details=document.querySelector('#details'),notice=document.querySelector('#notice');
@@ -84,7 +84,7 @@ async function openItem(codigo){let item;try{({item}=await ATLAS_API('/api/itens
   let html0='';if(item.classificar&&['analise','ajustes'].includes(item.situacao))html0+='<div class="aviso-classificar" role="status"><strong>Questão sem classificação</strong><p>'+(item.autor_tipo==='professor'?'Falta parte da classificação.':'Enviada '+(item.autor_tipo==='adm'?'pela Administração':'pelo digitador')+' sem classificação.')+' Clique em <b>Editar item</b> e preencha assunto, subtema, nível cognitivo (Bloom), dificuldade e pelo menos 2 tags antes de aprovar.</p></div>';const sitNomeG={analise:'em análise',ajustes:'aguardando ajuste',aprovado:'aprovada',descartado:'descartada'};if(item.repetidas&&item.repetidas.length)html0+='<div class="alerta-repetida" role="alert"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex:0 0 auto;margin-top:1px"><path d="M10.3 3.9 1.8 18.2A2 2 0 0 0 3.5 21h17a2 2 0 0 0 1.7-2.8L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/></svg><div><strong>Atenção: possível questão repetida</strong><p>O texto desta questão é igual ao de: '+item.repetidas.map(r=>'<button type="button" class="cod-rep" data-cod="'+escapeHTML(r.codigo)+'">'+escapeHTML(r.codigo)+'</button>'+escapeHTML(' ('+(sitNomeG[r.situacao]||r.situacao)+')')).join(' ')+'. Clique no código para abrir e comparar antes de decidir.</p></div></div>';if(item.grupo)html0+='<div class="adjust-form" style="margin:0 0 14px"><strong>Grupo '+escapeHTML(item.grupo.codigo)+'</strong> — texto-base compartilhado por '+item.grupo.membros.length+' questões: '+item.grupo.membros.map(m=>escapeHTML(m.codigo+(m.codigo===item.codigo?' (esta)':'')+' — '+(sitNomeG[m.situacao]||m.situacao))).join('; ')+'. Cada questão é analisada separadamente; o grupo só vai para as provas quando todas estiverem aprovadas.</div>';let html='<div class="meta">'+meta.map(([name,value])=>'<p><strong>'+escapeHTML(name)+'</strong>'+escapeHTML(value)+'</p>').join('')+(d.tags&&d.tags.length?'<p><strong>Tags</strong>'+AtlasTags.html(d.tags,escapeHTML)+'</p>':'')+'</div><div class="question">';
   html+=AtlasRich.textosHTML(d);
   const command=body(d.comando);html+='<div class="stem">'+command+'</div>';
-  for(const letter of 'abcde')html+='<div class="choice"><b>'+letter.toUpperCase()+')</b> '+body(d['alt-'+letter])+'</div>'+AtlasRich.altRefHTML(d,letter);
+  for(const letter of 'abcde')html+='<div class="choice">'+letter.toUpperCase()+') '+body(d['alt-'+letter])+'</div>'+AtlasRich.altRefHTML(d,letter);
   html+='<p class="hint">Gabarito: '+escapeHTML(d.gabarito)+'</p>';if(d.resolucao)html+='<div class="stem"><b>Resolução e comentários:</b><br>'+body(d.resolucao)+'</div>';html+='</div>';
   if(item.versoes?.some(v=>v.pelo_supervisor))html+='<div class="meta"><p><strong>Versões</strong>'+item.versoes.map(v=>escapeHTML('Versão '+v.versao+' — '+quando(v.criado_em)+' — '+(v.papel_autor==='adm'?'corrigida pelo ADM':v.pelo_supervisor?'editada pelo Supervisor ('+v.autor+')':'enviada por '+v.autor))).join('<br>')+'</p></div>';
   const sitConserto={pendente:'aguardando o ADM',feito:'feito pelo ADM',recusado:'não atendido'};
