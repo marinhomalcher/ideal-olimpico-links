@@ -13,6 +13,7 @@ const repo = fileURLToPath(new URL('../../../', import.meta.url));
 const S = (process.env.ATLAS_TESTE_TMP || '/tmp/atlas-testes') + '/';
 const PDFJS = S + 'pdfjs/package/build/';
 const worker = (await import('../worker.js')).default;
+const { r2Rigoroso } = await import('./r2-cloudflare.mjs');
 const db = new DatabaseSync(':memory:');
 db.exec('PRAGMA foreign_keys = ON');
 db.exec(fs.readFileSync(repo + '_cloudflare/atlas-api/schema.sql', 'utf8'));
@@ -28,12 +29,7 @@ const objetos = new Map();
 const env = {
   DB: { prepare: sql => stmt(sql), batch: async ops => Promise.all(ops.map(x => x.run())) },
   ADMIN_EMAIL: 'adm@example.com', ATLAS_HOJE_TESTE: '2026-11-13',
-  IMAGENS: {
-    put: async (key, body) => { objetos.set(key, Buffer.from(await new Response(body).arrayBuffer())); },
-    get: async key => objetos.has(key) ? { body: objetos.get(key) } : null,
-    delete: async key => { objetos.delete(key); },
-    list: async () => ({ objects: [], truncated: false })
-  }
+  IMAGENS: r2Rigoroso(objetos)
 };
 function sessao(token, tipo, email, id = null) {
   db.prepare('INSERT INTO sessoes (token_hash, tipo, email, usuario_id, expira_em) VALUES (?, ?, ?, ?, ?)')
@@ -43,6 +39,7 @@ sessao('adm-token', 'adm', 'adm@example.com');
 async function api(path, method = 'GET', body, token = 'adm-token', contentType = 'application/json') {
   const headers = { Origin: 'https://idealolimpico.com.br', Authorization: 'Bearer ' + token };
   if (body !== undefined) headers['Content-Type'] = contentType;
+  if (Buffer.isBuffer(body)) headers['Content-Length'] = String(body.length);   /* como o navegador faz */
   const request = new Request('https://atlas-api.example' + path, {
     method, headers, body: body === undefined ? undefined : contentType === 'application/json' ? JSON.stringify(body) : body
   });
