@@ -9,7 +9,7 @@ for t in "${lista[@]}"; do
   resumo=$(printf '%s\n' "$saida" | grep -E 'FALHOU|TODOS|falha\(s\)|FALHA\(S\)' | head -5 | tr '\n' ' ')
   printf '%-20s %s\n' "$t" "$resumo"
   if [ "$codigo" -ne 0 ] || printf '%s\n' "$saida" | grep -Eq 'FALHOU|[1-9][0-9]* falha\(s\)|[1-9][0-9]* FALHA\(S\)' || ! printf '%s\n' "$saida" | grep -Eq 'TODOS|0 falha\(s\)'; then
-    printf '%s\n' "$saida" | tail -20
+    printf '%s\n' "$saida" | tail -60
     falhou=1
   fi
 done
