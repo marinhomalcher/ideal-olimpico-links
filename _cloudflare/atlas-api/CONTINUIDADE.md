@@ -21,6 +21,7 @@ O repositório é **público**: nada de segredo no código. Segredos só no pain
 
 ## 2. Como entregar uma mudança
 
+0. **Nada é implementado nem publicado sem autorização do Marinho** (regra de 14/11/2026). Antes, apresente as opções com prós e contras (de preferência como perguntas de marcar, item por item) e espere o "pode fazer". Vale para código, banco, telas e até mudanças só de texto.
 1. Branch nova a partir da `main` → commit → PR. **Nunca** commit direto na `main`. **O próprio assistente faz o merge** (autorizado pelo Marinho em 13/11/2026), depois dos testes passarem, e conta ao Marinho o que foi ao ar.
 2. Mudou alguma coisa em `atlas/`? Rode `python3 _cloudflare/atlas-api/nova-versao.py AAAAMMDDx` (nova versão a cada entrega). As páginas abertas se recarregam sozinhas.
 3. Mudou o banco? Crie `migrations/000N_*.sql` (número seguinte), acrescente o mesmo bloco no fim de `schema.sql` (`-- ---------- vN ----------`), suba `meta.schema_versao`. **O SQL é aplicado sozinho no merge**: o comando de implantação do Worker na Cloudflare (Workers & Pages → atlas-api → Settings → Build → Deploy command) é
