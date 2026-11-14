@@ -1,5 +1,6 @@
 // ATLAS — servidor (Cloudflare Worker).
 import { rotaRedacaoAdm, rotaRedacaoUsuario, limparAlunosVirada, RedacaoError } from './redacao-cadastros.js';
+import { rotaLotesUsuario, rotaLotesAdm, limparPdfCancelados } from './redacao-lotes.js';
 // Administração: login "Entrar com Google", liberado SOMENTE para o e-mail em ADMIN_EMAIL.
 // Professores e Supervisores: login por código no e-mail institucional.
 // Questões: enviadas pelo Professor e analisadas pelo Supervisor da disciplina (tabelas itens/item_versoes/revisoes).
@@ -31,6 +32,18 @@ function reply(body, status, origin) {
     headers['Access-Control-Max-Age'] = '600';
   }
   return new Response(body === null ? null : JSON.stringify(body), { status, headers });
+}
+
+function respostaPdf(arquivo, origin) {
+  const headers = {
+    'Content-Type': 'application/pdf',
+    'Content-Disposition': 'inline; filename="' + arquivo.nome + '"',
+    'Cache-Control': 'private, no-store',
+    'X-Content-Type-Options': 'nosniff',
+    'Vary': 'Origin'
+  };
+  if (ALLOWED_ORIGINS.includes(origin)) headers['Access-Control-Allow-Origin'] = origin;
+  return new Response(arquivo.body, { status: 200, headers });
 }
 
 // Resposta JSON com as imagens trocadas por links assinados.
@@ -71,7 +84,10 @@ function bloquearFerias(env, digitador = false) {
 async function bloquearFeriasLogin(env, email) {
   if (!emFerias(env)) return;
   const dig = emFerias(env, true) ? null : await env.DB.prepare(
-    "SELECT 1 AS ok FROM usuarios WHERE email = ? COLLATE NOCASE AND ativo = 1 AND digitador = 1 AND papel = 'professor' AND (acesso_ate IS NULL OR acesso_ate >= date('now','-3 hours'))"
+    "SELECT 1 AS ok FROM usuarios u LEFT JOIN redacao_equipe e ON e.usuario_id = u.id " +
+    "WHERE u.email = ? COLLATE NOCASE AND u.ativo = 1 AND u.papel = 'professor' " +
+    "AND (u.digitador = 1 OR (e.funcao = 'digitalizador' AND e.ativo = 1)) " +
+    "AND (u.acesso_ate IS NULL OR u.acesso_ate >= date('now','-3 hours'))"
   ).bind(email).first();
   bloquearFerias(env, !!dig);
 }
@@ -1835,7 +1851,7 @@ async function rotasSelecoesAdm(request, env, path, url, sessao) {
 // Guarda as tabelas de conteúdo e cadastro; não guarda sessões nem códigos de login.
 // As imagens já ficam no R2 e não são copiadas de novo.
 const TABELAS_BACKUP = ['meta', 'usuarios', 'retiradas', 'grupos', 'grupo_versoes', 'itens', 'item_versoes', 'revisoes', 'consertos', 'selecoes', 'selecao_itens', 'eventos',
-  'redacao_turmas', 'redacao_alunos', 'redacao_equipe', 'redacao_professor_turmas', 'redacao_digitalizador_unidades', 'redacao_importacoes'];
+  'redacao_turmas', 'redacao_alunos', 'redacao_equipe', 'redacao_professor_turmas', 'redacao_digitalizador_unidades', 'redacao_importacoes', 'redacao_lotes'];
 const MANTER_BACKUPS = 60;
 
 async function fazerBackup(env, origem) {
@@ -2117,6 +2133,8 @@ async function rotasAdm(request, env, path) {
   }
 
   const sessao = await sessaoAtual(request, env, 'adm');
+  const redacaoLotes = await rotaLotesAdm(request, env, path, { hojeSP, registrar, sessao });
+  if (redacaoLotes) return redacaoLotes;
   const redacaoAdm = await rotaRedacaoAdm(request, env, path, { readJson, hojeSP, registrar, emailEmUso, sessao });
   if (redacaoAdm) return redacaoAdm;
   if (path === '/api/adm/imagens' && request.method === 'POST') return await receberImagem(request, env, sessao.email);
@@ -2216,6 +2234,7 @@ export default {
       } catch (error) { console.error('ATLAS backup ou virada da Redação falhou:', error && error.message); }
     })());
     ctx.waitUntil(lembrarRetiradas(env).catch(error => console.error('ATLAS lembrete de retiradas falhou:', error && error.message)));
+    ctx.waitUntil(limparPdfCancelados(env).catch(error => console.error('ATLAS limpeza de PDFs cancelados falhou:', error && error.message)));
   },
   async fetch(request, envOriginal, ctx) {
     const env = Object.assign(Object.create(envOriginal || {}), { __ctx: ctx });
@@ -2243,7 +2262,10 @@ export default {
           "SELECT id, nome, email, disciplina, CASE WHEN digitador = 1 THEN 'digitador' ELSE papel END AS papel, classificador FROM usuarios WHERE id = ? AND ativo = 1 AND papel IN ('professor','supervisor') AND (acesso_ate IS NULL OR acesso_ate >= date('now','-3 hours'))"
         ).bind(sessao.usuario_id).first();
         if (!usuario) throw new HttpError(401, 'Acesso desativado. Entre novamente.');
-        bloquearFerias(env, usuario.papel === 'digitador');
+        const digRedacao = await env.DB.prepare(
+          "SELECT 1 AS ok FROM redacao_equipe WHERE usuario_id = ? AND funcao = 'digitalizador' AND ativo = 1"
+        ).bind(usuario.id).first();
+        bloquearFerias(env, usuario.papel === 'digitador' || !!digRedacao);
         return reply({ ok: true, usuario, expira_em: sessao.expira_em }, 200, origin);
       }
       if (url.pathname === '/api/login/sair' && request.method === 'POST') {
@@ -2289,6 +2311,7 @@ export default {
       if (url.pathname.startsWith('/api/adm/')) {
         if (!ALLOWED_ORIGINS.includes(origin)) throw new HttpError(403, 'Origem não permitida.');
         const resultado = await rotasAdm(request, env, url.pathname);
+        if (resultado?.__pdf) return respostaPdf(resultado, origin);
         if (resultado && resultado.__arquivo) {
           const headers = { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store',
             'Content-Disposition': 'attachment; filename="' + resultado.nome + '"', 'X-Content-Type-Options': 'nosniff', 'Vary': 'Origin',
@@ -2299,7 +2322,10 @@ export default {
       }
       if (url.pathname.startsWith('/api/redacao/')) {
         if (!ALLOWED_ORIGINS.includes(origin)) throw new HttpError(403, 'Origem não permitida.');
-        return reply(await rotaRedacaoUsuario(request, env, url.pathname, { sessaoAtual }), 200, origin);
+        const resultado = url.pathname.startsWith('/api/redacao/lotes')
+          ? await rotaLotesUsuario(request, env, url.pathname, { sessaoAtual, hojeSP, registrar })
+          : await rotaRedacaoUsuario(request, env, url.pathname, { sessaoAtual });
+        return resultado?.__pdf ? respostaPdf(resultado, origin) : reply(resultado, 200, origin);
       }
       if (url.pathname.startsWith('/api/')) {
         throw new HttpError(404, 'Rota indisponível.');
