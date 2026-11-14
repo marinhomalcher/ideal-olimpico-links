@@ -11,6 +11,7 @@ const REPO = new URL('../../../', import.meta.url).pathname;   // raiz do reposi
 const worker = (await import(REPO + '_cloudflare/atlas-api/worker.js?' + Date.now())).default;
 const results = [];
 const ok = (name, cond, extra = '') => results.push([cond ? 'OK  ' : 'FALHOU', name, String(extra).slice(0, 160)]);
+const ANO = Number(new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo', year: 'numeric' }).format(new Date()));   // ano atual (os relatórios usam o relógio real)
 
 // ---- D1 falso (SQLite real) ----
 const db = new DatabaseSync(':memory:');
@@ -179,7 +180,7 @@ ok('Descarte mantém o código X', r.status===200&&r.data.item.codigo===xDesc, J
 r=await call('/api/itens/digitador',{method:'POST',token:tHel,body:{disciplina:'Sem disciplina',dados:C('Questão do professor Andrey')}});
 ok('Sem disciplina: aviso de repetida considera todas as disciplinas', r.status===409&&(r.data.repetidas||[]).some(x=>x.codigo===mProf), r.status+' '+JSON.stringify(r.data).slice(0,120));
 // relatório: questões sem disciplina contam para o digitador
-r=await call('/api/adm/relatorio?ano=2026',{token:tAdm});
+r=await call('/api/adm/relatorio?ano='+ANO+'',{token:tAdm});
 const linhaHel=(r.data.linhas||[]).find(l=>/Helio/.test(l.nome||''));
 ok('Relatório "Todos" conta também a questão que espera disciplina', linhaHel&&linhaHel.total===3, JSON.stringify(linhaHel).slice(0,150));
 // ================= telas =================

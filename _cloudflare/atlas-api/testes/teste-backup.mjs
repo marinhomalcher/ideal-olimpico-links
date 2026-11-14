@@ -119,7 +119,7 @@ for(let k=0;k<62;k++){r2store.set('backups/atlas-2026-01-'+String(k%28+1).padSta
 await worker.scheduled({cron:'17 6 * * *'},env,cctx);await Promise.all(cctx.p);
 const lista=[...r2store.keys()].filter(k=>k.startsWith('backups/')).sort();
 ok('Cópia automática roda pelo agendamento', db.prepare("SELECT COUNT(*) n FROM eventos WHERE acao='backup_feito' AND detalhe LIKE '%automatico%'").get().n===1);
-ok('Ficam só as 60 mais recentes', lista.length===60 && lista.at(-1).startsWith('backups/atlas-2026-11') , lista.length+' '+lista.at(-1));
+ok('Ficam só as 60 mais recentes', lista.length===60 && lista.at(-1).startsWith('backups/atlas-'+new Date().toISOString().slice(0,7))   /* a de agora (mês atual, UTC) */ , lista.length+' '+lista.at(-1));
 // tela
 const server = http.createServer(async (req, res) => { const chunks=[]; for await (const c of req) chunks.push(c); const request=new Request('https://atlas-api.test'+req.url,{method:req.method,headers:req.headers,body:['GET','HEAD','OPTIONS'].includes(req.method)?undefined:Buffer.concat(chunks)}); const response=await worker.fetch(request,env); res.writeHead(response.status,Object.fromEntries(response.headers)); res.end(Buffer.from(await response.arrayBuffer())); }).listen(8791);
 const K=S+'katexpkg/package/dist/';

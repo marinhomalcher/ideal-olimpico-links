@@ -11,6 +11,7 @@ const REPO = new URL('../../../', import.meta.url).pathname;   // raiz do reposi
 const worker = (await import(REPO + '_cloudflare/atlas-api/worker.js?' + Date.now())).default;
 const results = [];
 const ok = (name, cond, extra = '') => results.push([cond ? 'OK  ' : 'FALHOU', name, String(extra).slice(0, 160)]);
+const ANO = Number(new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo', year: 'numeric' }).format(new Date()));   // ano atual (os relatórios usam o relógio real)
 
 // ---- D1 falso (SQLite real) ----
 const db = new DatabaseSync(':memory:');
@@ -166,10 +167,10 @@ ok('Detalhe mostra quem classificou e o que mudou', r.data.item.classificacao?.p
 r=await call('/api/supervisor/itens/'+qA+'/decisao',{method:'POST',token:tSupMat,body:{decisao:'aprovar',versao:verA+1}});
 ok('Supervisor aprova a classificada (vira M)', r.status===200&&r.data.item.codigo==='M'+qA.slice(1), JSON.stringify(r.data));
 // relatório
-r=await call('/api/adm/relatorio?ano=2026',{token:tAdm});
+r=await call('/api/adm/relatorio?ano='+ANO+'',{token:tAdm});
 const lc=r.data.linhas.find(l=>l.nome==='Clara Class');
 ok('Relatório conta as classificadas', lc&&lc.classificadas===1&&r.data.totais.classificadas===1, JSON.stringify(lc).slice(0,160));
-r=await call('/api/adm/relatorio?ano=2026&recorte=professor&valor='+lc.id,{token:tAdm});
+r=await call('/api/adm/relatorio?ano='+ANO+'&recorte=professor&valor='+lc.id,{token:tAdm});
 ok('Relatório por pessoa também conta', r.data.linhas[0].classificadas===1);
 // tirar a marca
 await call('/api/classificar/proxima',{method:'POST',token:tCaio,body:{}});
