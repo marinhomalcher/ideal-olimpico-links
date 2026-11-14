@@ -26,7 +26,7 @@ function stmt(sql, args = []) {
 }
 const DB = { prepare: sql => stmt(sql), batch: async list => { db.exec('BEGIN'); try { for (const s of list) await s.run(); db.exec('COMMIT'); } catch (e) { db.exec('ROLLBACK'); throw e; } } };
 const CLIENT = '432003570373-cscu1nvoldack2luihm9lnlsi9q2p115.apps.googleusercontent.com';
-const env = { DB, GOOGLE_CLIENT_ID: CLIENT, ADMIN_EMAIL: 'marinhomalcher@gmail.com', ATLAS_MAILER_URL: 'https://mailer.test/exec', ATLAS_MAILER_SECRET: 'segredo-de-teste' };
+const env = { ATLAS_HOJE_TESTE: '2026-11-13' /* data fixa (dia de aula): não depende do relógio real */, DB, GOOGLE_CLIENT_ID: CLIENT, ADMIN_EMAIL: 'marinhomalcher@gmail.com', ATLAS_MAILER_URL: 'https://mailer.test/exec', ATLAS_MAILER_SECRET: 'segredo-de-teste' };
 const mails=[];
 const r2store=new Map();env.IMAGENS={put:async(k,b,o={})=>{const bytes=typeof b==='string'?new TextEncoder().encode(b):new Uint8Array(b);r2store.set(k,{bytes,o,up:new Date()})},get:async k=>{const v=r2store.get(k);return v?{body:v.bytes,httpMetadata:v.o.httpMetadata}:null},delete:async k=>{r2store.delete(k)},list:async({prefix=''}={})=>({objects:[...r2store].filter(([k])=>k.startsWith(prefix)).map(([key,v])=>({key,size:v.bytes.length,uploaded:v.up})),truncated:false})};
 
@@ -140,7 +140,7 @@ ok('No novo prazo: novo e-mail ao ADM', mails.slice(m0).some(m=>/exclusão defin
 r=await call('/api/adm/retiradas/'+rid2+'/excluir',{method:'POST',token:tAdm,body:{nome_confirmacao:'Edi Franco'}});ok('Excluir sem marcar "não pode ser desfeito": recusado', r.status===400);
 r=await call('/api/adm/retiradas/'+rid2+'/excluir',{method:'POST',token:tAdm,body:{nome_confirmacao:'Edi',confirmo_exclusao:true}});ok('Excluir com nome errado: recusado', r.status===400);
 await new Promise(r=>setTimeout(r,1100));const nb=[...r2store.keys()].filter(k=>k.startsWith('backups/')).length;
-env.ATLAS_HOJE_TESTE='';
+env.ATLAS_HOJE_TESTE='2026-11-13';
 r=await call('/api/adm/retiradas/'+rid2+'/excluir',{method:'POST',token:tAdm,body:{nome_confirmacao:'Edi Franco',confirmo_exclusao:true}});
 ok('Exclusão continua bloqueada se a data voltar para antes do prazo', r.status===409);
 env.ATLAS_HOJE_TESTE=prazo2;
@@ -152,7 +152,7 @@ ok('Questão que está em prova montada foi mantida', !!id(cA)&&r.data.retirada.
 ok('Questão do ENEM intacta', !!id(cD));
 r=await call('/api/health');
 // ===== tela =====
-env.ATLAS_HOJE_TESTE='';
+env.ATLAS_HOJE_TESTE='2026-11-13';
 db.exec("INSERT INTO usuarios (nome,email,disciplina,papel,ativo) VALUES ('Prof Saiu','prof.saiu@grupoideal.com.br','Química','professor',1)");
 const tSaiu=await tok('prof.saiu@grupoideal.com.br');
 for(const k of [1,2])await call('/api/itens',{method:'POST',token:tSaiu,body:{dados:{...base,assunto:'Química Geral',comando:'Q autoral '+k}}});

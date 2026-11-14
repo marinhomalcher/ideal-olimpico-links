@@ -37,7 +37,7 @@ cd _cloudflare/atlas-api/testes && ./rodar.sh            # todas
 ./rodar.sh itens retirada                                # só algumas
 ```
 
-`preparar.sh` baixa KaTeX e ExcelJS via npm para `$ATLAS_TESTE_TMP` (padrão `/tmp/atlas-testes`). Os testes de seleções/edição às vezes falham por tempo de tela: rode de novo antes de investigar. Ao mudar a versão do schema, atualize as verificações "Schema N" em `teste-adm`, `teste-login` e `teste-selecoes`.
+`preparar.sh` baixa KaTeX e ExcelJS via npm para `$ATLAS_TESTE_TMP` (padrão `/tmp/atlas-testes`). Os testes de seleções/edição às vezes falham por tempo de tela: rode de novo antes de investigar. Todas as suítes usam a data fixa 13/11/2026 (`ATLAS_HOJE_TESTE`), para não falharem nas férias; o navegador da suíte `ferias` também tem o relógio fixo. Ao mudar a versão do schema, atualize as verificações "Schema N" em `teste-adm`, `teste-login` e `teste-selecoes`.
 
 ## 4. Regras do Marinho (valem sempre)
 
@@ -49,7 +49,7 @@ cd _cloudflare/atlas-api/testes && ./rodar.sh            # todas
 - Supervisor: edita texto, tags, assunto, subtema e Bloom; **não** muda etapa, origem, fonte nem dificuldade (só preenche dificuldade se estiver vazia). Dificuldade é ajustada pela escola depois da pré-testagem.
 - Só o ADM: desfaz descarte (30 dias), corrige questão aprovada, faz consertos pedidos pelo Supervisor.
 - Tags: professor é obrigado a pôr pelo menos 2 (máx. 12).
-- **Férias:** fechado para professor/supervisor/digitador em julho e de 15/12 a 31/01 (horário de Brasília). ADM entra sempre. Tela grande "FÉRIAS".
+- **Férias:** professor e supervisor ficam fora em julho e no recesso de 15/12 a 31/01; o **digitador só em julho** (trabalha no recesso). Horário de Brasília. ADM entra sempre. Tela grande "FÉRIAS".
 - Reconhecimento de questão por print/OCR: **descartado** (não há IA para isso). Importar provas antigas do Word continua como opção futura.
 - Hospedagem: não tirar do GitHub Pages (o portal de inscrições está junto).
 
