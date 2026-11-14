@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="pt-BR">
 <head>
-<meta name="atlas-versao" content="20261114j"><script src="atlas-versao.js?v=20261114j" defer></script>
+<meta name="atlas-versao" content="20261114k"><script src="atlas-versao.js?v=20261114k" defer></script>
 <meta charset="utf-8"><meta name="robots" content="noindex, nofollow"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="referrer" content="strict-origin-when-cross-origin">
 <title>ATLAS | Administração</title>
@@ -39,6 +39,8 @@ const $=s=>document.querySelector(s),list=$('#list'),search=$('#search'),dialog=
 let subjects=['Artes','Biologia','Filosofia','Física','Geografia','História','Inglês','Literatura','Matemática','Português','Química','Sociologia'],teachers=[];
 function escapeHTML(value){return String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function getToken(){try{return sessionStorage.getItem(TOKEN_KEY)||''}catch{return ''}}
+// Depois do login, volta à página da Redação que pediu o login (só páginas do próprio ATLAS).
+function voltar(){const v=new URLSearchParams(location.search).get('volta');if(['redacao-admin.html','redacao-lotes-admin.html'].includes(v)){location.replace(v);return true}return false}
 function setToken(t){try{t?sessionStorage.setItem(TOKEN_KEY,t):sessionStorage.removeItem(TOKEN_KEY)}catch{}}
 function status(el,text,isError=false){el.textContent=text||'';el.classList.toggle('error',!!isError)}
 async function api(path,{method='GET',body}={}){
@@ -58,7 +60,7 @@ async function showLogin(message='',isError=true){
 }
 async function onCredential(resp){
   status($('#login-status'),'Confirmando login…');
-  try{const data=await api('/api/adm/login',{method:'POST',body:{credential:resp.credential}});setToken(data.token);await showApp(data.email)}
+  try{const data=await api('/api/adm/login',{method:'POST',body:{credential:resp.credential}});setToken(data.token);if(voltar())return;await showApp(data.email)}
   catch(e){if(e.message!=='__sessao__')status($('#login-status'),e.message,true)}
 }
 // Contador de questões esperando o ADM definir a disciplina (digitador "Não sei" ou devolvidas pelo supervisor).
@@ -186,6 +188,6 @@ function acaoRetirada(r,acao){const excluir=acao==='excluir';
     catch(e){b.disabled=false;if(e.message!=='__sessao__')erroRet(e.message)}},'ra-ok']);
   if(excluir)contagem($('#ra-ok'),5,'Excluir definitivamente')}
 async function adiarRetirada(r){try{const d=await api('/api/adm/retiradas/'+r.id+'/adiar',{method:'POST',body:{}});await carregarRetiradas();render();status($('#app-status'),'Decisão adiada: as questões de '+r.nome+' continuam retiradas até '+dataBR(d.retirada.prazo_em)+'.')}catch(e){if(e.message!=='__sessao__')status($('#app-status'),e.message,true)}}
-(async()=>{if(!getToken())return showLogin();try{const s=await api('/api/adm/sessao');await showApp(s.email)}catch(e){if(e.message!=='__sessao__')showLogin(e.message)}})();
+(async()=>{if(!getToken())return showLogin();try{const s=await api('/api/adm/sessao');if(voltar())return;await showApp(s.email)}catch(e){if(e.message!=='__sessao__')showLogin(e.message)}})();
 </script>
 </body></html>
