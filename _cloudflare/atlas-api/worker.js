@@ -467,8 +467,13 @@ function limparTextosExtras(lista) {
 }
 const HTML_PROIBIDO = /<\s*\/?\s*(script|iframe|object|embed|style|link|meta|form|base)\b|\son[a-z]+\s*=|javascript\s*:|vbscript\s*:/i;
 
+// Código da questão: letra + 7 dígitos. Questões do ADM e do digitador nascem com "X" (provisório) e,
+// na aprovação, o X vira a letra da disciplina mantendo os números. Por isso os números não se repetem
+// entre letras diferentes (X4821937 e Q4821937 nunca são questões distintas).
+const LETRA_PROVISORIA = 'X';
+const SEM_DISCIPLINA = 'Sem disciplina';   // digitador escolheu "Não sei" ou o supervisor devolveu ao ADM
 function gerarCodigoItem(disciplina) {
-  const letra = LETRA_DISCIPLINA[disciplina];
+  const letra = disciplina === LETRA_PROVISORIA ? LETRA_PROVISORIA : LETRA_DISCIPLINA[disciplina];
   if (!letra) throw new HttpError(400, 'Disciplina sem letra definida.');
   const buf = new Uint32Array(8);
   for (;;) {
@@ -477,6 +482,14 @@ function gerarCodigoItem(disciplina) {
     for (let i = 1; i < 7; i++) digitos += String(buf[i] % 10);
     if (!/^(\d)\1{6}$/.test(digitos)) return letra + digitos;
   }
+}
+async function sortearCodigoLivre(env, disciplinaOuX, evitar = []) {
+  for (let t = 0; t < 30; t++) {
+    const codigo = gerarCodigoItem(disciplinaOuX), dig = codigo.slice(1);
+    if (evitar.some(c => c.slice(1) === dig)) continue;
+    if (!(await env.DB.prepare('SELECT 1 AS x FROM itens WHERE substr(codigo, 2) = ? LIMIT 1').bind(dig).first())) return codigo;
+  }
+  throw new HttpError(503, 'Não foi possível gerar o código da questão. Tente novamente.');
 }
 
 function validarDados(input, opcoes = {}) {
@@ -698,7 +711,11 @@ const SQL_RESUMO_ITEM =
 
 async function itemPorCodigo(env, codigo) {
   if (!/^[A-Z]\d{7}$/.test(codigo)) throw new HttpError(404, 'Questão não encontrada.');
-  const item = await env.DB.prepare(SQL_RESUMO_ITEM + 'WHERE i.codigo = ?').bind(codigo).first();
+  let item = await env.DB.prepare(SQL_RESUMO_ITEM + 'WHERE i.codigo = ?').bind(codigo).first();
+  if (!item && codigo[0] === LETRA_PROVISORIA) {   // código provisório que já virou definitivo na aprovação
+    const ev = await env.DB.prepare("SELECT item_id FROM eventos WHERE acao = 'codigo_definitivo' AND json_extract(detalhe, '$.anterior') = ? ORDER BY id DESC LIMIT 1").bind(codigo).first();
+    if (ev) item = await env.DB.prepare(SQL_RESUMO_ITEM + 'WHERE i.id = ?').bind(ev.item_id).first();
+  }
   if (!item) throw new HttpError(404, 'Questão não encontrada.');
   return item;
 }
@@ -740,6 +757,12 @@ async function preencherAssinaturas(env, disciplina) {
 }
 async function repetidasDe(env, disciplina, assinatura, excluirId = null) {
   if (!assinatura) return [];
+  if (disciplina === SEM_DISCIPLINA) {   // sem disciplina: compara com o banco todo
+    const { results } = await env.DB.prepare(
+      "SELECT codigo, situacao FROM itens WHERE assinatura = ? AND situacao <> 'descartado' AND id IS NOT ? ORDER BY id LIMIT 10"
+    ).bind(assinatura, excluirId).all();
+    return results;
+  }
   await preencherAssinaturas(env, disciplina);
   const { results } = await env.DB.prepare(
     "SELECT codigo, situacao FROM itens WHERE disciplina = ? AND assinatura = ? AND situacao <> 'descartado' AND id IS NOT ? ORDER BY id LIMIT 10"
@@ -757,7 +780,8 @@ function erroRepetida(repetidas) {
 // ---------- envio de questões sem classificação (ADM e digitador) ----------
 async function enviarSemClassificacao(env, request, autorId, origemEnvio) {
   const body = await readJson(request, MAX_ITEM_BYTES + 64 * 1024);
-  const disciplina = limparDisciplina(body.disciplina);
+  // "Não sei a disciplina": só o digitador; a questão vai para o ADM definir.
+  const disciplina = (origemEnvio === 'digitador' && body.disciplina === SEM_DISCIPLINA) ? SEM_DISCIPLINA : limparDisciplina(body.disciplina);
   const entrada = { ...(body.dados || {}) };
   for (const k of ['assunto', 'subtema', 'nivel4', 'nivel5', 'bloom', 'dificuldade', 'fonte']) entrada[k] = '';
   // Prova antiga da escola: origem fixa "Acervo Ideal"; as tags ficam com o Supervisor.
@@ -770,7 +794,7 @@ async function enviarSemClassificacao(env, request, autorId, origemEnvio) {
     if (repetidas.length) throw erroRepetida(repetidas);
   }
   for (let tentativa = 0; tentativa < 10; tentativa++) {
-    const codigo = gerarCodigoItem(disciplina);
+    const codigo = await sortearCodigoLivre(env, LETRA_PROVISORIA);
     try {
       await env.DB.batch([
         env.DB.prepare("INSERT INTO itens (codigo, disciplina, autor_id, situacao, versao_atual, assinatura) VALUES (?, ?, ?, 'analise', 1, ?)")
@@ -906,7 +930,7 @@ async function criarGrupo(request, env, user) {
   for (let tentativa = 0; tentativa < 10; tentativa++) {
     const codigoGrupo = gerarCodigoGrupo(user.disciplina);
     const codigos = new Set();
-    while (codigos.size < dadosItens.length) codigos.add(gerarCodigoItem(user.disciplina));
+    while (codigos.size < dadosItens.length) codigos.add(await sortearCodigoLivre(env, user.disciplina, [...codigos]));
     const lista2 = [...codigos];
     const ops = [
       env.DB.prepare('INSERT INTO grupos (codigo, disciplina, autor_id) VALUES (?, ?, ?)').bind(codigoGrupo, user.disciplina, user.id),
@@ -951,7 +975,7 @@ async function rotasItens(request, env, path) {
       if (repetidas.length) throw erroRepetida(repetidas);
     }
     for (let tentativa = 0; tentativa < 10; tentativa++) {
-      const codigo = gerarCodigoItem(user.disciplina);
+      const codigo = await sortearCodigoLivre(env, user.disciplina);
       try {
         await env.DB.batch([
           env.DB.prepare("INSERT INTO itens (codigo, disciplina, autor_id, situacao, versao_atual, assinatura) VALUES (?, ?, ?, 'analise', 1, ?)")
@@ -1117,6 +1141,24 @@ async function rotasSupervisor(request, env, path, url) {
     return { ok: true };
   }
 
+  // Devolver ao ADM: questão do ADM ou do digitador que não é desta disciplina. Sem sugestão nem motivo.
+  const devolver = path.match(/^\/api\/supervisor\/itens\/([A-Z]\d{7})\/devolver-adm$/);
+  if (devolver && request.method === 'POST') {
+    const item = await itemPorCodigo(env, devolver[1]);
+    if (item.disciplina !== user.disciplina) throw new HttpError(404, 'Questão não encontrada.');
+    if (item.autor_tipo === 'professor') throw new HttpError(409, 'Questões de professor são sempre da disciplina dele: não podem ser devolvidas ao ADM.');
+    if (item.situacao !== 'analise') throw new HttpError(409, 'Só questões em análise podem ser devolvidas ao ADM.');
+    const body = await readJson(request);
+    if (body.versao !== item.versao_atual) throw new HttpError(409, 'A questão mudou desde que você a abriu. Volte à fila e abra de novo.');
+    const alterado = await env.DB.prepare(
+      "UPDATE itens SET disciplina = ?, atualizado_em = strftime('%Y-%m-%dT%H:%M:%SZ','now') WHERE id = ? AND situacao = 'analise' AND disciplina = ? AND versao_atual = ? RETURNING id"
+    ).bind(SEM_DISCIPLINA, item.id, user.disciplina, item.versao_atual).first();
+    if (!alterado) throw new HttpError(409, 'Esta questão acabou de ser alterada.');
+    await env.DB.prepare("INSERT INTO eventos (usuario_id, acao, item_id, detalhe) VALUES (?, 'devolvida_adm', ?, ?)")
+      .bind(user.id, item.id, JSON.stringify({ codigo: item.codigo, disciplina_anterior: user.disciplina })).run();
+    return { ok: true, item: { codigo: item.codigo, disciplina: SEM_DISCIPLINA } };
+  }
+
   const match = path.match(/^\/api\/supervisor\/itens\/([A-Z]\d{7})\/decisao$/);
   if (match && request.method === 'POST') {
     const item = await itemPorCodigo(env, match[1]);
@@ -1140,10 +1182,22 @@ async function rotasSupervisor(request, env, path, url) {
     const nova = { aprovar: 'aprovado', ajuste: 'ajustes', descartar: 'descartado' }[decisao];
     // Descartar vale para questões em análise ou aguardando ajuste; aprovar/ajuste só para "em análise".
     const situacoesValidas = decisao === 'descartar' ? "('analise','ajustes')" : "('analise')";
+    // Aprovação de questão com código provisório: o X vira a letra da disciplina, com os mesmos números
+    // (se, por acaso, o código já existir, sorteia números novos).
+    let codigoFinal = item.codigo;
+    if (decisao === 'aprovar' && item.codigo[0] === LETRA_PROVISORIA) {
+      codigoFinal = LETRA_DISCIPLINA[item.disciplina] + item.codigo.slice(1);
+      if (await env.DB.prepare('SELECT 1 AS x FROM itens WHERE codigo = ?').bind(codigoFinal).first()) codigoFinal = await sortearCodigoLivre(env, item.disciplina);
+    }
     const alterado = await env.DB.prepare(
-      "UPDATE itens SET situacao = ?, atualizado_em = strftime('%Y-%m-%dT%H:%M:%SZ','now') WHERE id = ? AND situacao IN " + situacoesValidas + " AND versao_atual = ? RETURNING id"
-    ).bind(nova, item.id, item.versao_atual).first();
+      "UPDATE itens SET situacao = ?, codigo = ?, atualizado_em = strftime('%Y-%m-%dT%H:%M:%SZ','now') WHERE id = ? AND situacao IN " + situacoesValidas + " AND versao_atual = ? RETURNING id"
+    ).bind(nova, codigoFinal, item.id, item.versao_atual).first();
     if (!alterado) throw new HttpError(409, 'Esta questão já foi analisada.');
+    if (codigoFinal !== item.codigo) {
+      await env.DB.prepare("INSERT INTO eventos (usuario_id, acao, item_id, detalhe) VALUES (?, 'codigo_definitivo', ?, ?)")
+        .bind(user.id, item.id, JSON.stringify({ anterior: item.codigo, codigo: codigoFinal })).run();
+      item.codigo = codigoFinal;
+    }
     await env.DB.batch([
       env.DB.prepare('INSERT INTO revisoes (item_id, versao, supervisor_id, decisao, motivo) VALUES (?, ?, ?, ?, ?)')
         .bind(item.id, item.versao_atual, user.id, decisao, motivo || null),
@@ -1256,6 +1310,33 @@ async function rotasAdmItens(request, env, path, sessao) {
     if (sup) avisar(env, sup.email, 'ATLAS: pedido de conserto da questão ' + sup.codigo + ' não atendido',
       'O administrador respondeu ao seu pedido de conserto da questão ' + sup.codigo + ':\n\n' + resposta + '\n\n' + LINK_ATLAS);
     return { ok: true };
+  }
+
+  // Questões sem disciplina (digitador escolheu "Não sei" ou o supervisor devolveu): o ADM define.
+  if (path === '/api/adm/sem-disciplina' && request.method === 'GET') {
+    const { results } = await env.DB.prepare(
+      "SELECT i.codigo, i.criado_em, i.atualizado_em, u.nome AS autor, CASE WHEN u.papel = 'adm' THEN 'adm' WHEN u.digitador = 1 THEN 'digitador' ELSE 'professor' END AS autor_tipo, " +
+      "(SELECT json_extract(e.detalhe, '$.disciplina_anterior') FROM eventos e WHERE e.item_id = i.id AND e.acao = 'devolvida_adm' ORDER BY e.id DESC LIMIT 1) AS devolvida_de, " +
+      "(SELECT uu.nome FROM eventos e JOIN usuarios uu ON uu.id = e.usuario_id WHERE e.item_id = i.id AND e.acao = 'devolvida_adm' ORDER BY e.id DESC LIMIT 1) AS devolvida_por, " +
+      "substr(json_extract(v.dados, '$.comando'), 1, 400) AS comando " +
+      "FROM itens i JOIN usuarios u ON u.id = i.autor_id JOIN item_versoes v ON v.item_id = i.id AND v.versao = i.versao_atual " +
+      "WHERE i.disciplina = ? AND i.situacao = 'analise' ORDER BY i.atualizado_em ASC, i.id ASC LIMIT 500"
+    ).bind(SEM_DISCIPLINA).all();
+    return { ok: true, itens: results, disciplinas: DISCIPLINAS };
+  }
+  const definir = path.match(/^\/api\/adm\/itens\/([A-Z]\d{7})\/disciplina$/);
+  if (definir && request.method === 'POST') {
+    const item = await itemPorCodigo(env, definir[1]);
+    const body = await readJson(request);
+    const disciplina = limparDisciplina(body.disciplina);
+    if (item.disciplina !== SEM_DISCIPLINA || item.situacao !== 'analise') throw new HttpError(409, 'Esta questão já tem disciplina.');
+    const alterado = await env.DB.prepare(
+      "UPDATE itens SET disciplina = ?, atualizado_em = strftime('%Y-%m-%dT%H:%M:%SZ','now') WHERE id = ? AND disciplina = ? AND situacao = 'analise' RETURNING id"
+    ).bind(disciplina, item.id, SEM_DISCIPLINA).first();
+    if (!alterado) throw new HttpError(409, 'Esta questão acabou de ser alterada.');
+    await env.DB.prepare("INSERT INTO eventos (usuario_id, acao, item_id, detalhe) VALUES (?, 'disciplina_definida', ?, ?)")
+      .bind(await admUsuarioId(env), item.id, JSON.stringify({ adm: sessao.email, codigo: item.codigo, disciplina })).run();
+    return { ok: true, item: { codigo: item.codigo, disciplina } };
   }
 
   const m = path.match(/^\/api\/adm\/itens\/([A-Z]\d{7})(\/desfazer-descarte)?$/);
@@ -1709,7 +1790,8 @@ async function relatorioProducao(env, url) {
   if (ano < 2020 || ano > 2100) throw new HttpError(400, 'Ano inválido.');
   const recorte = url.searchParams.get('recorte') || 'todos';
   const valor = (url.searchParams.get('valor') || '').trim();
-  let disciplinas = DISCIPLINAS.slice(), autorId = null;
+  // "Todos" e "por pessoa" incluem as questões que ainda esperam o ADM definir a disciplina.
+  let disciplinas = [...DISCIPLINAS, SEM_DISCIPLINA], autorId = null;
   if (recorte === 'area') { if (!AREAS[valor]) throw new HttpError(400, 'Área inválida.'); disciplinas = AREAS[valor]; }
   else if (recorte === 'disciplina') disciplinas = [limparDisciplina(valor)];
   else if (recorte === 'professor') { autorId = Number(valor); if (!autorId) throw new HttpError(400, 'Escolha o professor.'); }

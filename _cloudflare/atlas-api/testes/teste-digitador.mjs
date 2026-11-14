@@ -224,7 +224,7 @@ await page.click('#es-enviar');await page.waitForSelector('#es-previa:not([hidde
 ok('Tela Dig: prévia mostra "sem classificação"', (await page.textContent('#es-previa')).includes('sem classificação'));
 await page.click('#es-enviar');await page.waitForSelector('#es-ok:not([hidden])');
 const okTxt=await page.textContent('#es-ok');
-ok('Tela Dig: enviada com código', /Código: [A-Z]\d{7}/.test(okTxt), okTxt);
+ok('Tela Dig: enviada para o supervisor da disciplina', okTxt.includes('Supervisor de Física'), okTxt);
 ok('Tela Dig: disciplina fica para a próxima', (await page.inputValue('#es-disciplina'))==='Física');
 ok('Tela Dig: campos de conteúdo limpos', (await page.textContent('#comando')).trim()===''&&(await page.inputValue('#es-gabarito'))==='');
 await page.waitForFunction(()=>document.querySelectorAll('#meus-lista tbody tr').length>=2);
@@ -242,7 +242,7 @@ await page.waitForSelector('#es-form');
 await page.selectOption('#es-disciplina','História');
 await paste('#comando','Questão antiga de História');await paste('#alt-a','a) um\nb) dois\nc) três\nd) quatro\ne) cinco');await page.selectOption('#es-gabarito','A');
 await page.click('#es-visualizar');await page.waitForSelector('#es-previa:not([hidden])');await page.click('#es-enviar');await page.waitForSelector('#es-ok:not([hidden])');
-ok('Tela ADM: envia questão de História', /Código: H\d{7}/.test(await page.textContent('#es-ok')), await page.textContent('#es-ok'));
+ok('Tela ADM: envia questão de História', (await page.textContent('#es-ok')).includes('Supervisor de História'), await page.textContent('#es-ok'));
 ok('Tela ADM: menu tem Enviar questões e Relatório', (await page.textContent('aside')).includes('Relatório de produção'));
 await page.screenshot({path:S+'adm-enviar.png',fullPage:false});
 // --- ADM: relatório ---

@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="pt-BR">
 <head>
-<meta name="atlas-versao" content="20261114e"><script src="atlas-versao.js?v=20261114e" defer></script>
+<meta name="atlas-versao" content="20261114f"><script src="atlas-versao.js?v=20261114f" defer></script>
 <meta charset="utf-8"><meta name="robots" content="noindex, nofollow"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="referrer" content="strict-origin-when-cross-origin">
 <title>ATLAS | Administração</title>
@@ -22,6 +22,7 @@
 <div class="shell" id="app-view" hidden><aside><small>ÁREA DO ADM</small><a href="admin.html" class="atual">Professores e disciplinas</a><a href="admin-questoes.html">Questões</a><a href="admin-enviar.html">Enviar questões</a><a href="admin-relatorio.html">Relatório de produção</a><a href="admin-selecoes.html">Seleções recebidas</a></aside><main>
 <div class="crumb">Administrador / Cadastros</div><h1>Professores e disciplinas</h1><p class="lead">Cadastre os professores, vincule cada um à sua disciplina e escolha o supervisor de cada disciplina.</p>
 <p class="status" id="app-status" role="status"></p>
+<a id="sem-disc-aviso" href="admin-questoes.html#sem-disc-panel" hidden style="display:block;border:1px solid #e2a1a7;background:#fbecef;color:#8c2028;border-radius:10px;padding:12px 16px;margin:0 0 16px;font-weight:bold;text-decoration:none"></a>
 <div id="ret-alertas"></div>
 <section class="panel"><h2>Supervisores por disciplina</h2><p class="hint">Escolha um professor da disciplina ou cadastre um novo. Cada disciplina tem um supervisor.</p><div class="sup-grid" id="supervisors"></div></section>
 <section class="panel"><h2>Professores cadastrados</h2><p class="hint">A disciplina definida aqui será carregada no cadastro de questões. O Professor não escolhe a disciplina.</p><div class="summary" id="summary"></div><div class="toolbar"><input id="search" type="search" placeholder="Buscar por professor, e-mail ou disciplina"><button class="primary" id="add">+ Cadastrar novo professor</button></div><div class="table-wrap" id="list"></div></section>
@@ -60,12 +61,15 @@ async function onCredential(resp){
   try{const data=await api('/api/adm/login',{method:'POST',body:{credential:resp.credential}});setToken(data.token);await showApp(data.email)}
   catch(e){if(e.message!=='__sessao__')status($('#login-status'),e.message,true)}
 }
+// Contador de questões esperando o ADM definir a disciplina (digitador "Não sei" ou devolvidas pelo supervisor).
+async function avisoSemDisciplina(){try{const d=await api('/api/adm/sem-disciplina');const n=(d.itens||[]).length;const a=$('#sem-disc-aviso');
+  a.textContent=n===1?'1 questão sem disciplina esperando você → abrir em Questões':n+' questões sem disciplina esperando você → abrir em Questões';a.hidden=!n}catch{}}
 async function showApp(email){
   $('#login-view').hidden=true;$('#app-view').hidden=false;$('#user-box').hidden=false;$('#role-label').hidden=true;$('#user-email').textContent=email||'';
   status($('#app-status'),'Carregando professores…');
   const data=await api('/api/adm/professores');subjects=data.disciplinas||subjects;teachers=data.professores||[];
   subject.replaceChildren(new Option('Selecione a disciplina',''),...subjects.map(s=>new Option(s,s)));
-  status($('#app-status'),'');await carregarRetiradas();render();carregarBackups(false);
+  status($('#app-status'),'');await carregarRetiradas();render();carregarBackups(false);avisoSemDisciplina();
 }
 function hojeSP(){return new Intl.DateTimeFormat('en-CA',{timeZone:'America/Sao_Paulo'}).format(new Date())}
 function prazoHTML(t){if(!t.acesso_ate)return '';const v=t.acesso_ate<hojeSP();const [a,m,d]=t.acesso_ate.split('-');return `<span class="prazo${v?' vencido':''}">${v?'Acesso vencido em ':'Acesso até '}${d}/${m}/${a}</span>`}
