@@ -21,6 +21,7 @@ O repositório é **público**: nada de segredo no código. Segredos só no pain
 
 ## 2. Como entregar uma mudança
 
+- **Só um assistente por vez** (Claude ou ChatGPT/Codex; regra de 14/11/2026). Antes de começar: puxe a `main` atualizada, confira se há PR aberto de outro assistente e não mexa nos mesmos arquivos; se houver dúvida, pergunte ao Marinho. Branches: Claude usa `claude/...`, Codex usa `codex/...`; nunca reaproveite a do outro. Conflito no merge: atualize a branch a partir da `main`, rode os testes de novo, nunca force.
 0. **Nada é implementado nem publicado sem autorização do Marinho** (regra de 14/11/2026). Antes, apresente as opções com prós e contras (de preferência como perguntas de marcar, item por item) e espere o "pode fazer". Vale para código, banco, telas e até mudanças só de texto.
 1. Branch nova a partir da `main` → commit → PR. **Nunca** commit direto na `main`. **O próprio assistente faz o merge** (autorizado pelo Marinho em 13/11/2026), depois dos testes passarem, e conta ao Marinho o que foi ao ar.
 2. Mudou alguma coisa em `atlas/`? Rode `python3 _cloudflare/atlas-api/nova-versao.py AAAAMMDDx` (nova versão a cada entrega). As páginas abertas se recarregam sozinhas.
@@ -38,7 +39,7 @@ cd _cloudflare/atlas-api/testes && ./rodar.sh            # todas
 ./rodar.sh itens retirada                                # só algumas
 ```
 
-`preparar.sh` baixa KaTeX e ExcelJS via npm para `$ATLAS_TESTE_TMP` (padrão `/tmp/atlas-testes`). Os testes de seleções/edição às vezes falham por tempo de tela: rode de novo antes de investigar. Todas as suítes usam a data fixa 13/11/2026 (`ATLAS_HOJE_TESTE`), para não falharem nas férias; o navegador da suíte `ferias` também tem o relógio fixo. Ao mudar a versão do schema, atualize as verificações "Schema N" em `teste-adm`, `teste-login` e `teste-selecoes`.
+Ambiente: Node 22+ (usa `node:sqlite`), npm com internet e Playwright com Chromium. Instale o Playwright **fora do repositório** (não há `.gitignore`): `npm install --prefix /tmp/pw playwright && npx --prefix /tmp/pw playwright install --with-deps chromium && export NODE_PATH=/tmp/pw/node_modules`. Todas as suítes usam a data fixa 13/11/2026 (`ATLAS_HOJE_TESTE`). `preparar.sh` baixa KaTeX e ExcelJS via npm para `$ATLAS_TESTE_TMP` (padrão `/tmp/atlas-testes`). Os testes de seleções/edição às vezes falham por tempo de tela: rode de novo antes de investigar. Todas as suítes usam a data fixa 13/11/2026 (`ATLAS_HOJE_TESTE`), para não falharem nas férias; o navegador da suíte `ferias` também tem o relógio fixo. Ao mudar a versão do schema, atualize as verificações "Schema N" em `teste-adm`, `teste-login` e `teste-selecoes`.
 
 ## 4. Regras do Marinho (valem sempre)
 
