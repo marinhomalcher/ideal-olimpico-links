@@ -1,4 +1,5 @@
 // ATLAS — servidor (Cloudflare Worker).
+import { rotaRedacaoAdm, rotaRedacaoUsuario, limparAlunosVirada, RedacaoError } from './redacao-cadastros.js';
 // Administração: login "Entrar com Google", liberado SOMENTE para o e-mail em ADMIN_EMAIL.
 // Professores e Supervisores: login por código no e-mail institucional.
 // Questões: enviadas pelo Professor e analisadas pelo Supervisor da disciplina (tabelas itens/item_versoes/revisoes).
@@ -192,7 +193,7 @@ function limparDisciplina(value) {
 
 async function listarProfessores(env) {
   const { results } = await env.DB.prepare(
-    "SELECT id, nome, email, disciplina, papel, ativo, digitador, acesso_ate, classificador FROM usuarios WHERE papel IN ('professor','supervisor') ORDER BY nome COLLATE NOCASE"
+    "SELECT id, nome, email, disciplina, papel, ativo, digitador, acesso_ate, classificador FROM usuarios WHERE papel IN ('professor','supervisor') AND (disciplina IS NOT NULL OR digitador = 1) ORDER BY nome COLLATE NOCASE"
   ).all();
   return results.map(r => ({ ...r, ativo: r.ativo === 1, digitador: r.digitador === 1, classificador: r.classificador === 1 }));
 }
@@ -694,6 +695,7 @@ async function usuarioDaSessao(request, env) {
     "SELECT id, nome, email, disciplina, CASE WHEN digitador = 1 THEN 'digitador' ELSE papel END AS papel, classificador FROM usuarios WHERE id = ? AND ativo = 1 AND papel IN ('professor','supervisor') AND (acesso_ate IS NULL OR acesso_ate >= date('now','-3 hours'))"
   ).bind(sessao.usuario_id).first();
   if (!user) throw new HttpError(401, 'Acesso desativado. Entre novamente.');
+  if (!user.disciplina && user.papel !== 'digitador') throw new HttpError(403, 'Seu acesso é apenas ao portal de Redação.');
   bloquearFerias(env, user.papel === 'digitador');
   return user;
 }
@@ -1832,7 +1834,8 @@ async function rotasSelecoesAdm(request, env, path, url, sessao) {
 // Automática todo dia de madrugada (cron no wrangler.toml) e manual pela Administração.
 // Guarda as tabelas de conteúdo e cadastro; não guarda sessões nem códigos de login.
 // As imagens já ficam no R2 e não são copiadas de novo.
-const TABELAS_BACKUP = ['meta', 'usuarios', 'retiradas', 'grupos', 'grupo_versoes', 'itens', 'item_versoes', 'revisoes', 'consertos', 'selecoes', 'selecao_itens', 'eventos'];
+const TABELAS_BACKUP = ['meta', 'usuarios', 'retiradas', 'grupos', 'grupo_versoes', 'itens', 'item_versoes', 'revisoes', 'consertos', 'selecoes', 'selecao_itens', 'eventos',
+  'redacao_turmas', 'redacao_alunos', 'redacao_equipe', 'redacao_professor_turmas', 'redacao_digitalizador_unidades', 'redacao_importacoes'];
 const MANTER_BACKUPS = 60;
 
 async function fazerBackup(env, origem) {
@@ -2114,6 +2117,8 @@ async function rotasAdm(request, env, path) {
   }
 
   const sessao = await sessaoAtual(request, env, 'adm');
+  const redacaoAdm = await rotaRedacaoAdm(request, env, path, { readJson, hojeSP, registrar, emailEmUso, sessao });
+  if (redacaoAdm) return redacaoAdm;
   if (path === '/api/adm/imagens' && request.method === 'POST') return await receberImagem(request, env, sessao.email);
   if (path === '/api/adm/imagens/migrar' && request.method === 'POST') return await migrarImagensAntigas(env, sessao);
   if (path === '/api/adm/imagens/situacao' && request.method === 'GET') {
@@ -2204,7 +2209,12 @@ async function rotasAdm(request, env, path) {
 export default {
   async scheduled(event, envOriginal, ctx) {
     const env = Object.assign(Object.create(envOriginal || {}), { __ctx: ctx });
-    ctx.waitUntil(fazerBackup(env, 'automatico').catch(error => console.error('ATLAS backup automático falhou:', error && error.message)));
+    ctx.waitUntil((async () => {
+      try {
+        await fazerBackup(env, 'automatico');
+        await limparAlunosVirada(env, hojeSP, registrar);
+      } catch (error) { console.error('ATLAS backup ou virada da Redação falhou:', error && error.message); }
+    })());
     ctx.waitUntil(lembrarRetiradas(env).catch(error => console.error('ATLAS lembrete de retiradas falhou:', error && error.message)));
   },
   async fetch(request, envOriginal, ctx) {
@@ -2287,12 +2297,16 @@ export default {
         }
         return await replyAssinado(env, resultado, 200, origin);
       }
+      if (url.pathname.startsWith('/api/redacao/')) {
+        if (!ALLOWED_ORIGINS.includes(origin)) throw new HttpError(403, 'Origem não permitida.');
+        return reply(await rotaRedacaoUsuario(request, env, url.pathname, { sessaoAtual }), 200, origin);
+      }
       if (url.pathname.startsWith('/api/')) {
         throw new HttpError(404, 'Rota indisponível.');
       }
       throw new HttpError(404, 'Rota indisponível.');
     } catch (error) {
-      if (error instanceof HttpError) return reply({ ok: false, error: error.message, ...(error.extra || {}) }, error.status, origin);
+      if (error instanceof HttpError || error instanceof RedacaoError) return reply({ ok: false, error: error.message, ...(error.extra || {}) }, error.status, origin);
       return reply({ ok: false, error: 'Erro interno. Tente novamente.' }, 500, origin);
     }
   }
