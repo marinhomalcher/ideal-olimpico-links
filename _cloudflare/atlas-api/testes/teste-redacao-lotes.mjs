@@ -9,6 +9,7 @@ const { chromium } = require('playwright');
 const repo = fileURLToPath(new URL('../../../', import.meta.url));
 const worker = (await import('../worker.js')).default;
 const { limparPdfCancelados } = await import('../redacao-lotes.js');
+const { r2Rigoroso } = await import('./r2-cloudflare.mjs');
 const db = new DatabaseSync(':memory:');
 db.exec('PRAGMA foreign_keys = ON');
 db.exec(fs.readFileSync(repo + '_cloudflare/atlas-api/schema.sql', 'utf8'));
@@ -25,12 +26,7 @@ let falharExclusao = false;
 const env = {
   DB: { prepare: sql => stmt(sql), batch: async ops => Promise.all(ops.map(x => x.run())) },
   ADMIN_EMAIL: 'adm@example.com', ATLAS_HOJE_TESTE: '2026-11-14',
-  IMAGENS: {
-    put: async (key, body) => { objetos.set(key, Buffer.from(await new Response(body).arrayBuffer())); },
-    get: async key => objetos.has(key) ? { body: objetos.get(key) } : null,
-    delete: async key => { if (falharExclusao) { falharExclusao = false; throw Error('Falha temporária simulada'); } objetos.delete(key); },
-    list: async () => ({ objects: [], truncated: false })
-  }
+  IMAGENS: r2Rigoroso(objetos, { falharExclusao: () => { const f = falharExclusao; falharExclusao = false; return f; } })
 };
 function sessao(token, tipo, email, id = null) {
   db.prepare('INSERT INTO sessoes (token_hash, tipo, email, usuario_id, expira_em) VALUES (?, ?, ?, ?, ?)')
@@ -42,6 +38,7 @@ const pdf = Buffer.from('%PDF-1.4\n1 0 obj<</Type/Catalog>>endobj\n%%EOF\n');
 async function api(path, method = 'GET', body, token = 'adm-token', contentType = 'application/json') {
   const headers = { Origin: origin, Authorization: 'Bearer ' + token };
   if (body !== undefined) headers['Content-Type'] = contentType;
+  if (Buffer.isBuffer(body)) headers['Content-Length'] = String(body.length);   /* como o navegador faz */
   const request = new Request('https://atlas-api.example' + path, {
     method, headers, body: body === undefined ? undefined : contentType === 'application/json' ? JSON.stringify(body) : body
   });
@@ -105,6 +102,22 @@ r = await api('/api/redacao/lotes?turma_id=' + bc.id + '&bimestre=3', 'POST', pd
 ok('PDF de vários megabytes entra por fluxo', r.status === 200 && db.prepare('SELECT bytes FROM redacao_lotes WHERE id = ?').get(r.data.lote_id).bytes === pdfMaior.length, r.data.error);
 await api('/api/redacao/lotes/' + r.data.lote_id, 'DELETE', undefined, 'bc-token');
 ok('PDF grande cancelado sai do R2', objetos.size === 0);
+{
+  /* Pedido sem tamanho informado: recusado com mensagem clara, nada guardado. */
+  const sem = await worker.fetch(new Request('https://atlas-api.example/api/redacao/lotes?turma_id=' + bc.id + '&bimestre=3', {
+    method: 'POST', headers: { Origin: origin, Authorization: 'Bearer bc-token', 'Content-Type': 'application/pdf' },
+    body: new ReadableStream({ start(c) { c.enqueue(new Uint8Array(pdf)); c.close(); } }), duplex: 'half'
+  }), env, { waitUntil() {} });
+  ok('Envio sem tamanho informado é recusado sem erro interno', sem.status === 411 && objetos.size === 0, sem.status);
+  /* Envio interrompido (chegou menos do que o informado): recusado, nada guardado nem registrado. */
+  const corte = await worker.fetch(new Request('https://atlas-api.example/api/redacao/lotes?turma_id=' + bc.id + '&bimestre=3', {
+    method: 'POST', headers: { Origin: origin, Authorization: 'Bearer bc-token', 'Content-Type': 'application/pdf', 'Content-Length': String(pdf.length + 500) },
+    body: new ReadableStream({ start(c) { c.enqueue(new Uint8Array(pdf)); c.close(); } }), duplex: 'half'
+  }), env, { waitUntil() {} });
+  const corpo = await corte.json();
+  ok('Envio interrompido é recusado e não deixa lote nem arquivo', corte.status === 400 && /interrompido/.test(corpo.error) && objetos.size === 0 &&
+    db.prepare('SELECT COUNT(*) AS n FROM redacao_lotes WHERE bimestre = 3 AND cancelado_em IS NULL').get().n === 0, corte.status + ' ' + corpo.error);
+}
 
 // Exercita a tela do digitalizador contra a API local simulada.
 const atlas = repo + 'atlas/';

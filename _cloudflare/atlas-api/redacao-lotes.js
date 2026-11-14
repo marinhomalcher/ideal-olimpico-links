@@ -59,6 +59,8 @@ async function corpoPdf(request) {
   }
   const tamanhoInformado = Number(request.headers.get('Content-Length') || 0);
   if (tamanhoInformado > MAX_PDF) erro(413, 'O PDF ultrapassa 50 MB.');
+  /* O R2 só guarda um fluxo de tamanho conhecido; o navegador sempre informa o tamanho do arquivo. */
+  if (!Number.isInteger(tamanhoInformado) || tamanhoInformado < 1) erro(411, 'Não foi possível saber o tamanho do PDF. Tente enviar de novo.');
   if (!request.body) erro(400, 'O PDF está vazio.');
   const leitor = request.body.getReader();
   const iniciais = [];
@@ -95,7 +97,7 @@ async function corpoPdf(request) {
     },
     cancel(motivo) { return leitor.cancel(motivo); }
   });
-  return { fluxo, tamanho: () => bytes, grandeDemais: () => grandeDemais };
+  return { fluxo, informado: tamanhoInformado, tamanho: () => bytes, grandeDemais: () => grandeDemais };
 }
 
 async function enviar(request, env, url, pessoa, hojeSP, registrar) {
@@ -115,9 +117,17 @@ async function enviar(request, env, url, pessoa, hojeSP, registrar) {
   const pdf = await corpoPdf(request);
   const chave = `redacao/${ano}/b${bimestre}/turma-${turmaId}/${crypto.randomUUID()}.pdf`;
   try {
-    await env.IMAGENS.put(chave, pdf.fluxo, { httpMetadata: { contentType: 'application/pdf' } });
+    /* A Cloudflare recusa fluxo sem tamanho ("must have a known length"): passa pelo
+       FixedLengthStream com o tamanho informado pelo navegador. */
+    const fixo = new FixedLengthStream(pdf.informado);
+    const copia = pdf.fluxo.pipeTo(fixo.writable);
+    copia.catch(() => {});
+    await env.IMAGENS.put(chave, fixo.readable, { httpMetadata: { contentType: 'application/pdf' } });
+    await copia;
   } catch (error) {
+    await env.IMAGENS.delete(chave).catch(() => {});
     if (pdf.grandeDemais()) erro(413, 'O PDF ultrapassa 50 MB.');
+    if (pdf.tamanho() !== pdf.informado) erro(400, 'O envio do PDF foi interrompido. Tente de novo.');
     throw error;
   }
   const enviadoEm = agora();
