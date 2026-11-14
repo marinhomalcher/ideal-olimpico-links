@@ -132,6 +132,8 @@ const browser = await chromium.launch();
 const page = await browser.newPage();
 const errors = [];
 page.on('pageerror', e => errors.push(e.message));
+const PDFJS = (process.env.ATLAS_TESTE_TMP || '/tmp/atlas-testes') + '/pdfjs/package/build/';
+await page.route('https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/**', route => route.fulfill({ status: 200, headers: { 'content-type': 'text/javascript', 'access-control-allow-origin': '*' }, body: fs.readFileSync(PDFJS + new URL(route.request().url()).pathname.split('/').pop()) }));
 await page.route('https://atlas-api.marinhomalcher.workers.dev/**', async route => {
   const req = route.request();
   const path = new URL(req.url()).pathname + new URL(req.url()).search;
@@ -154,6 +156,8 @@ ok('Turmas filtradas por unidade, segmento e série', await page.locator('#turma
 await page.locator('#turma').selectOption(String(bc.id));
 await page.locator('#bimestre').selectOption('1');
 await page.locator('#pdf-file').setInputFiles({ name: 'turma.pdf', mimeType: 'application/pdf', buffer: pdf });
+await page.waitForFunction(() => /Não foi possível conferir/.test(document.querySelector('#ra-report').textContent), null, { timeout: 20000 }).catch(() => {});
+ok('PDF que o leitor não abre: avisa e não impede o envio', /Você ainda pode enviar/.test(await page.locator('#ra-report').textContent()) && await page.locator('#send-file').isEnabled(), await page.locator('#ra-report').textContent());
 await page.locator('#preview-file').click();
 ok('Conferência local abre o PDF antes de enviar', await page.locator('#pdf-viewer').isVisible());
 await page.locator('#viewer-close').click();

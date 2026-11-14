@@ -153,6 +153,32 @@ async function enviar(request, env, url, pessoa, hojeSP, registrar) {
   return { ok: true, lote_id: resultado.meta.last_row_id, cancelavel_ate: cancelaAte };
 }
 
+/* Antes do envio: de que turma é cada RA lido nas folhas? Só leitura, nada é gravado.
+   Nome e turma só aparecem para alunos das unidades do digitalizador. */
+async function conferirRas(env, body, pessoa, ano) {
+  const turmaId = numero(body?.turma_id, 1, 1000000000);
+  const turma = await env.DB.prepare('SELECT id, unidade, codigo FROM redacao_turmas WHERE id = ? AND ano = ? AND ativa = 1').bind(turmaId, ano).first();
+  if (!turma || !pessoa.unidades.includes(turma.unidade)) erro(404, 'Turma não encontrada.');
+  const ras = [...new Set((Array.isArray(body.ras) ? body.ras : []).map(r => String(r ?? '').trim()))];
+  if (ras.length > 300 || ras.some(r => !/^\d{1,15}$/.test(r))) erro(400, 'Lista de RAs inválida.');
+  const cadastrados = (await env.DB.prepare('SELECT COUNT(*) AS n FROM redacao_alunos WHERE ano = ?').bind(ano).first()).n;
+  const achados = new Map();
+  for (let i = 0; i < ras.length; i += 80) {
+    const parte = ras.slice(i, i + 80);
+    const linhas = (await env.DB.prepare(
+      `SELECT a.ra, a.nome, a.turma_id, t.unidade, t.codigo FROM redacao_alunos a JOIN redacao_turmas t ON t.id = a.turma_id WHERE a.ano = ? AND a.ra IN (${parte.map(() => '?').join(',')})`
+    ).bind(ano, ...parte).all()).results;
+    for (const l of linhas) achados.set(l.ra, l);
+  }
+  const alunos = ras.map(ra => {
+    const a = achados.get(ra);
+    if (!a) return { ra, situacao: 'fora_cadastro' };
+    if (!pessoa.unidades.includes(a.unidade)) return { ra, situacao: 'outra_unidade', unidade: a.unidade };
+    return { ra, nome: a.nome, codigo: a.codigo, unidade: a.unidade, situacao: a.turma_id === turma.id ? 'turma' : 'outra_turma' };
+  });
+  return { ok: true, turma: turma.codigo, cadastro_vazio: cadastrados === 0, alunos };
+}
+
 async function pdfDoLote(env, lote) {
   if (!env.IMAGENS) erro(503, 'Armazenamento de PDFs indisponível.');
   const objeto = await env.IMAGENS.get(lote.r2_key);
@@ -182,7 +208,7 @@ async function cancelar(env, lote, pessoa, registrar, adm = false) {
   return { ok: true, cancelado: true, arquivo_excluido: arquivoExcluido };
 }
 
-export async function rotaLotesUsuario(request, env, path, { sessaoAtual, hojeSP, registrar }) {
+export async function rotaLotesUsuario(request, env, path, { sessaoAtual, hojeSP, registrar, readJson }) {
   if (!path.startsWith('/api/redacao/lotes')) return null;
   const pessoa = await digitalizador(request, env, sessaoAtual);
   const ano = anoAtual(hojeSP, env);
@@ -190,6 +216,7 @@ export async function rotaLotesUsuario(request, env, path, { sessaoAtual, hojeSP
     return { ok: true, ano, turmas: await turmasPermitidas(env, ano, pessoa.unidades), lotes: await lotes(env, ano, pessoa.unidades) };
   }
   if (path === '/api/redacao/lotes' && request.method === 'POST') return await enviar(request, env, new URL(request.url), pessoa, hojeSP, registrar);
+  if (path === '/api/redacao/lotes/conferir' && request.method === 'POST') return await conferirRas(env, await readJson(request), pessoa, ano);
   const m = path.match(/^\/api\/redacao\/lotes\/(\d+)(\/pdf)?$/);
   if (m) {
     const lote = await lotePorId(env, numero(m[1], 1, 1000000000));

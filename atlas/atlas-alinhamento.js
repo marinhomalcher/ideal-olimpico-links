@@ -1,4 +1,4 @@
-/* ATLAS · Redação · alinhamento das folhas escaneadas.
+/* ATLAS · Redação · alinhamento das folhas escaneadas e leitura do RA (código de barras).
    Acha os 4 marcadores em "L" da FOLHA DE REDAÇÃO, endireita e centraliza a página
    (giro + deslocamento + escala, sem deformar a letra) e percebe folha de cabeça para baixo.
    Tudo roda no navegador; nada é enviado ao servidor. */
@@ -24,6 +24,7 @@
     for (let k = 0; k < 256; k++) { acum += hist[k]; if (acum >= n * 0.9) { papel = k; break; } }
     const limite = Math.max(40, papel * 0.55), b = new Uint8Array(n);
     for (let i = 0; i < n; i++) b[i] = v[i] < limite ? 1 : 0;
+    b.cinza = v;
     return b;
   }
 
@@ -131,6 +132,97 @@
     return trocas;
   }
 
+  /* ---------- código de barras (Code 128) com o RA ---------- */
+  /* Larguras (barra, espaço, …) de cada símbolo 0–105, tabela oficial do Code 128. */
+  const C128 = '212222 222122 222221 121223 121322 131222 122213 122312 132212 221213 221312 231212 112232 122132 122231 113222 123122 123221 223211 221132 221231 213212 223112 312131 311222 321122 321221 312212 322112 322211 212123 212321 232121 111323 131123 131321 112313 132113 132311 211313 231113 231311 112133 112331 132131 113123 113321 133121 313121 211331 231131 213113 213311 213131 311123 311321 331121 312113 312311 332111 314111 221411 431111 111224 111422 121124 121421 141122 141221 112214 112412 122114 122411 142112 142211 241211 221114 413111 241112 134111 111242 121142 121241 114212 124112 124211 411212 421112 421211 212141 214121 412121 111143 111341 131141 114113 114311 411113 411311 113141 114131 311141 411131 211412 211214 211232'.split(' ');
+  const C128_IDX = new Map(C128.map((p, i) => [p, i]));
+  const C128_FIM = '233111';
+  /* Faixa onde a folha imprime o código (fração da folha alinhada). */
+  const FAIXA_CODIGO = { x: [0.36, 0.86], y: [0.012, 0.072] };
+
+  /* Lê um símbolo de 6 larguras; devolve o índice na tabela ou -1. */
+  function simbolo(r, i) {
+    let t = 0;
+    for (let k = 0; k < 6; k++) t += r[i + k];
+    const mod = t / 11, p = [];
+    let soma = 0;
+    for (let k = 0; k < 6; k++) { const q = Math.max(1, Math.min(4, Math.round(r[i + k] / mod))); p.push(q); soma += q; }
+    if (soma !== 11) {
+      /* Ajuste pela borda: barra+espaço vizinhos compensam tinta que "engorda" no scan. */
+      const e = [r[i] + r[i + 1], r[i + 1] + r[i + 2], r[i + 2] + r[i + 3], r[i + 3] + r[i + 4]].map(x => Math.round(x / mod));
+      for (const [k, cod] of C128.entries()) {
+        const c = cod.split('').map(Number);
+        if (c[0] + c[1] === e[0] && c[1] + c[2] === e[1] && c[2] + c[3] === e[2] && c[3] + c[4] === e[3]) return k;
+      }
+      return -1;
+    }
+    const k = C128_IDX.get(p.join(''));
+    return k === undefined ? (p.join('') === C128_FIM ? 106 : -1) : k;
+  }
+
+  /* Decodifica uma sequência de larguras (começando por barra). Confere o dígito verificador. */
+  function decodificar(r) {
+    for (let i = 0; i + 6 <= r.length; i += 2) {
+      const ini = simbolo(r, i);
+      if (ini < 103 || ini > 105) continue;
+      const vals = [ini];
+      let j = i + 6, fim = false;
+      while (j + 6 <= r.length) {
+        const k = simbolo(r, j);
+        if (k === 106) { fim = true; break; }
+        if (k < 0) break;
+        vals.push(k); j += 6;
+      }
+      if (!fim || vals.length < 3) continue;
+      const dv = vals.pop();
+      let soma = vals[0];
+      for (let k = 1; k < vals.length; k++) soma += k * vals[k];
+      if (soma % 103 !== dv) continue;
+      let conj = ini === 103 ? 'A' : ini === 104 ? 'B' : 'C', txt = '';
+      for (const v of vals.slice(1)) {
+        if (conj === 'C') { if (v < 100) txt += String(v).padStart(2, '0'); else if (v === 100) conj = 'B'; else if (v === 101) conj = 'A'; }
+        else if (v === 99) conj = 'C';
+        else if (v === 100 && conj === 'A') conj = 'B';
+        else if (v === 101 && conj === 'B') conj = 'A';
+        else if (v < 96) txt += conj === 'B' ? String.fromCharCode(v + 32) : String.fromCharCode(v < 64 ? v + 32 : v - 64);
+      }
+      return txt;
+    }
+    return null;
+  }
+
+  /* Varre várias linhas da faixa do código na folha alinhada; vale a leitura mais repetida. */
+  function lerCodigo(v, w, h, m, W, H) {
+    const votos = new Map(), d = m.p * m.p + m.q * m.q;
+    const amostra = (x, y) => {
+      const X = x - m.e, Y = y - m.f, sx = (m.p * X + m.q * Y) / d, sy = (m.p * Y - m.q * X) / d;
+      const x0 = Math.floor(sx), y0 = Math.floor(sy);
+      if (x0 < 0 || y0 < 0 || x0 >= w - 1 || y0 >= h - 1) return 255;
+      const fx = sx - x0, fy = sy - y0, i = y0 * w + x0;
+      return (v[i] * (1 - fx) + v[i + 1] * fx) * (1 - fy) + (v[i + w] * (1 - fx) + v[i + w + 1] * fx) * fy;
+    };
+    const x0 = FAIXA_CODIGO.x[0] * W, x1 = FAIXA_CODIGO.x[1] * W, passo = 0.5;
+    for (let y = FAIXA_CODIGO.y[0] * H; y < FAIXA_CODIGO.y[1] * H; y += Math.max(1, H * 0.0015)) {
+      const linha = [];
+      let mn = 255, mx = 0;
+      for (let x = x0; x < x1; x += passo) { const g = amostra(x, y); linha.push(g); if (g < mn) mn = g; if (g > mx) mx = g; }
+      if (mx - mn < 60) continue;
+      const corte = (mn + mx) / 2, r = [];
+      let atual = null;
+      for (const g of linha) {
+        const preto = g < corte;
+        if (atual === null) { if (!preto) continue; atual = true; r.push(0); }
+        if (preto !== atual) { atual = preto; r.push(0); }
+        r[r.length - 1] += passo;
+      }
+      const txt = decodificar(r);
+      if (txt) votos.set(txt, (votos.get(txt) || 0) + 1);
+    }
+    let melhor = null, n = 0;
+    for (const [t, c] of votos) if (c > n) { n = c; melhor = t; }
+    return melhor && n >= 2 ? melhor : null;
+  }
+
   /* ---------- análise de uma página ---------- */
   function analisar(fonte) {
     const w = fonte.width, h = fonte.height;
@@ -186,13 +278,16 @@
     let invertida = false;
     if (tVirada > tCerta * 1.6 && tVirada > 40) { invertida = true; m = virada; }
     else if (!(tCerta > tVirada * 1.6 && tCerta > 40)) avisos.push('Não deu para ter certeza se a folha está de cabeça para cima. Confira e use "Girar 180°" se precisar.');
+    /* RA: só dígitos (folha avulsa não tem código). */
+    const codigo = lerCodigo(b.cinza, w, h, m, W, H);
+    const ra = codigo && /^\d{1,15}$/.test(codigo) ? codigo : null;
     const giro = Math.atan2(m.q, m.p) * 180 / Math.PI;
     const inclinacao = invertida ? ((giro + 360) % 360) - 180 : giro;
     return {
       largura: W, altura: H, centro, matriz: { p: m.p, q: m.q, e: m.e, f: m.f },
       marcadores: usados.length, cantos: achados, invertida,
       inclinacao: Math.round(inclinacao * 100) / 100,   /* giro aplicado para endireitar (graus, + = horário) */
-      escala: Math.round(Math.hypot(m.p, m.q) * 1000) / 1000,
+      escala: Math.round(Math.hypot(m.p, m.q) * 1000) / 1000, ra,
       avisos
     };
   }
@@ -261,5 +356,5 @@
     return c;
   }
 
-  window.AtlasAlinhamento = { MODELO, analisar, desenhar, matrizFinal, abrirPdf, desenharPagina };
+  window.AtlasAlinhamento = { MODELO, C128, analisar, decodificar, desenhar, matrizFinal, abrirPdf, desenharPagina };
 })();

@@ -2323,7 +2323,7 @@ export default {
       if (url.pathname.startsWith('/api/redacao/')) {
         if (!ALLOWED_ORIGINS.includes(origin)) throw new HttpError(403, 'Origem não permitida.');
         const resultado = url.pathname.startsWith('/api/redacao/lotes')
-          ? await rotaLotesUsuario(request, env, url.pathname, { sessaoAtual, hojeSP, registrar })
+          ? await rotaLotesUsuario(request, env, url.pathname, { sessaoAtual, hojeSP, registrar, readJson })
           : await rotaRedacaoUsuario(request, env, url.pathname, { sessaoAtual });
         return resultado?.__pdf ? respostaPdf(resultado, origin) : reply(resultado, 200, origin);
       }
