@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta name="atlas-versao" content="20261114g"><script src="atlas-versao.js?v=20261114g" defer></script>
+<meta charset="utf-8"><meta name="robots" content="noindex, nofollow"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ATLAS | Classificar questões</title>
+<script src="auth.js?v=20261114g"></script>
+<style>
+.question img{display:block;max-width:100%;max-height:380px;height:auto;margin:10px 0}.question table{border-collapse:collapse;margin:12px 0;max-width:100%;width:auto}.question td,.question th{border:1px solid #a99498;padding:7px 10px;min-width:64px}.question .atlas-equation{display:inline-block;vertical-align:middle;max-width:100%;overflow-x:auto}
+
+.question .stem { text-align: justify; text-align-last: left; }
+:root{--red:#98151d;--ink:#30282b;--muted:#70676b;--line:#e6dadd;--soft:#fbecef}*{box-sizing:border-box}body{margin:0;background:#f7f5f5;color:var(--ink);font:15px/1.5 Arial,Helvetica,sans-serif}button{font:inherit;cursor:pointer}header{background:#fff;border-bottom:4px solid var(--red);padding:12px clamp(18px,4vw,52px);display:flex;justify-content:space-between;align-items:center;gap:16px}.brand{display:flex;align-items:center;gap:17px;color:var(--red);font-size:20px;font-weight:700;letter-spacing:.07em}.brand img{width:145px;height:52px;object-fit:contain;object-position:left}.brand span{border-left:1px solid var(--line);padding-left:16px}.role{color:var(--muted);font-size:13px}.back-link{color:var(--red);font-weight:bold;text-decoration:none;margin-right:16px;white-space:nowrap}.back-link:hover{text-decoration:underline}.shell{display:grid;grid-template-columns:210px minmax(0,1fr);max-width:1180px;margin:auto;min-height:80vh}aside{background:#fff;border-right:1px solid var(--line);padding:30px 14px}aside small{display:block;margin:0 12px 12px;color:#8b7b7f;letter-spacing:.13em;font-weight:bold}aside a{display:block;text-decoration:none;padding:11px 12px;border-radius:8px;color:var(--red);background:var(--soft);font-weight:bold}main{min-width:0;padding:31px clamp(18px,3.5vw,42px) 70px}.crumb{color:#8b7c80;font-size:12px}h1{font-size:29px;margin:8px 0 4px}.lead{color:var(--muted);margin:0 0 22px}.panel{background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:0 6px 24px #44151a0a;padding:24px;margin-bottom:20px}.tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:17px}.tabs button,.secondary{border:1px solid #cbaeb2;background:#fff;color:var(--red);border-radius:8px;padding:9px 13px;font-weight:bold}.tabs button.active{background:var(--red);color:#fff;border-color:var(--red)}.table-wrap{overflow-x:auto}table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:13px 10px;border-bottom:1px solid #eee4e6}th{color:#716166;font-size:12px}td small{color:var(--muted)}.primary{border:1px solid var(--red);background:var(--red);color:white;border-radius:8px;padding:10px 15px;font-weight:bold}.primary:hover{background:#b21d27}.secondary:disabled{opacity:.48;cursor:not-allowed}.empty{border:1px dashed #dbc9cd;background:#fcfafb;border-radius:10px;padding:25px;color:var(--muted)}.notice{background:#fff8eb;border:1px solid #eed7ae;border-radius:8px;padding:12px 14px;color:#6a573b;font-size:13px;margin-bottom:18px}.details h2{color:#6e2026;font-size:19px;margin:0 0 6px}.meta{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 18px;margin:20px 0;padding:16px;background:#faf7f8;border-radius:10px}.meta p{margin:0;overflow-wrap:anywhere}.meta strong{display:block;color:#7a676c;font-size:12px}.question{border-top:1px solid var(--line);padding-top:18px;white-space:pre-wrap;overflow-wrap:anywhere}.question p{margin:0 0 15px}.choice{padding:5px 0}.actions{display:flex;gap:9px;flex-wrap:wrap;margin-top:20px;border-top:1px solid var(--line);padding-top:20px}.back{border:0;background:none;color:var(--red);font-weight:bold;padding:0 0 16px}.hint{font-size:12px;color:var(--muted)}[hidden]{display:none!important}@media(max-width:740px){.shell{grid-template-columns:1fr}aside{display:none}main{padding-top:24px}.meta{grid-template-columns:1fr}.panel{padding:18px}.brand img{width:105px}}
+.question .atlas-equation{display:inline;vertical-align:baseline;white-space:nowrap}.question .atlas-equation .katex{font-size:1.15em}
+.question .atlas-latex-document{white-space:pre-wrap}.question .atlas-equation[data-display="block"]{display:block;text-align:center;margin:10px 0}
+.adjust-form{margin-top:18px;padding:16px;border:1px solid var(--line);border-radius:9px;background:#faf7f8}.adjust-form label{display:block;font-weight:bold;margin-bottom:7px}.adjust-form textarea{width:100%;min-height:110px;padding:10px;border:1px solid #cbaeb2;border-radius:7px;font:inherit;resize:vertical}.adjust-form .actions{margin-top:10px;padding-top:10px}.adjust-note{color:#6e2026;font-size:13px}
+img[style*="width"]{max-height:none!important;height:auto!important}
+.is-invalid{border-color:#b21d27!important;outline:2px solid #b21d2733!important}
+.field-error{color:#a21923;font-size:12px;font-weight:700;margin:5px 0 0}
+.alt+.field-error{margin:-7px 0 14px 44px}
+.rich-editor{width:100%;min-height:90px;border:1px solid #d8cdd0;background:white;border-radius:8px;padding:10px 12px;outline:none;white-space:pre-wrap;overflow-wrap:anywhere}
+.rich-editor.long{min-height:145px}
+.rich-editor:focus{outline:3px solid #9b111a25;border-color:var(--red)}
+.rich-editor:empty:before{content:attr(data-placeholder);color:#8a7f82;pointer-events:none}
+.rich-editor img,.preview img{max-width:100%;max-height:380px;height:auto;display:block;margin:10px 0}
+.rich-editor .atlas-equation,.preview .atlas-equation{display:inline-block;max-width:100%;overflow-x:auto;vertical-align:middle;padding:2px 3px}
+.rich-editor .atlas-equation{background:#faf0f1;border:1px solid #e8cdd1;border-radius:4px;cursor:pointer}
+.alt .rich-editor{min-height:66px}
+dialog{border:1px solid var(--line);border-radius:12px;box-shadow:0 18px 60px #29151b55;width:min(560px,calc(100% - 30px));padding:22px}
+dialog::backdrop{background:#1f1119a8}
+dialog h2{margin:0 0 8px;color:var(--red)}
+dialog .modal-actions{display:flex;justify-content:flex-end;gap:9px;margin-top:18px}
+#equation-preview{min-height:62px;border:1px solid var(--line);padding:12px;overflow:auto;margin-top:10px}
+#equation-preview .katex{font-size:1.35em}
+.math-error{color:#b21d27}
+.rich-editor .atlas-equation,.preview .atlas-equation{display:inline;vertical-align:baseline;padding:0;border:0;background:transparent;white-space:nowrap}
+.rich-editor .atlas-equation .katex,.preview .atlas-equation .katex{font-size:1.15em}
+.rich-editor .atlas-equation[data-display="block"],.preview .atlas-equation[data-display="block"]{display:block;text-align:center;margin:10px 0}
+.alt .rich-editor{text-align:justify;text-align-last:left}
+.alt .rich-editor strong{border-radius:0;background:transparent;color:inherit;padding:0;text-align:inherit}
+.rich-editor .atlas-equation[data-display="block"]{text-align:center;text-align-last:center}
+.edit-form label{display:block;font-weight:bold;font-size:13px;margin:14px 0 5px}.edit-form input,.edit-form select,.edit-form textarea{width:100%;border:1px solid #d8cdd0;border-radius:8px;padding:9px 10px;font:inherit}.edit-form select{max-width:140px}.edit-form h3{color:#6e2026;margin:22px 0 4px}.danger-btn{border:1px solid #a21923;background:#a21923;color:#fff;border-radius:8px;padding:9px 13px;font-weight:bold;cursor:pointer}.badge-edit{display:inline-block;margin-left:6px;background:#eef1fb;color:#2e4b8f;border-radius:999px;padding:2px 8px;font-size:11px;font-weight:bold}
+.alerta-repetida{display:flex;gap:12px;align-items:flex-start;background:#d9480f;color:#fff;border-radius:11px;padding:14px 16px;margin:0 0 16px;box-shadow:0 4px 14px #d9480f40}.alerta-repetida strong{display:block;font-size:16px;letter-spacing:.01em;margin-bottom:3px}.alerta-repetida p{margin:0;line-height:1.5}.alerta-repetida .cod-rep{display:inline-block;border:0;background:#fff;color:#a8320a;font-weight:bold;border-radius:999px;padding:2px 10px;margin:2px 4px 2px 0;cursor:pointer;font:inherit;font-weight:bold}.alerta-repetida .cod-rep:hover{background:#ffe8dc}.selo-repetida{display:inline-block;margin:0 0 0 10px;vertical-align:middle;position:relative;top:-1px;line-height:1.5;font-size:10.5px;font-weight:bold;letter-spacing:.04em;text-transform:uppercase;color:#fff;background:#d9480f;border-radius:999px;padding:2px 9px}
+.question .stem+.choice,.preview .stem+.choice{margin-top:1.1em}
+</style>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.19.1/dist/katex.min.css" integrity="sha384-WwGtaC6ywCHxA5cstpj/3+xIZvTez8dq2IcBQaXRkenHZ7FVVq1ZROtURwfbtTlG" crossorigin="anonymous">
+<style>.selo-classificar{display:inline-block;margin-left:6px;background:#2e4b8f;color:#fff;border-radius:999px;padding:1px 8px;font-size:10.5px;font-weight:bold;text-transform:uppercase;letter-spacing:.04em;vertical-align:1px}.aviso-classificar{background:#eef1fb;border:1px solid #c3cdea;border-left:4px solid #2e4b8f;color:#23396b;border-radius:9px;padding:12px 15px;margin:0 0 16px}.aviso-classificar strong{display:block;margin-bottom:2px}.aviso-classificar p{margin:0}</style>
+</head>
+<body>
+<header><div class="brand"><img src="ideal-logo.png" alt="Ideal 50 anos"><span>ATLAS</span></div><div class="role"><a class="back-link" href="professor.html">← Voltar à minha área</a>Classificação · <strong id="cl-nome">Carregando…</strong> <button type="button" onclick="ATLAS_SAIR()" style="margin-left:12px;border:1px solid #cbaeb2;background:#fff;color:#98151d;border-radius:8px;padding:6px 10px;cursor:pointer">Sair</button></div></header>
+<div class="shell"><aside><small>ÁREA DO PROFESSOR</small><a href="professor.html" style="background:transparent">Nova questão</a><a href="classificar.html" style="margin-top:6px">Classificar questões</a></aside><main>
+<div class="crumb">Professor / Força-tarefa</div><h1>Classificar questões</h1><p class="lead">Disciplina: <strong id="cl-disc">Carregando…</strong>. Você recebe uma questão por vez, enviada pelo digitador ou pelo ADM. Preencha a classificação, corrija erros de digitação se houver e salve. O Supervisor confere e aprova.</p>
+<div class="notice" id="notice" role="status"></div>
+<section class="panel" id="cl-resumo"><div style="display:flex;gap:28px;flex-wrap:wrap;align-items:center;justify-content:space-between"><div style="display:flex;gap:28px;flex-wrap:wrap"><div><div style="font-size:30px;font-weight:bold;color:#98151d" id="cl-restantes">–</div><small>esperando classificação</small></div><div><div style="font-size:30px;font-weight:bold;color:#30282b" id="cl-minhas">–</div><small>classificadas por você</small></div></div><button type="button" class="primary" id="cl-proxima">Próxima questão</button></div></section>
+<form class="panel edit-form" id="cl-form" hidden><h2>Classificar esta questão</h2><p class="hint" id="cl-info"></p>
+<h4 style="margin:16px 0 2px;color:#6e2026">Classificação</h4><div id="cl-classif"></div>
+<label for="tags-edit">Tags (palavras-chave) — mínimo de 2</label><input id="tags-edit" placeholder="Digite e tecle Enter (ou vírgula)">
+<h4 style="margin:22px 0 2px;color:#6e2026">Conteúdo</h4><p class="hint" style="margin:0 0 8px">Corrija só erros de digitação. O Supervisor vê o que você mudou.</p>
+<label for="texto-base">Texto-base</label><textarea id="texto-base" class="long" placeholder="Texto-base (opcional)"></textarea><label for="referencia">Referência do texto-base</label><textarea id="referencia" maxlength="1000" style="min-height:58px"></textarea><label for="comando">Comando</label><textarea id="comando" placeholder="Comando da questão"></textarea><label for="alt-a">Alternativa A</label><textarea id="alt-a" aria-label="Alternativa A" placeholder="Alternativa A"></textarea><label for="alt-b">Alternativa B</label><textarea id="alt-b" aria-label="Alternativa B" placeholder="Alternativa B"></textarea><label for="alt-c">Alternativa C</label><textarea id="alt-c" aria-label="Alternativa C" placeholder="Alternativa C"></textarea><label for="alt-d">Alternativa D</label><textarea id="alt-d" aria-label="Alternativa D" placeholder="Alternativa D"></textarea><label for="alt-e">Alternativa E</label><textarea id="alt-e" aria-label="Alternativa E" placeholder="Alternativa E"></textarea><label for="gabarito">Gabarito</label><select id="gabarito"><option>A</option><option>B</option><option>C</option><option>D</option><option>E</option></select><label for="resolucao">Resolução e comentários</label><textarea id="resolucao" class="long" placeholder="Resolução (opcional)"></textarea>
+<p class="field-error" id="cl-erro" hidden></p>
+<div class="actions"><button type="button" class="secondary" id="cl-parar">Parar por agora</button><button type="button" class="secondary" id="cl-devolver">Devolver ao ADM (não é da minha disciplina)</button><button type="submit" class="primary" id="cl-salvar">Salvar e pegar a próxima</button></div>
+<div id="cl-devolver-confirm" class="adjust-form" hidden role="alertdialog"><p><strong>Devolver esta questão ao ADM?</strong> Ela sai da sua disciplina e o ADM descobre a disciplina certa.</p><div class="actions"><button type="button" class="secondary" id="cl-devolver-cancelar">Cancelar</button><button type="button" class="primary" id="cl-devolver-confirmar">Devolver ao ADM</button></div></div>
+</form>
+</main></div>
+<dialog id="equation-dialog" aria-labelledby="eq-title"><h2 id="eq-title">Inserir equação</h2><label for="equation-input">Escreva a expressão em LaTeX</label><input id="equation-input" placeholder="Ex.: \tan(\frac{\alpha+\beta}{2})"><p class="hint">Aceita LaTeX matemático, incluindo frações, raízes, funções trigonométricas e símbolos gregos. Use \sen para seno em português. Dê dois cliques na equação para editar.</p><div id="equation-preview" aria-label="Prévia da equação"></div><p id="equation-error" class="field-error" role="alert" hidden>Revise a expressão: há um comando ou agrupamento inválido.</p><div class="modal-actions"><button type="button" class="secondary" onclick="this.closest('dialog').close()">Cancelar</button><button type="button" class="primary" id="equation-insert">Inserir</button></div></dialog>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.19.1/dist/katex.min.js" integrity="sha384-a1WQdjRj162i159OYq041X6I4K8NenkrI09LlPmiHg0YOb7CR+wJOraXwK9abpnE" crossorigin="anonymous"></script>
+<script src="atlas-editor.js?v=20261114g"></script>
+<script src="atlas-tags.js?v=20261114g"></script>
+<script src="atlas-classificacao.js?v=20261114g"></script>
+<script>
+const $=s=>document.querySelector(s);
+const rich=AtlasRich.setup();const tagsEdit=AtlasTags.setup('tags-edit');const extrasCampo=AtlasRich.extras(rich);
+let atual=null,classif=null,ocupado=false;
+function msg(t,erro=false){const n=$('#notice');n.textContent=t;n.style.borderColor=erro?'#e2a1a7':'';n.style.color=erro?'#8c2028':''}
+function contagem(r){if(!r)return;$('#cl-restantes').textContent=String(r.restantes);$('#cl-minhas').textContent=String(r.minhas)}
+function hora(iso){const d=new Date(iso);return Number.isNaN(d.getTime())?'':d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}
+async function proxima(){if(ocupado)return;ocupado=true;$('#cl-proxima').disabled=true;msg('Buscando a próxima questão…');
+  try{const r=await ATLAS_API('/api/classificar/proxima',{method:'POST',body:{}});contagem(r);
+    if(!r.item){$('#cl-form').hidden=true;atual=null;msg('Não há questões esperando classificação na sua disciplina agora. Obrigado!');return}
+    await carregar(r.item,r.reserva_ate);msg('Questão reservada para você até '+hora(r.reserva_ate)+'.')}
+  catch(e){msg(e.message,true)}finally{ocupado=false;$('#cl-proxima').disabled=false}}
+async function carregar(item){atual=item;const d=item.dados||{};classif=null;
+  try{classif=await AtlasClassificacao.montar($('#cl-classif'),{disciplina:item.disciplina,dados:d,prefixo:'cl',comDificuldade:!d.dificuldade})}catch{$('#cl-classif').textContent='Não foi possível carregar os assuntos da disciplina. Tente "Próxima questão" de novo.'}
+  for(const id of AtlasRich.ids)rich.write(id,d[id]||'');$('#referencia').value=d.referencia||'';extrasCampo.escrever(d);$('#gabarito').value=d.gabarito||'A';tagsEdit.set(d.tags||[]);
+  $('#cl-info').textContent='Enviada por '+(item.autor_tipo==='adm'?'ADM (Administração)':item.autor+' (digitador)')+'.';
+  $('#cl-erro').hidden=true;$('#cl-devolver-confirm').hidden=true;const f=$('#cl-form');f.hidden=false;f.scrollIntoView({behavior:'smooth',block:'start'})}
+$('#cl-proxima').addEventListener('click',proxima);
+$('#cl-form').addEventListener('submit',async ev=>{ev.preventDefault();if(!atual)return;const err=$('#cl-erro');
+  if(!classif){err.textContent='A classificação não carregou. Clique em "Próxima questão".';err.hidden=false;return}
+  const falta=classif.faltando();if(falta){err.textContent=falta;err.hidden=false;return}
+  if(tagsEdit.get().length<2){err.textContent='Coloque pelo menos 2 tags (palavras-chave).';err.hidden=false;return}
+  const dados={...(atual.dados||{})};for(const id of AtlasRich.ids)dados[id]=rich.valid(id)?rich.read(id):'';dados.referencia=$('#referencia').value.trim();dados.gabarito=$('#gabarito').value;dados.tags=tagsEdit.get();Object.assign(dados,extrasCampo.ler());Object.assign(dados,classif.ler());
+  const b=$('#cl-salvar');b.disabled=true;err.hidden=true;
+  try{const r=await ATLAS_API('/api/classificar/itens/'+encodeURIComponent(atual.codigo),{method:'POST',body:{dados,versao:atual.versao_atual}});contagem(r);$('#cl-form').hidden=true;atual=null;await proxima();if(!$('#notice').style.color)msg('Classificação salva. '+$('#notice').textContent)}
+  catch(e){err.textContent=e.message;err.hidden=false}finally{b.disabled=false}});
+$('#cl-devolver').addEventListener('click',()=>{$('#cl-devolver-confirm').hidden=false;$('#cl-devolver-confirmar').focus()});
+$('#cl-devolver-cancelar').addEventListener('click',()=>{$('#cl-devolver-confirm').hidden=true});
+$('#cl-devolver-confirmar').addEventListener('click',async()=>{if(!atual)return;const b=$('#cl-devolver-confirmar');b.disabled=true;
+  try{await ATLAS_API('/api/classificar/itens/'+encodeURIComponent(atual.codigo)+'/devolver-adm',{method:'POST',body:{versao:atual.versao_atual}});$('#cl-form').hidden=true;atual=null;await proxima();msg('Questão devolvida ao ADM. '+$('#notice').textContent)}
+  catch(e){msg(e.message,true)}finally{b.disabled=false}});
+$('#cl-parar').addEventListener('click',async()=>{try{await ATLAS_API('/api/classificar/liberar',{method:'POST',body:{}})}catch{}$('#cl-form').hidden=true;atual=null;msg('Questão liberada para outro classificador. Volte quando quiser.');
+  try{contagem(await ATLAS_API('/api/classificar/resumo'))}catch{}});
+window.ATLAS_AUTH_READY.then(async u=>{if(!u||u.papel!=='professor'||u.classificador!==1){location.replace('professor.html');return}
+  $('#cl-nome').textContent=u.nome;$('#cl-disc').textContent=u.disciplina;msg('Clique em "Próxima questão" para começar.');
+  try{contagem(await ATLAS_API('/api/classificar/resumo'))}catch(e){msg(e.message,true)}});
+</script>
+</body>
+</html>

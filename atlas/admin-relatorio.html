@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="pt-BR">
 <head>
-<meta name="atlas-versao" content="20261114f"><script src="atlas-versao.js?v=20261114f" defer></script>
+<meta name="atlas-versao" content="20261114g"><script src="atlas-versao.js?v=20261114g" defer></script>
 <meta charset="utf-8"><meta name="robots" content="noindex, nofollow"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="referrer" content="strict-origin-when-cross-origin">
 <title>ATLAS | Relatório de produção</title>
@@ -35,7 +35,7 @@
 <div class="acoes"><button type="button" class="primary" id="f-gerar">Gerar relatório</button><button type="button" class="secondary" id="f-excel" disabled>Baixar Excel</button></div>
 </div></section>
 <section class="panel"><h2 id="rel-titulo">Resultado</h2><div class="summary" id="rel-resumo"></div><div class="table-wrap" id="rel-tabela"><div class="empty">Escolha os filtros e clique em Gerar relatório.</div></div>
-<p class="legenda"><strong>Enviadas</strong>: questões criadas no ano (pelo mês do envio). <strong>Aprov.</strong>, <strong>Análise</strong>, <strong>Ajuste</strong> e <strong>Descart.</strong>: situação atual dessas questões. <strong>Corrig.</strong>: correções reenviadas pelo professor no ano, depois de um pedido de ajuste. Professores ativos sem nenhum envio também aparecem. Questões enviadas pela Administração aparecem na linha ADM; as do digitador, no nome dele.</p></section>
+<p class="legenda"><strong>Enviadas</strong>: questões criadas no ano (pelo mês do envio). <strong>Aprov.</strong>, <strong>Análise</strong>, <strong>Ajuste</strong> e <strong>Descart.</strong>: situação atual dessas questões. <strong>Corrig.</strong>: correções reenviadas pelo professor no ano, depois de um pedido de ajuste. <strong>Classif.</strong>: questões do digitador/ADM classificadas por esse professor na força-tarefa. Professores ativos sem nenhum envio também aparecem. Questões enviadas pela Administração aparecem na linha ADM; as do digitador, no nome dele.</p></section>
 </main></div>
 
 <script>
@@ -94,29 +94,29 @@ function celula(n,cls=''){const td=document.createElement('td');td.textContent=S
 function desenhar(d){
   $('#rel-titulo').textContent='Produção de '+d.ano+' · '+tituloRecorte(d);
   const t=d.totais;$('#rel-resumo').innerHTML='';
-  for(const [txt,n] of [['enviadas',t.total],['aprovadas',t.aprovado],['em análise',t.analise],['com ajuste pedido',t.ajustes],['descartadas',t.descartado],['correções reenviadas',t.corrigidas]]){const c=document.createElement('span');c.className='chip';c.textContent=n+' '+txt;$('#rel-resumo').append(c)}
+  for(const [txt,n] of [['enviadas',t.total],['aprovadas',t.aprovado],['em análise',t.analise],['com ajuste pedido',t.ajustes],['descartadas',t.descartado],['correções reenviadas',t.corrigidas],['classificadas pela força-tarefa',t.classificadas||0]]){const c=document.createElement('span');c.className='chip';c.textContent=n+' '+txt;$('#rel-resumo').append(c)}
   const box=$('#rel-tabela');if(!d.linhas.length){box.innerHTML='<div class="empty">Nenhum professor ou questão neste recorte.</div>';return}
   const tab=document.createElement('table');tab.className='rel';
-  tab.innerHTML='<thead><tr><th>Professor</th>'+MESES.map(m=>'<th>'+m+'</th>').join('')+'<th class="sep">Enviadas</th><th>Aprov.</th><th>Análise</th><th>Ajuste</th><th>Descart.</th><th class="sep">Corrig.</th></tr></thead>';
+  tab.innerHTML='<thead><tr><th>Professor</th>'+MESES.map(m=>'<th>'+m+'</th>').join('')+'<th class="sep">Enviadas</th><th>Aprov.</th><th>Análise</th><th>Ajuste</th><th>Descart.</th><th class="sep">Corrig.</th><th>Classif.</th></tr></thead>';
   const tb=document.createElement('tbody');
   for(const l of d.linhas){const tr=document.createElement('tr');if(!l.ativo)tr.className='inativo';const td=document.createElement('td');td.textContent=l.nome;
     if(NOME_TIPO[l.tipo]&&l.tipo!=='adm'){const s=document.createElement('span');s.className='tipo '+l.tipo;s.textContent=NOME_TIPO[l.tipo];td.append(s)}
     const sub=document.createElement('small');sub.textContent=l.tipo==='adm'?'Enviadas pela Administração':l.tipo==='digitador'?'Digitação de questões':(l.disciplina||'')+(l.ativo?'':' · inativo');td.append(sub);tr.append(td);
-    l.meses.forEach(n=>tr.append(celula(n)));tr.append(celula(l.total,'sep'),celula(l.aprovado),celula(l.analise),celula(l.ajustes),celula(l.descartado),celula(l.corrigidas,'sep'));tb.append(tr)}
-  const tr=document.createElement('tr');tr.className='tot';const td=document.createElement('td');td.textContent='Total';tr.append(td);t.meses.forEach(n=>tr.append(celula(n)));tr.append(celula(t.total,'sep'),celula(t.aprovado),celula(t.analise),celula(t.ajustes),celula(t.descartado),celula(t.corrigidas,'sep'));tb.append(tr);
+    l.meses.forEach(n=>tr.append(celula(n)));tr.append(celula(l.total,'sep'),celula(l.aprovado),celula(l.analise),celula(l.ajustes),celula(l.descartado),celula(l.corrigidas,'sep'),celula(l.classificadas||0));tb.append(tr)}
+  const tr=document.createElement('tr');tr.className='tot';const td=document.createElement('td');td.textContent='Total';tr.append(td);t.meses.forEach(n=>tr.append(celula(n)));tr.append(celula(t.total,'sep'),celula(t.aprovado),celula(t.analise),celula(t.ajustes),celula(t.descartado),celula(t.corrigidas,'sep'),celula(t.classificadas||0));tb.append(tr);
   tab.append(tb);box.replaceChildren(tab)}
 function carregarExcelJS(){return new Promise((ok,erro)=>{if(window.ExcelJS)return ok();const s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js';s.integrity='sha384-Pqp51FUN2/qzfxZxBCtF0stpc9ONI6MYZpVqmo8m20SoaQCzf+arZvACkLkirlPz';s.crossOrigin='anonymous';s.onload=()=>ok();s.onerror=()=>erro(new Error('Não foi possível carregar o gerador de Excel. Tente de novo.'));document.head.append(s)})}
 $('#f-excel').addEventListener('click',async()=>{if(!ultimo)return;const b=$('#f-excel');b.disabled=true;msg('Gerando o Excel…');
   try{await carregarExcelJS();const d=ultimo;const wb=new ExcelJS.Workbook();wb.creator='ATLAS';const ws=wb.addWorksheet('Produção '+d.ano,{views:[{state:'frozen',xSplit:3,ySplit:4}]});
-    const cab=['Professor','Tipo','Disciplina',...MESES,'Enviadas','Aprovadas','Em análise','Ajuste pedido','Descartadas','Correções reenviadas'];
+    const cab=['Professor','Tipo','Disciplina',...MESES,'Enviadas','Aprovadas','Em análise','Ajuste pedido','Descartadas','Correções reenviadas','Classificadas'];
     ws.mergeCells(1,1,1,cab.length);ws.getCell(1,1).value='ATLAS · Relatório de produção '+d.ano+' · '+tituloRecorte(d);ws.getCell(1,1).font={bold:true,size:14,color:{argb:'FF98151D'}};
     ws.mergeCells(2,1,2,cab.length);ws.getCell(2,1).value='Gerado em '+new Date().toLocaleString('pt-BR');ws.getCell(2,1).font={italic:true,color:{argb:'FF70676B'}};
     const h=ws.getRow(4);h.values=cab;h.font={bold:true,color:{argb:'FFFFFFFF'}};h.alignment={horizontal:'center',vertical:'middle',wrapText:true};h.height=32;
     h.eachCell(c=>{c.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FF98151D'}}});
     const tipoTxt={professor:'Professor',supervisor:'Supervisor',digitador:'Digitador',adm:'ADM'};
     const linha=(v)=>{const r=ws.addRow(v);for(let k=4;k<=cab.length;k++)r.getCell(k).alignment={horizontal:'center'};return r};
-    for(const l of d.linhas)linha([l.nome,tipoTxt[l.tipo]||'',l.tipo==='adm'?'Todas':l.disciplina||'',...l.meses,l.total,l.aprovado,l.analise,l.ajustes,l.descartado,l.corrigidas]);
-    const t=d.totais;const rt=linha(['Total','','',...t.meses,t.total,t.aprovado,t.analise,t.ajustes,t.descartado,t.corrigidas]);rt.font={bold:true};rt.eachCell(c=>{c.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFFBECEF'}};c.border={top:{style:'medium',color:{argb:'FF98151D'}}}});
+    for(const l of d.linhas)linha([l.nome,tipoTxt[l.tipo]||'',l.tipo==='adm'?'Todas':l.disciplina||'',...l.meses,l.total,l.aprovado,l.analise,l.ajustes,l.descartado,l.corrigidas,l.classificadas||0]);
+    const t=d.totais;const rt=linha(['Total','','',...t.meses,t.total,t.aprovado,t.analise,t.ajustes,t.descartado,t.corrigidas,t.classificadas||0]);rt.font={bold:true};rt.eachCell(c=>{c.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFFBECEF'}};c.border={top:{style:'medium',color:{argb:'FF98151D'}}}});
     ws.getColumn(1).width=34;ws.getColumn(2).width=12;ws.getColumn(3).width=14;for(let k=4;k<=15;k++)ws.getColumn(k).width=7;for(let k=16;k<=cab.length;k++)ws.getColumn(k).width=12;
     const buf=await wb.xlsx.writeBuffer();const blob=new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
     const nome='ATLAS-producao-'+d.ano+(d.recorte==='todos'?'':'-'+tituloRecorte(d).normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^A-Za-z0-9]+/g,'-'))+'.xlsx';

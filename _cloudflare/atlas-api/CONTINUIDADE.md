@@ -12,7 +12,7 @@ ATLAS = banco de questões (BQI) do Grupo Ideal. Professor cadastra → Supervis
 |---|---|
 | Telas | https://idealolimpico.com.br/atlas/ (GitHub Pages; pasta `atlas/`) |
 | Servidor | Cloudflare Worker `atlas-api` (`_cloudflare/atlas-api/worker.js`), publicado sozinho a cada merge na `main` |
-| Banco | Cloudflare D1 `atlas-teste` (será o oficial). **Schema v8** |
+| Banco | Cloudflare D1 `atlas-teste` (será o oficial). **Schema v9** |
 | Imagens e cópias | R2 `atlas-imagens` (`img/` imagens, `backups/` cópia diária 3h17 de Brasília) |
 | E-mails | Microsoft Graph como `olimpiadas@grupoideal.com.br`; reserva: Apps Script (`ATLAS_MAILER_URL`) |
 | Portal de inscrições | mesmo repositório (`index.html`, `inscricoes/`, `teste-inscricoes/`) — **NÃO MEXER** |
@@ -31,7 +31,7 @@ O repositório é **público**: nada de segredo no código. Segredos só no pain
 
 ## 3. Testes
 
-`_cloudflare/atlas-api/testes/` — 20 suítes. Usam SQLite real (`node:sqlite`) no lugar do D1, R2 falso em memória e Playwright (Chromium) nas telas. Nenhum e-mail real sai.
+`_cloudflare/atlas-api/testes/` — 21 suítes. Usam SQLite real (`node:sqlite`) no lugar do D1, R2 falso em memória e Playwright (Chromium) nas telas. Nenhum e-mail real sai.
 
 ```
 cd _cloudflare/atlas-api/testes && ./rodar.sh            # todas
@@ -62,7 +62,8 @@ cd _cloudflare/atlas-api/testes && ./rodar.sh            # todas
 - Digitador: entra como professor e cai em `digitador.html`; envia por disciplina, sem classificar.
 - Questões do ADM/digitador: aprovação bloqueada até haver assunto, Bloom, dificuldade e ≥ 2 tags; sem "pedir ajuste" e sem e-mail.
 - **Código provisório X** (14/11/2026): questão do ADM ou do digitador nasce com `X` + 7 números; na aprovação o X vira a letra da disciplina, com os mesmos números (evento `codigo_definitivo` guarda o anterior; a busca do ADM acha pelo X). Os números nunca se repetem entre letras (`sortearCodigoLivre`). Questão de professor continua com a letra da disciplina desde o envio.
-- **Sem disciplina** (`itens.disciplina = 'Sem disciplina'`): o digitador pode escolher "Não sei a disciplina"; o supervisor (só em questão do ADM/digitador, em análise) usa "Devolver ao ADM (não é da minha disciplina)", sem sugestão nem motivo. O ADM vê o aviso no painel e o quadro "Questões sem disciplina" em Questões, escolhe a disciplina e a questão vai para a fila do supervisor dela. Próximo passo combinado: **classificadores** (força-tarefa; professor marcado pelo ADM, botão "Próxima questão", pode corrigir texto e devolver ao ADM, sem recesso; supervisor vê tudo com as classificadas no topo e corrige ele mesmo; relatório com "Classificadas").
+- **Sem disciplina** (`itens.disciplina = 'Sem disciplina'`): o digitador pode escolher "Não sei a disciplina"; o supervisor (só em questão do ADM/digitador, em análise) usa "Devolver ao ADM (não é da minha disciplina)", sem sugestão nem motivo. O ADM vê o aviso no painel e o quadro "Questões sem disciplina" em Questões, escolhe a disciplina e a questão vai para a fila do supervisor dela.
+- **Classificadores (força-tarefa)** (schema v9; tabela `reservas`, `usuarios.classificador`): professor marcado pelo ADM no cadastro. Na área do professor aparece o cartão "Força-tarefa" → `classificar.html`: "Próxima questão" entrega uma questão do ADM/digitador da disciplina dele ainda sem classificação e a reserva por 2 h (ninguém pega a mesma). Ele preenche assunto/subtema/Bloom/dificuldade/≥ 2 tags, pode corrigir erros de digitação (o evento `item_classificado` guarda o que mudou), pode devolver ao ADM e "Parar por agora" libera a reserva. Não aprova. Fecha no recesso (é professor). Na fila do supervisor as classificadas vêm primeiro com o selo "pronta para aprovar" e um aviso de quem classificou e o que mudou; se discordar, o supervisor edita. Relatório de produção e Excel têm a coluna "Classif.".
 - Avisos por e-mail **ligados** (`ATLAS_AVISOS_ATIVOS = "1"`).
 - **Vários textos de apoio** (até 4; `dados.textos_extras = [{texto, referencia}]`, o 1º continua em `texto-base`/`referencia`; títulos TEXTO I, II… automáticos), **fonte por alternativa** (`ref-a`…`ref-e`), referências em fonte 8 à direita, e **formato na prova** (`layout` = `coluna` padrão | `pagina`; no grupo vale para todas as questões; mudar só o formato é permitido mesmo com questão do grupo aprovada). Textos II–IV abrem embaixo, em largura total como o Texto I; a referência de cada texto fica atrás do botão "+ Inserir referência do texto ou da imagem" (abre sozinha quando já tem conteúdo). Componente comum: `AtlasRich.extras()` em `atlas-editor.js`.
 

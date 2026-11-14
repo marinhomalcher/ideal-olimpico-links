@@ -77,7 +77,7 @@ async function call(path, { method = 'GET', body, token, origin = ORIGIN, ctype 
 db.exec("UPDATE usuarios SET papel='supervisor' WHERE nome='Márcio Alex'");
 const lastCode=()=>mails.at(-1)?.codigo;
 let r = await call('/api/saude');
-ok('Schema 3 no schema.sql completo', r.data.schema === "8", r.data.schema);
+ok('Schema 3 no schema.sql completo', r.data.schema === "9", r.data.schema);
 // admin: só @grupoideal.com.br
 r = await call('/api/adm/login', { method: 'POST', body: { credential: await jwt({}) } }); const token=r.data.token;
 r = await call('/api/adm/professores', { method: 'POST', token, body: { nome: 'Novo Pleno', email: 'novo@pleno.grupoideal.com.br', disciplina: 'Química' } });
