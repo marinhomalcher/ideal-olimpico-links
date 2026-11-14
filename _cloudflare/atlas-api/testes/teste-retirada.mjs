@@ -98,7 +98,7 @@ ok('Servidor também recusa retirar de professor ativo', r.status===409);
 await call('/api/adm/professores/'+idEdi,{method:'PUT',token:tAdm,body:{ativo:false}});
 r=await call('/api/adm/retiradas/previa?usuario='+idEdi,{token:tAdm});
 ok('Prévia: 3 autorais (ENEM fica de fora), 1 em prova montada, prazo de 6 meses', r.status===200&&r.data.total===3&&r.data.em_selecoes===1&&r.data.por_situacao.aprovado===2&&r.data.prazo_em===somar6(), JSON.stringify(r.data));
-function somar6(){const [a,m,d]=new Intl.DateTimeFormat('en-CA',{timeZone:'America/Sao_Paulo'}).format(new Date()).split('-').map(Number);const t=new Date(Date.UTC(a,m-1+6,1));const u=new Date(Date.UTC(t.getUTCFullYear(),t.getUTCMonth()+1,0)).getUTCDate();t.setUTCDate(Math.min(d,u));return t.toISOString().slice(0,10)}
+function somar6(){const [a,m,d]=(env.ATLAS_HOJE_TESTE||new Intl.DateTimeFormat('en-CA',{timeZone:'America/Sao_Paulo'}).format(new Date())).split('-').map(Number); /* mesma data fixa que o servidor usa no teste */const t=new Date(Date.UTC(a,m-1+6,1));const u=new Date(Date.UTC(t.getUTCFullYear(),t.getUTCMonth()+1,0)).getUTCDate();t.setUTCDate(Math.min(d,u));return t.toISOString().slice(0,10)}
 const corpo={usuario_id:idEdi,confirmo_desligamento:true,motivo:'desligada em 10/12/2026',nome_confirmacao:'  edi   FRANCO ',total_esperado:3};
 r=await call('/api/adm/retiradas',{method:'POST',token:tAdm,body:{...corpo,confirmo_desligamento:false}});ok('Sem confirmar desligamento: recusado', r.status===400);
 r=await call('/api/adm/retiradas',{method:'POST',token:tAdm,body:{...corpo,motivo:'x'}});ok('Sem motivo: recusado', r.status===400);
