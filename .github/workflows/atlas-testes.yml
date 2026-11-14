@@ -1,0 +1,27 @@
+name: ATLAS - todas as suítes
+
+on:
+  pull_request:
+    paths:
+      - 'atlas/**'
+      - '_cloudflare/atlas-api/**'
+      - '.github/workflows/atlas-testes.yml'
+  workflow_dispatch:
+
+jobs:
+  testes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Preparar navegador de testes
+        run: |
+          npm install --prefix /tmp/pw playwright@1.62.1
+          npx --prefix /tmp/pw playwright install --with-deps chromium
+      - name: Rodar todas as suítes
+        env:
+          NODE_PATH: /tmp/pw/node_modules
+        run: bash _cloudflare/atlas-api/testes/rodar.sh

@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta name="atlas-versao" content="20261114h"><script src="atlas-versao.js?v=20261114h" defer></script>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow"><title>ATLAS | Redação</title>
+<style>
+:root{--navy:#10283e;--red:#d92738;--line:#dbe3e9;--ink:#233544}*{box-sizing:border-box}
+body{margin:0;background:#f3f7f9;color:var(--ink);font:15px/1.5 Arial,Helvetica,sans-serif}
+header{height:70px;background:var(--navy);color:#fff;display:flex;align-items:center;justify-content:space-between;padding:0 clamp(16px,3vw,42px);gap:16px;position:relative}
+.brand{display:flex;align-items:center;gap:14px;white-space:nowrap}.mark{background:#e7434a;color:#fff;border-radius:10px;width:38px;height:38px;display:grid;place-items:center;font-weight:900;font-size:19px}.brand b{font-size:23px;letter-spacing:.06em}.brand span{border-left:1px solid #668196;padding-left:14px;font-size:17px}
+.school-logo{position:absolute;left:50%;top:6px;transform:translateX(-50%);width:205px;height:58px;background:#fff;border-radius:10px;box-shadow:0 2px 8px #071a2b55;display:grid;place-items:center}.school-logo img{width:175px;height:auto;display:block}
+.user{display:flex;align-items:center;gap:15px;color:#d7e4eb}.user button{background:transparent;color:#fff;border:1px solid #7d93a4;border-radius:7px;padding:6px 10px;cursor:pointer}
+main{max-width:1080px;margin:38px auto;padding:0 18px}.crumb{font-size:12px;color:#6a8394}.intro{display:flex;justify-content:space-between;align-items:start;gap:20px}.intro h1{font-size:30px;margin:8px 0 4px}.intro p{margin:0 0 24px;color:#5b6d7a}.card{background:#fff;border:1px solid var(--line);border-radius:13px;box-shadow:0 7px 24px #1f3b4f0c;padding:23px;margin-bottom:16px}h2{font-size:18px;margin:0 0 13px;color:var(--navy)}.list{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px}.turma{border:1px solid var(--line);border-radius:10px;padding:14px;background:#fbfdfe}.turma strong{display:block;color:var(--navy);font-size:17px}.turma small{color:#587084}.notice{background:#eff5f8;border:1px solid #d6e4eb;border-radius:9px;padding:13px;color:#416177}.error{color:#a51c2c}.unit{display:inline-block;padding:7px 11px;border-radius:999px;background:#edf4f8;color:#26526d;margin:0 7px 7px 0;font-weight:700}
+@media(max-width:900px){.school-logo{position:static;transform:none;margin:auto}.brand span{display:none}}
+@media(max-width:650px){header{height:auto;min-height:76px;flex-wrap:wrap;padding:9px 14px}.brand b{font-size:18px}.school-logo{order:3;width:100%;height:48px}.school-logo img{width:145px}.user{font-size:12px}.intro h1{font-size:24px}}
+</style>
+</head>
+<body>
+<header><div class="brand"><div class="mark">A</div><b>ATLAS</b><span>Redação</span></div><div class="school-logo"><img src="ideal-logo.png" alt="Colégio Ideal 50 anos"></div><div class="user"><span id="user-name"></span><button id="logout" type="button">Sair</button></div></header>
+<main><div class="crumb"><a href="index.html">ATLAS</a> › Redação</div><div class="intro"><div><h1 id="title">Portal de Redação</h1><p id="subtitle">Carregando seu acesso…</p></div></div><div id="status" role="status"></div><section class="card" id="content" hidden><h2 id="list-title"></h2><div id="list" class="list"></div></section></main>
+<script>
+const API='https://atlas-api.marinhomalcher.workers.dev';
+const saved=(()=>{try{return JSON.parse(sessionStorage.getItem('atlas_user_auth')||localStorage.getItem('atlas_user_auth')||'null')}catch{return null}})();
+const status=document.querySelector('#status');
+async function carregar(){
+  if(!saved?.token){location.replace('index.html?perfil=Redação');return}
+  let r,d;try{r=await fetch(API+'/api/redacao/sessao',{headers:{Authorization:'Bearer '+saved.token},cache:'no-store'});d=await r.json()}catch{status.textContent='Sem conexão com o ATLAS. Atualize a página para tentar novamente.';status.className='error';return}
+  if(r.status===401){sessionStorage.removeItem('atlas_user_auth');localStorage.removeItem('atlas_user_auth');location.replace('index.html?perfil=Redação');return}
+  if(!r.ok||!d.ok){document.querySelector('#subtitle').textContent='Acesso indisponível';status.textContent=d.error||'Não foi possível confirmar seu acesso.';status.className='error';return}
+  const u=d.usuario;document.querySelector('#user-name').textContent=u.nome;
+  document.querySelector('#title').textContent=u.funcao==='professor'?'Minhas turmas':'Digitalização de redações';
+  document.querySelector('#subtitle').textContent=u.funcao==='professor'?'Turmas vinculadas ao seu cadastro':'Unidades liberadas para seu cadastro';
+  document.querySelector('#content').hidden=false;
+  const list=document.querySelector('#list');list.replaceChildren();
+  if(u.funcao==='professor'){
+    document.querySelector('#list-title').textContent='Turmas';
+    for(const t of u.turmas||[]){const item=document.createElement('div');item.className='turma';const strong=document.createElement('strong');strong.textContent=t.codigo;const small=document.createElement('small');small.textContent=`${{BC:'Batista Campos',AM:'Augusto Montenegro',CN:'Cidade Nova'}[t.unidade]} · ${t.segmento} · ${t.serie} · ${t.ano}`;item.append(strong,small);list.append(item)}
+    if(!list.children.length){const p=document.createElement('p');p.textContent='Ainda não há turmas vinculadas. Peça ao administrador para cadastrá-las.';list.append(p)}
+  }else{
+    document.querySelector('#list-title').textContent='Unidades';
+    for(const sigla of u.unidades||[]){const el=document.createElement('span');el.className='unit';el.textContent={BC:'Batista Campos',AM:'Augusto Montenegro',CN:'Cidade Nova'}[sigla];list.append(el)}
+    if(!list.children.length){const p=document.createElement('p');p.textContent='Ainda não há unidades vinculadas. Peça ao administrador para cadastrá-las.';list.append(p)}
+  }
+  const aviso=document.createElement('p');aviso.className='notice';aviso.textContent='O envio das folhas e a correção serão liberados nas próximas etapas.';document.querySelector('#content').append(aviso);
+}
+document.querySelector('#logout').addEventListener('click',async()=>{sessionStorage.removeItem('atlas_user_auth');localStorage.removeItem('atlas_user_auth');try{if(saved?.token)await fetch(API+'/api/login/sair',{method:'POST',headers:{Authorization:'Bearer '+saved.token}})}catch{}location.href='index.html'});
+carregar();
+</script>
+</body>
+</html>

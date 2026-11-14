@@ -12,7 +12,7 @@ ATLAS = banco de questões (BQI) do Grupo Ideal. Professor cadastra → Supervis
 |---|---|
 | Telas | https://idealolimpico.com.br/atlas/ (GitHub Pages; pasta `atlas/`) |
 | Servidor | Cloudflare Worker `atlas-api` (`_cloudflare/atlas-api/worker.js`), publicado sozinho a cada merge na `main` |
-| Banco | Cloudflare D1 `atlas-teste` (será o oficial). **Schema v9** |
+| Banco | Cloudflare D1 `atlas-teste` (será o oficial). **Schema v10** |
 | Imagens e cópias | R2 `atlas-imagens` (`img/` imagens, `backups/` cópia diária 3h17 de Brasília) |
 | E-mails | Microsoft Graph como `olimpiadas@grupoideal.com.br`; reserva: Apps Script (`ATLAS_MAILER_URL`) |
 | Portal de inscrições | mesmo repositório (`index.html`, `inscricoes/`, `teste-inscricoes/`) — **NÃO MEXER** |
@@ -32,7 +32,7 @@ O repositório é **público**: nada de segredo no código. Segredos só no pain
 
 ## 3. Testes
 
-`_cloudflare/atlas-api/testes/` — 21 suítes. Usam SQLite real (`node:sqlite`) no lugar do D1, R2 falso em memória e Playwright (Chromium) nas telas. Nenhum e-mail real sai.
+`_cloudflare/atlas-api/testes/` — 22 suítes. Usam SQLite real (`node:sqlite`) no lugar do D1, R2 falso em memória e Playwright (Chromium) nas telas. Nenhum e-mail real sai. `rodar.sh` retorna erro se qualquer suíte falhar; o GitHub Actions também o executa em Linux em cada PR do ATLAS.
 
 ```
 cd _cloudflare/atlas-api/testes && ./rodar.sh            # todas
@@ -74,3 +74,5 @@ Ambiente: Node 22+ (usa `node:sqlite`), npm com internet e Playwright com Chromi
 2. Depois do piloto: zerar o banco (só quando ele pedir) e lançar.
 3. Ideias em aberto: importar provas antigas do Word; endereço próprio para a API (`api.idealolimpico.com.br`); passar o repositório para uma organização "Grupo Ideal" no GitHub.
 4. BQI etapa 2 (depois): importar resultados por planilha, anulações, taxa de acerto por questão. O ATLAS não calcula nota de aluno.
+5. **Redação, etapa 1 (schema v10):** entrada Redação na página inicial, portal inicial com turmas/unidades vinculadas e cadastros próprios na área do ADM. Turmas iniciais de EM: 1EMA/2EMA/3EMA nas três unidades, e 1MED/2MED/3MED em BC e CN; outras turmas surgem pelo cadastro manual ou importação. Professores de redação são vinculados às turmas; digitalizadores, às unidades. A planilha completa `NOME COMPLETO, RA, FILIAL, SÉRIE, CODTURMA, SEGMENTO` é conferida antes de importar: RA único, novos alunos cadastrados, nome/turma/unidade atualizados; troca de série ou segmento dentro do mesmo ano bloqueia a importação. Nenhum aluno é apagado por estar ausente de uma atualização. O cadastro anual de alunos é eliminado na virada do ano somente depois de uma cópia diária bem-sucedida. As novas tabelas entram no backup diário do R2. **Ainda não há upload nem correção de redações nesta etapa.**
+6. **Redação, próximas etapas:** digitalizador envia um PDF por bimestre/unidade/segmento/série/turma; leitura do RA pelo código de barras e alinhamento pelos marcadores precisam ser validados com um PDF realmente escaneado. Depois vêm correção por competências, exceções, relatórios Excel e backup dos PDFs no OneDrive institucional quando a TI liberar a integração. A professora pode corrigir notas enviadas por competência; o total é recalculado e o Excel corrigido é reenviado. O ADM pode consultar as notas. Aluno que muda de turma/unidade após a avaliação é tratado fora do sistema, por exceção.
