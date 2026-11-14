@@ -156,7 +156,17 @@ const K=S+'katexpkg/package/dist/';
 const browser=await chromium.launch(); const ctx=await browser.newContext({deviceScaleFactor:1.5,viewport:{width:1280,height:900}});
 await ctx.route('https://idealolimpico.com.br/atlas/**', route=>{const f=new URL(route.request().url()).pathname.replace('/atlas/','')||'index.html';const p=REPO+'atlas/'+f;if(!fs.existsSync(p))return route.fulfill({status:404,body:'nf'});route.fulfill({status:200,contentType:f.endsWith('.html')?'text/html':f.endsWith('.js')?'application/javascript':f.endsWith('.json')?'application/json':'image/png',body:fs.readFileSync(p)})});
 await ctx.route('https://cdn.jsdelivr.net/npm/katex@0.19.1/dist/**', r2=>{const p=new URL(r2.request().url()).pathname.replace('/npm/katex@0.19.1/dist/','');r2.fulfill({status:200,headers:{'content-type':p.endsWith('.js')?'application/javascript':p.endsWith('.css')?'text/css':'font/'+p.split('.').pop(),'access-control-allow-origin':'*'},body:fs.readFileSync(K+p)})});
-await ctx.route('https://atlas-api.marinhomalcher.workers.dev/**', async route=>{const u=route.request().url().replace('https://atlas-api.marinhomalcher.workers.dev','http://localhost:8790');const resp=await route.fetch({url:u,headers:{...route.request().headers(),origin:ORIGIN}});route.fulfill({response:resp})});
+let encerrandoNavegador=false;
+await ctx.route('https://atlas-api.marinhomalcher.workers.dev/**', async route=>{
+  try {
+    const u=route.request().url().replace('https://atlas-api.marinhomalcher.workers.dev','http://localhost:8790');
+    const resp=await route.fetch({url:u,headers:{...route.request().headers(),origin:ORIGIN}});
+    await route.fulfill({response:resp});
+  } catch (error) {
+    // Uma requisição ainda pendente pode ser cancelada quando o teste fecha o navegador.
+    if (!encerrandoNavegador) throw error;
+  }
+});
 const page=await ctx.newPage(); const errors=[]; page.on('pageerror',e=>errors.push(e.message)); const dialogs=[];page.on('dialog',d=>{dialogs.push(d.message());d.dismiss()});
 const paste=(sel,text)=>page.evaluate(([sel,text])=>{const el=document.querySelector(sel);el.focus();const dt=new DataTransfer();dt.setData('text/plain',text);el.dispatchEvent(new ClipboardEvent('paste',{clipboardData:dt,bubbles:true,cancelable:true}))},[sel,text]);
 async function pasteImage(sel,w,h){await page.evaluate(async([sel,w,h])=>{const c=document.createElement('canvas');c.width=w;c.height=h;const g=c.getContext('2d');g.fillStyle='#fff';g.fillRect(0,0,w,h);g.strokeStyle='#000';g.lineWidth=6;g.strokeRect(10,10,w-20,h-20);g.font='60px Arial';g.fillStyle='#000';g.fillText('Tabela de teste',40,h/2);const blob=await new Promise(r=>c.toBlob(r,'image/png'));const file=new File([blob],'print.png',{type:'image/png'});const el=document.querySelector(sel);el.focus();const dt=new DataTransfer();dt.items.add(file);el.dispatchEvent(new ClipboardEvent('paste',{clipboardData:dt,bubbles:true,cancelable:true}))},[sel,w,h]);await page.waitForSelector(sel+' img');}
@@ -186,6 +196,6 @@ await page.waitForFunction(()=>document.querySelector('#notice').textContent.inc
 const sT2=JSON.parse(db.prepare('SELECT v.dados FROM item_versoes v JOIN itens i ON i.id=v.item_id WHERE i.codigo=? AND v.versao=2').get(codT).dados)['texto-base'];
 ok('Tela: edição do Supervisor mantém a imagem no R2', sT2===sT, sT2.slice(0,90));
 ok('Sem erros de JavaScript nem caixas do navegador', errors.length===0 && dialogs.length===0, errors.join(' | ')+dialogs.join('|'));
-await browser.close(); server.close();
+encerrandoNavegador=true; await browser.close(); server.close();
 for (const x of results) console.log(x.join(' | '));
 const bad=results.filter(x=>x[0]!=='OK  ').length; console.log(bad?`\n${bad} FALHA(S)`:`\nTODOS OS TESTES PASSARAM (${results.length})`); process.exit(0);
