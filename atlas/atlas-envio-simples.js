@@ -96,7 +96,7 @@ ${'abcde'.split('').map(l => `<div class="alt"><strong>${l.toUpperCase()}</stron
       let h = '<h2>Prévia da questão</h2><p class="hint">' + esc($('#es-disciplina').value) + ' · Acervo Ideal · sem classificação (o Supervisor classifica)</p>';
       h += AtlasRich.textosHTML(d);
       h += '<div class="stem">' + body(d.comando) + '</div>';
-      for (const l of 'abcde') h += '<div class="choice"><strong>' + l.toUpperCase() + ')</strong> ' + body(d['alt-' + l]) + '</div>' + AtlasRich.altRefHTML(d, l);
+      for (const l of 'abcde') h += '<div class="choice">' + l.toUpperCase() + ') ' + body(d['alt-' + l]) + '</div>' + AtlasRich.altRefHTML(d, l);
       h += '<p class="answer">Gabarito: ' + esc(d.gabarito) + '</p>';
       if (d.resolucao) h += '<div class="stem"><strong>Resolução:</strong><br>' + body(d.resolucao) + '</div>';
       previa.innerHTML = h; AtlasRich.barraLargura(previa, d.layout); previa.hidden = false; previsto = true; status.textContent = 'Confira a prévia. Depois, clique em Enviar para o Supervisor.'; previa.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
