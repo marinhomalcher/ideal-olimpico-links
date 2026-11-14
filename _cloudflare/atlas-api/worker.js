@@ -44,25 +44,35 @@ class HttpError extends Error {
 }
 
 // ---------- férias: ATLAS fechado para professores, supervisores e digitadores ----------
-// Julho inteiro e de 15 de dezembro a 31 de janeiro (horário de Brasília). Só a Administração entra.
+// Professor e supervisor: julho inteiro e recesso de 15 de dezembro a 31 de janeiro (horário de Brasília).
+// Digitador: só julho (trabalha no recesso). A Administração entra sempre.
 function hojeSP(env) {
   const teste = env && env.ATLAS_HOJE_TESTE;   // só para testes automáticos (AAAA-MM-DD)
   if (teste && /^\d{4}-\d{2}-\d{2}$/.test(teste)) return teste;
   return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(new Date());
 }
-function emFerias(env) {
+function emFerias(env, digitador = false) {
   const [, m, d] = hojeSP(env).split('-').map(Number);
-  return m === 7 || m === 1 || (m === 12 && d >= 15);
+  return m === 7 || (!digitador && (m === 1 || (m === 12 && d >= 15)));
 }
 function voltaDasFerias(env) {
   const [a, m] = hojeSP(env).split('-').map(Number);
   return m === 7 ? '1º de agosto' : '1º de fevereiro';
 }
-function bloquearFerias(env) {
-  if (!emFerias(env)) return;
+function bloquearFerias(env, digitador = false) {
+  if (!emFerias(env, digitador)) return;
   const e = new HttpError(423, 'FÉRIAS. O ATLAS está fechado para professores e supervisores e reabre em ' + voltaDasFerias(env) + '.');
   e.extra = { ferias: true, reabre: voltaDasFerias(env) };
   throw e;
+}
+
+// No recesso de dezembro/janeiro só o digitador (ativo e no prazo) entra; por isso o login consulta o cadastro.
+async function bloquearFeriasLogin(env, email) {
+  if (!emFerias(env)) return;
+  const dig = emFerias(env, true) ? null : await env.DB.prepare(
+    "SELECT 1 AS ok FROM usuarios WHERE email = ? COLLATE NOCASE AND ativo = 1 AND digitador = 1 AND papel = 'professor' AND (acesso_ate IS NULL OR acesso_ate >= date('now','-3 hours'))"
+  ).bind(email).first();
+  bloquearFerias(env, !!dig);
 }
 
 // ---------- utilidades ----------
@@ -300,12 +310,13 @@ async function solicitarCodigoAcesso(request, env) {
   if (!env.ATLAS_MAILER_SECRET || (!env.ATLAS_MAILER_URL && !microsoftConfigurado(env))) {
     throw new HttpError(503, 'O envio de códigos ainda não está configurado.');
   }
-  bloquearFerias(env);
   const body = await readJson(request);
   const email = String(body.email || '').trim().toLowerCase();
   if (email.length > 120 || !EMAIL_LOGIN_ATLAS.test(email)) {
+    if (emFerias(env)) bloquearFerias(env);
     throw new HttpError(400, 'Informe um e-mail institucional válido.');
   }
+  await bloquearFeriasLogin(env, email);
 
   const emailKey = await hmacHex(env.ATLAS_MAILER_SECRET, 'email:' + email);
   const ip = request.headers.get('CF-Connecting-IP') || 'indisponivel';
@@ -352,14 +363,15 @@ async function solicitarCodigoAcesso(request, env) {
 }
 async function verificarCodigoAcesso(request, env) {
   if (!env.ATLAS_MAILER_SECRET) throw new HttpError(503, 'O login ainda não está configurado.');
-  bloquearFerias(env);
   const body = await readJson(request);
   const email = String(body.email || '').trim().toLowerCase();
   const codigo = body.codigo;
   if (email.length > 120 || !EMAIL_LOGIN_ATLAS.test(email) ||
       typeof codigo !== 'string' || !/^\d{6}$/.test(codigo)) {
+    if (emFerias(env)) bloquearFerias(env);
     throw new HttpError(400, 'E-mail ou código inválido.');
   }
+  await bloquearFeriasLogin(env, email);
 
   const ip = request.headers.get('CF-Connecting-IP') || 'indisponivel';
   const ipKey = await hmacHex(env.ATLAS_MAILER_SECRET || '', 'verify-ip:' + ip);
@@ -664,11 +676,12 @@ async function migrarImagensAntigas(env, sessao, lote = 15) {
 
 async function usuarioDaSessao(request, env) {
   const sessao = await sessaoAtual(request, env, 'usuario');
-  bloquearFerias(env);
+  if (emFerias(env, true)) bloquearFerias(env);
   const user = await env.DB.prepare(
     "SELECT id, nome, email, disciplina, CASE WHEN digitador = 1 THEN 'digitador' ELSE papel END AS papel FROM usuarios WHERE id = ? AND ativo = 1 AND papel IN ('professor','supervisor') AND (acesso_ate IS NULL OR acesso_ate >= date('now','-3 hours'))"
   ).bind(sessao.usuario_id).first();
   if (!user) throw new HttpError(401, 'Acesso desativado. Entre novamente.');
+  bloquearFerias(env, user.papel === 'digitador');
   return user;
 }
 
@@ -2014,11 +2027,12 @@ export default {
       if (url.pathname === '/api/login/sessao' && request.method === 'GET') {
         if (!ALLOWED_ORIGINS.includes(origin)) throw new HttpError(403, 'Origem não permitida.');
         const sessao = await sessaoAtual(request, env, 'usuario');
-        bloquearFerias(env);
+        if (emFerias(env, true)) bloquearFerias(env);
         const usuario = await env.DB.prepare(
           "SELECT id, nome, email, disciplina, CASE WHEN digitador = 1 THEN 'digitador' ELSE papel END AS papel FROM usuarios WHERE id = ? AND ativo = 1 AND papel IN ('professor','supervisor') AND (acesso_ate IS NULL OR acesso_ate >= date('now','-3 hours'))"
         ).bind(sessao.usuario_id).first();
         if (!usuario) throw new HttpError(401, 'Acesso desativado. Entre novamente.');
+        bloquearFerias(env, usuario.papel === 'digitador');
         return reply({ ok: true, usuario, expira_em: sessao.expira_em }, 200, origin);
       }
       if (url.pathname === '/api/login/sair' && request.method === 'POST') {

@@ -1,4 +1,4 @@
-// Tela de FÉRIAS: o ATLAS fica fechado para professores, supervisores e digitadores em julho e de 15/12 a 31/01.
+// Tela de FÉRIAS: professor e supervisor ficam fora em julho e de 15/12 a 31/01; digitador só em julho (o servidor decide).
 window.ATLAS_FERIAS = function (reabre, fechavel) {
   if (document.getElementById('atlas-ferias')) return;
   const mostrar = () => {
