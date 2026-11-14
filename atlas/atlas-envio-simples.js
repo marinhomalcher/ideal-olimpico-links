@@ -60,6 +60,7 @@ ${'abcde'.split('').map(l => `<div class="alt"><strong>${l.toUpperCase()}</stron
 </form>
 <dialog id="equation-dialog" aria-labelledby="eq-title"><h2 id="eq-title">Inserir equação</h2><label for="equation-input">Escreva a expressão em LaTeX</label><input id="equation-input" placeholder="Ex.: \\frac{a}{b}"><p class="hint">Use \\sen para seno em português. Dê dois cliques na equação para editar.</p><div id="equation-preview" aria-label="Prévia da equação"></div><p id="equation-error" class="field-error" role="alert" hidden>Revise a expressão: há um comando ou agrupamento inválido.</p><div class="modal-actions"><button type="button" class="secondary" onclick="this.closest('dialog').close()">Cancelar</button><button type="button" class="primary" id="equation-insert">Inserir</button></div></dialog>`;
 
+  const SEM_DISCIPLINA = 'Sem disciplina';
   function esc(v) { return String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
 
   function montar(area, opcoes) {
@@ -72,6 +73,9 @@ ${'abcde'.split('').map(l => `<div class="alt"><strong>${l.toUpperCase()}</stron
     const etapa = $('#es-etapa');
     const enviadas = [];
     let previsto = false, tentou = false, confirmarRepetida = false;
+    if (opcoes.naoSei) {   // digitador: "Não sei a disciplina" manda a questão para o ADM definir
+      const o = document.createElement('option'); o.value = SEM_DISCIPLINA; o.textContent = 'Não sei a disciplina (o ADM define)'; $('#es-disciplina').append(o);
+    }
     if (opcoes.disciplinaFixa) { $('#es-disciplina').value = opcoes.disciplinaFixa; }
     etapa.addEventListener('change', () => { $('#es-ano-row').hidden = etapa.value !== 'ef2'; if (etapa.value !== 'ef2') $('#es-ano').value = ''; });
 
@@ -93,7 +97,7 @@ ${'abcde'.split('').map(l => `<div class="alt"><strong>${l.toUpperCase()}</stron
     }
     function mostrarPrevia() {
       const d = coletar(), body = v => AtlasRich.clean(v);
-      let h = '<h2>Prévia da questão</h2><p class="hint">' + esc($('#es-disciplina').value) + ' · Acervo Ideal · sem classificação (o Supervisor classifica)</p>';
+      let h = '<h2>Prévia da questão</h2><p class="hint">' + esc($('#es-disciplina').value === SEM_DISCIPLINA ? 'Disciplina a definir pelo ADM' : $('#es-disciplina').value) + ' · Acervo Ideal · sem classificação (o Supervisor classifica)</p>';
       h += AtlasRich.textosHTML(d);
       h += '<div class="stem">' + body(d.comando) + '</div>';
       for (const l of 'abcde') h += '<div class="choice">' + l.toUpperCase() + ') ' + body(d['alt-' + l]) + '</div>' + AtlasRich.altRefHTML(d, l);
@@ -117,7 +121,7 @@ ${'abcde'.split('').map(l => `<div class="alt"><strong>${l.toUpperCase()}</stron
         rich.clear(); extrasCampo.escrever({}); $('#es-referencia').value = ''; $('#es-gabarito').value = ''; previa.hidden = true; previsto = false; tentou = false; marcar([]);
         enviadas.push(r.item.codigo); $('#es-sessao').hidden = false; $('#es-sessao-n').textContent = String(enviadas.length);
         const s = document.createElement('span'); s.textContent = r.item.codigo; $('#es-sessao-lista').append(s);
-        const ok = $('#es-ok'); ok.textContent = 'Questão enviada para o Supervisor de ' + disciplina + '. Código: ' + r.item.codigo + '. Pode digitar a próxima.'; ok.hidden = false;
+        const ok = $('#es-ok'); ok.textContent = (disciplina === SEM_DISCIPLINA ? 'Questão enviada ao ADM, que vai definir a disciplina.' : 'Questão enviada para o Supervisor de ' + disciplina + '.') + ' Pode digitar a próxima.'; ok.hidden = false;
         status.textContent = 'Enviada: ' + r.item.codigo + '.';
         if (opcoes.aoEnviar) opcoes.aoEnviar(r);
         area.scrollIntoView({ behavior: 'smooth', block: 'start' });

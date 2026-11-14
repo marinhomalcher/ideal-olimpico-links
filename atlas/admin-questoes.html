@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="pt-BR">
 <head>
-<meta name="atlas-versao" content="20261114e"><script src="atlas-versao.js?v=20261114e" defer></script>
+<meta name="atlas-versao" content="20261114f"><script src="atlas-versao.js?v=20261114f" defer></script>
 <meta charset="utf-8"><meta name="robots" content="noindex, nofollow"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="referrer" content="strict-origin-when-cross-origin">
 <title>ATLAS | Questões (Administração)</title>
@@ -60,13 +60,15 @@ aside a+a{margin-top:6px}aside a:not(.atual){background:transparent}
 </section>
 
 <div class="shell" id="app-view" hidden><aside><small>ÁREA DO ADM</small><a href="admin.html">Professores e disciplinas</a><a href="admin-questoes.html" class="atual">Questões</a><a href="admin-enviar.html">Enviar questões</a><a href="admin-relatorio.html">Relatório de produção</a><a href="admin-selecoes.html">Seleções recebidas</a></aside><main>
-<div class="crumb">Administrador / Questões</div><h1>Questões</h1><p class="lead">Busque uma questão pelo código, desfaça descartes (até 30 dias) e faça os consertos pedidos pelos supervisores.</p>
+<div class="crumb">Administrador / Questões</div><h1>Questões</h1><p class="lead">Defina a disciplina das questões que chegaram sem ela, busque uma questão pelo código, desfaça descartes (até 30 dias) e faça os consertos pedidos pelos supervisores.</p>
 <p class="status" id="app-status" role="status"></p>
 <section class="panel"><h2>Buscar questão pelo código</h2><form class="search-row" id="search-form"><input id="codigo" maxlength="8" placeholder="Ex.: M3156359" autocomplete="off" aria-label="Código da questão"><button type="submit" class="primary">Buscar</button></form></section>
 <section class="panel" id="img-panel" hidden><h2>Imagens antigas</h2><p class="hint" id="img-info"></p><button type="button" class="secondary" id="img-migrar">Mover imagens antigas para o armazenamento R2</button><p class="status" id="img-status" role="status"></p></section>
+<section class="panel" id="sem-disc-panel"><h2>Questões sem disciplina <span id="sem-disc-n" class="sit analise"></span></h2><p class="hint">Enviadas por digitador com "Não sei a disciplina" ou devolvidas por um supervisor (não eram da disciplina dele). Abra, descubra a disciplina certa e envie ao supervisor dela.</p><div class="table-wrap" id="sem-disc-list"></div></section>
 <section class="panel"><h2>Pedidos de conserto pendentes</h2><p class="hint">Pedidos feitos pelos supervisores em questões já aprovadas. Só a Administração faz o conserto.</p><div class="table-wrap" id="fix-list"></div></section>
 <section class="panel details" id="details" hidden><h2 id="det-title">Questão</h2><div id="item-content"></div>
 <div id="fix-pending" class="fix-box" hidden></div>
+<div id="definir-box" class="fix-box" hidden><p><strong>Esta questão está sem disciplina.</strong> <span id="definir-origem"></span></p><label for="definir-disc">Disciplina certa</label><div class="search-row"><select id="definir-disc"><option value="">Selecione a disciplina</option></select><button type="button" class="primary" id="definir-enviar">Enviar ao supervisor desta disciplina</button></div></div>
 <div class="actions"><button type="button" class="primary" id="undo-discard" hidden>Desfazer descarte</button><button type="button" class="primary" id="fix-item" hidden>Corrigir questão</button><button type="button" class="secondary" id="refuse-fix" hidden>Não atender o pedido</button></div>
 <p class="hint" id="undo-note" hidden></p>
 <div id="undo-confirm" class="adjust-form" hidden role="alertdialog"><p><strong id="undo-text">Desfazer o descarte?</strong> A questão volta para a fila de análise do Supervisor da disciplina.</p><div class="actions"><button type="button" class="secondary" id="cancel-undo">Cancelar</button><button type="button" class="primary" id="confirm-undo">Confirmar</button></div></div>
@@ -76,9 +78,9 @@ aside a+a{margin-top:6px}aside a:not(.atual){background:transparent}
 </main></div>
 <dialog id="equation-dialog" aria-labelledby="eq-title"><h2 id="eq-title">Inserir equação</h2><label for="equation-input">Escreva a expressão em LaTeX</label><input id="equation-input" placeholder="Ex.: \tan(\frac{\alpha+\beta}{2})"><p class="hint">Aceita LaTeX matemático, incluindo frações, raízes, funções trigonométricas e símbolos gregos. Use \sen para seno em português. Dê dois cliques na equação para editar.</p><div id="equation-preview" aria-label="Prévia da equação"></div><p id="equation-error" class="field-error" role="alert" hidden>Revise a expressão: há um comando ou agrupamento inválido.</p><div class="modal-actions"><button type="button" class="secondary" onclick="this.closest('dialog').close()">Cancelar</button><button type="button" class="primary" id="equation-insert">Inserir</button></div></dialog>
 <script src="https://cdn.jsdelivr.net/npm/katex@0.19.1/dist/katex.min.js" integrity="sha384-a1WQdjRj162i159OYq041X6I4K8NenkrI09LlPmiHg0YOb7CR+wJOraXwK9abpnE" crossorigin="anonymous"></script>
-<script src="atlas-editor.js?v=20261114e"></script>
-<script src="atlas-tags.js?v=20261114e"></script>
-<script src="atlas-classificacao.js?v=20261114e"></script>
+<script src="atlas-editor.js?v=20261114f"></script>
+<script src="atlas-tags.js?v=20261114f"></script>
+<script src="atlas-classificacao.js?v=20261114f"></script>
 <script>
 const API='https://atlas-api.marinhomalcher.workers.dev',GOOGLE_CLIENT_ID='432003570373-cscu1nvoldack2luihm9lnlsi9q2p115.apps.googleusercontent.com',TOKEN_KEY='atlas_adm_token';
 const $=s=>document.querySelector(s);
@@ -116,10 +118,29 @@ function msg(t,e=false){status($('#app-status'),t,e)}
 function esconderForms(){for(const f of ['#undo-confirm','#refuse-form','#edit-form'])$(f).hidden=true}
 async function showApp(email){
   $('#login-view').hidden=true;$('#app-view').hidden=false;$('#user-box').hidden=false;$('#role-label').hidden=true;$('#user-email').textContent=email||'';
+  await carregarSemDisciplina();
   await carregarConsertos();
   situacaoImagens();
   const q=new URLSearchParams(location.search).get('codigo');if(q){$('#codigo').value=q;abrir(q)}
 }
+let disciplinasLista=[];
+function textoPuro(html){return (new DOMParser().parseFromString(String(html||''),'text/html').body.textContent||'').replace(/\s+/g,' ').trim()}
+async function carregarSemDisciplina(){
+  const box=$('#sem-disc-list');box.innerHTML='<div class="empty">Carregando…</div>';let data;
+  try{data=await api('/api/adm/sem-disciplina')}catch(e){box.innerHTML='';if(e.message!=='__sessao__')msg(e.message,true);return}
+  disciplinasLista=data.disciplinas||[];const sel=$('#definir-disc');if(sel.options.length<=1)for(const d of disciplinasLista){const o=document.createElement('option');o.textContent=d;sel.append(o)}
+  $('#sem-disc-n').textContent=data.itens.length?String(data.itens.length):'';
+  box.replaceChildren();if(!data.itens.length){const d=document.createElement('div');d.className='empty';d.textContent='Nenhuma questão esperando disciplina.';box.append(d);return}
+  const t=document.createElement('table');t.innerHTML='<thead><tr><th>Início do comando</th><th>Enviada por</th><th>Por que está aqui</th><th>Data</th><th></th></tr></thead>';const b=document.createElement('tbody');
+  for(const it of data.itens){const r=document.createElement('tr');const cmd=textoPuro(it.comando);
+    const porque=it.devolvida_de?'Devolvida pelo supervisor de '+it.devolvida_de+(it.devolvida_por?' ('+it.devolvida_por+')':''):'Digitador não sabia a disciplina';
+    for(const v of [cmd.length>110?cmd.slice(0,110)+'…':cmd||'(sem texto)',it.autor_tipo==='adm'?'ADM':it.autor+(it.autor_tipo==='digitador'?' (digitador)':''),porque,quando(it.atualizado_em)]){const td=document.createElement('td');td.textContent=v;r.append(td)}
+    const td=document.createElement('td');const bt=document.createElement('button');bt.className='primary';bt.textContent='Abrir';bt.addEventListener('click',()=>{abrir(it.codigo)});td.append(bt);r.append(td);b.append(r)}
+  t.append(b);box.append(t)}
+$('#definir-enviar').addEventListener('click',async()=>{if(!current)return;const disc=$('#definir-disc').value;if(!disc){msg('Escolha a disciplina certa.',true);$('#definir-disc').focus();return}
+  const bt=$('#definir-enviar');bt.disabled=true;
+  try{await api('/api/adm/itens/'+encodeURIComponent(current.codigo)+'/disciplina',{method:'POST',body:{disciplina:disc}});$('#details').hidden=true;current=null;await carregarSemDisciplina();msg('Questão enviada ao Supervisor de '+disc+'.')}
+  catch(e){if(e.message!=='__sessao__')msg(e.message,true)}finally{bt.disabled=false}});
 async function carregarConsertos(){
   const box=$('#fix-list');box.innerHTML='<div class="empty">Carregando…</div>';let data;
   try{data=await api('/api/adm/consertos')}catch(e){box.innerHTML='';if(e.message!=='__sessao__')msg(e.message,true);return}
@@ -149,6 +170,7 @@ async function abrir(codigo){
   const fp=$('#fix-pending');if(pend){fp.innerHTML='<p><strong>Pedido de conserto pendente</strong> — '+escapeHTML(pend.solicitante)+', '+escapeHTML(quando(pend.criado_em))+'</p><p>'+escapeHTML(pend.motivo)+'</p><p class="hint">Ao salvar a correção, o pedido é marcado como feito e o Supervisor é avisado.</p>';fp.hidden=false}else fp.hidden=true;
   $('#fix-item').hidden=item.situacao!=='aprovado';$('#fix-item').textContent=pend?'Fazer o conserto':'Corrigir questão';$('#refuse-fix').hidden=!pend;
   $('#undo-discard').hidden=!item.pode_desfazer;
+  const semDisc=item.disciplina==='Sem disciplina'&&item.situacao==='analise';$('#definir-box').hidden=!semDisc;if(semDisc){$('#definir-disc').value='';$('#definir-origem').textContent=item.autor_tipo==='digitador'?'Enviada pelo digitador '+item.autor+'.':'Enviada pela Administração.'}
   const note=$('#undo-note');if(item.retirada){note.textContent='Retirada do banco junto com as questões autorais do professor desligado. Para devolvê-la, use "Questões retiradas" em Professores e disciplinas.';note.hidden=false}else if(item.situacao==='descartado'){const dias=item.descartado_em?Math.floor((Date.now()-Date.parse(item.descartado_em))/86400000):null;
     note.textContent=item.pode_desfazer?'Descartada em '+quando(item.descartado_em)+'. Ainda dá para desfazer (prazo de '+item.prazo_dias+' dias; restam '+Math.max(0,item.prazo_dias-dias)+').':'Descartada em '+quando(item.descartado_em)+'. O prazo de '+item.prazo_dias+' dias para desfazer já terminou.';note.hidden=false}else note.hidden=true;
   $('#details').hidden=false;$('#details').scrollIntoView({behavior:'smooth',block:'start'})}
