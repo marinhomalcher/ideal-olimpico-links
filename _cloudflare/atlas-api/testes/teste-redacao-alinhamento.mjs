@@ -69,6 +69,16 @@ function pdfDeJpegs(paginas) {
 
 /* Desenho da folha fictícia e do "scanner" (rodam no navegador). */
 const FOLHA_JS = `
+/* Code 128: dígitos em número par usam o conjunto C; ímpar começa no B e troca para o C. Devolve as larguras. */
+window.code128 = function (txt) {
+  const C = window.AtlasAlinhamento.C128, vals = [];
+  if (/^\d+$/.test(txt) && txt.length % 2 === 0) { vals.push(105); for (let i = 0; i < txt.length; i += 2) vals.push(Number(txt.slice(i, i + 2))); }
+  else if (/^\d+$/.test(txt)) { vals.push(104, txt.charCodeAt(0) - 32, 99); for (let i = 1; i < txt.length; i += 2) vals.push(Number(txt.slice(i, i + 2))); }
+  else { vals.push(104); for (const ch of txt) vals.push(ch.charCodeAt(0) - 32); }
+  let soma = vals[0]; for (let i = 1; i < vals.length; i++) soma += i * vals[i];
+  vals.push(soma % 103);
+  return (vals.map(v => C[v]).join('') + '2331112').split('').map(Number);
+};
 window.folhaTeste = function (op = {}) {
   const A = window.AtlasAlinhamento, W = 1240, H = Math.round(W * A.MODELO.proporcao);
   const c = document.createElement('canvas'); c.width = W; c.height = H;
@@ -84,10 +94,11 @@ window.folhaTeste = function (op = {}) {
   x.fillText('Data de Nascimento: ' + (op.avulsa ? '' : '01/01/2009'), 0.07 * W, 0.165 * H);
   x.lineWidth = 3; x.strokeRect(0.80 * W, 0.06 * H, 0.13 * W, 0.04 * H); x.font = 'bold 30px Arial'; x.fillText('1º DIA', 0.815 * W, 0.09 * H);
   x.fillStyle = '#c8102e'; x.fillRect(0.66 * W, 0.105 * H, 0.27 * W, 0.022 * H); x.fillStyle = '#fff'; x.font = 'bold 12px Arial'; x.fillText('NÚMERO DE MATRÍCULA        SÉRIE', 0.68 * W, 0.12 * H);
-  x.fillStyle = '#000'; x.font = 'bold 20px Arial'; if (!op.avulsa) x.fillText('00000          3ª SÉRIE', 0.72 * W, 0.15 * H);
+  x.fillStyle = '#000'; x.font = 'bold 20px Arial'; if (!op.avulsa) x.fillText((op.ra || '73519') + '          3ª SÉRIE', 0.72 * W, 0.15 * H);
   /* linha da assinatura em vermelho, quase encostando no marcador de cima à esquerda */
   x.fillStyle = '#c8102e'; x.fillRect(0.075 * W, 0.1826 * H + 1, 0.85 * W, 2);
-  if (!op.avulsa) { x.fillStyle = '#000'; let px = 0.48 * W, i = 0; while (px < 0.71 * W) { const g = 2 + (i * 7 % 5); x.fillRect(px, 0.02 * H, g, 0.03 * H); px += g + 2 + (i * 3 % 4); i++; } }
+  /* código de barras Code 128 com o RA (como na folha real) */
+  if (!op.avulsa) { const larg = window.code128(op.ra || '73519'), mod = 3, tot = larg.reduce((a, b) => a + b, 0) * mod; let px = 0.59 * W - tot / 2; larg.forEach((l, k) => { if (k % 2 === 0) { x.fillStyle = '#000'; x.fillRect(px, 0.02 * H, l * mod, 0.03 * H); } px += l * mod; }); }
   /* instruções */
   x.fillStyle = '#000'; x.font = '13px Arial';
   for (let i = 0; i < 3; i++) x.fillText((i + 1) + '. Instrução de teste para a folha fictícia de redação, linha ' + (i + 1) + '.', 0.12 * W, (0.205 + i * 0.012) * H);
@@ -176,7 +187,7 @@ const casos = await page.evaluate(() => {
   const A = window.AtlasAlinhamento, folha = window.folhaTeste(), avulsa = window.folhaTeste({ avulsa: true }), out = [];
   const roda = (nome, f, op) => {
     const t0 = performance.now(), r = A.analisar(window.escanear(f, op)), ms = performance.now() - t0;
-    out.push({ nome, op, ms, erro: window.erroAlinhamento(f, op, r), incl: r.inclinacao, inv: r.invertida, marc: r.marcadores, avisos: r.avisos });
+    out.push({ nome, op, ms, erro: window.erroAlinhamento(f, op, r), incl: r.inclinacao, inv: r.invertida, marc: r.marcadores, avisos: r.avisos, ra: r.ra });
   };
   const angulos = [0, 0.3, -0.6, 1.2, -2, 3.5, -5];
   angulos.forEach((ang, i) => roda('folha ' + ang + '°', folha, { ang, dx: [0, 12, -20, 8, -5, 25, -15][i], dy: [0, -9, 14, 30, -22, 5, 18][i], escala: [1, 0.98, 1.02, 1, 0.99, 1.01, 1][i], cinza: i % 2 === 1 }));
@@ -197,6 +208,15 @@ ok('Folha de cabeça para baixo é virada sozinha', inv.every(c => c.inv && c.er
 const av = casos.filter(c => c.nome.startsWith('avulsa'));
 ok('Folha avulsa (sem nome nem código) também alinha', !av[0].inv && av[0].erro <= 2.5 && av[0].marc === 4, JSON.stringify(av[0]));
 ok('Avulsa de cabeça para baixo também é virada', av[1].inv && av[1].erro <= 2.5, JSON.stringify(av[1]));
+ok('RA lido em todas as folhas (inclinadas, em cinza, de cabeça para baixo)', [...normais, ...inv].every(c => c.ra === '73519'), [...normais, ...inv].map(c => c.ra).join(' '));
+ok('Folha avulsa fica sem RA', av.every(c => c.ra === null), av.map(c => c.ra).join(' '));
+const cod = await page.evaluate(() => {
+  const A = window.AtlasAlinhamento, ida = t => A.decodificar(window.code128(t).map(x => x * 3));
+  const ruim = window.code128('73519').map(x => x * 3); ruim[13] += 3; ruim[14] -= 3;   /* um símbolo trocado: o dígito verificador não confere */
+  return { par: ida('123456'), impar: ida('73519'), texto: ida('AB-12'), ruim: A.decodificar(ruim) };
+});
+ok('Code 128 decodifica conjuntos B e C, com troca', cod.par === '123456' && cod.impar === '73519' && cod.texto === 'AB-12', JSON.stringify(cod));
+ok('Código com dígito verificador errado é descartado', cod.ruim === null, cod.ruim);
 const tres = casos.filter(c => c.nome.startsWith('sem o marcador'));
 ok('Com só 3 marcadores, alinha e avisa', tres.every(c => c.marc === 3 && c.erro <= 3 && c.avisos.some(a => a.includes('3 dos 4'))), tres.map(c => c.marc + '/' + c.erro.toFixed(1)).join(' '));
 ok('Análise rápida (< 1,5 s por página)', casos.every(c => c.ms < 1500), Math.max(...casos.map(c => c.ms)).toFixed(0) + ' ms');
@@ -269,12 +289,77 @@ ok('Prévia cabe no celular', await page.evaluate(() => document.documentElement
 await page.locator('#align-close').click();
 ok('Fechar esconde a prévia', await page.locator('#align-viewer').isHidden());
 
+// ---------- 3. digitalizador: leitura do RA e conferência da turma antes do envio ----------
+await page.addScriptTag({ content: FOLHA_JS });   /* a página foi recarregada */
+const pdfDe = async lista => pdfDeJpegs((await page.evaluate(l => l.map(o => { const c = window.escanear(window.folhaTeste(o.folha), o.scan); return { jpeg: window.jpeg(c), w: c.width, h: c.height }; }), lista)).map(j => ({ ...j, jpeg: Buffer.from(j.jpeg, 'base64') })));
+const turmas = (await api('/api/adm/redacao/turmas')).data.turmas;
+const t2 = turmas.find(t => t.unidade === 'BC' && t.codigo === '2EMA'), tcn = turmas.find(t => t.unidade === 'CN' && t.codigo === '3EMA');
+const pdfCerto = await pdfDe([{ folha: { ra: '11111' }, scan: { ang: 0.7 } }, { folha: { ra: '22222' }, scan: { ang: 179.5, cinza: true } }, { folha: { avulsa: true }, scan: { ang: -0.4 } }]);
+const pdfErrado = await pdfDe([{ folha: { ra: '33333' }, scan: { ang: 1 } }, { folha: { ra: '44444' }, scan: { ang: -1 } }, { folha: { ra: '55555' }, scan: { ang: 0.3 } }]);
+/* API: sem cadastro, todo RA fica "fora do cadastro" e a resposta avisa. */
+r = await api('/api/redacao/lotes/conferir', 'POST', { turma_id: bc.id, ras: ['11111'] }, 'bc-token');
+ok('Conferência avisa que o cadastro de alunos está vazio', r.status === 200 && r.data.cadastro_vazio && r.data.alunos[0].situacao === 'fora_cadastro', JSON.stringify(r.data));
+const aluno = db.prepare('INSERT INTO redacao_alunos (ra, nome, turma_id, ano, segmento, serie) VALUES (?, ?, ?, ?, ?, ?)');
+const ano = db.prepare('SELECT ano FROM redacao_turmas WHERE id = ?').get(bc.id).ano;
+aluno.run('11111', 'ALUNO TESTE UM', bc.id, ano, 'EM', '3ª Série');
+aluno.run('22222', 'ALUNO TESTE DOIS', bc.id, ano, 'EM', '3ª Série');
+aluno.run('33333', 'ALUNO TESTE TRES', t2.id, ano, 'EM', '2ª Série');
+aluno.run('44444', 'ALUNO TESTE QUATRO', t2.id, ano, 'EM', '2ª Série');
+aluno.run('55555', 'ALUNO TESTE CINCO', tcn.id, ano, 'EM', '3ª Série');
+r = await api('/api/redacao/lotes/conferir', 'POST', { turma_id: bc.id, ras: ['11111', '33333', '55555', '99999'] }, 'bc-token');
+const sit = Object.fromEntries((r.data.alunos || []).map(x => [x.ra, x]));
+ok('Conferência separa turma, outra turma, outra unidade e fora do cadastro', r.status === 200 && sit['11111'].situacao === 'turma' && sit['33333'].situacao === 'outra_turma' && sit['33333'].codigo === '2EMA' && sit['55555'].situacao === 'outra_unidade' && sit['99999'].situacao === 'fora_cadastro', JSON.stringify(r.data));
+ok('Aluno de outra unidade não mostra nome nem turma', !sit['55555'].nome && !sit['55555'].codigo);
+r = await api('/api/redacao/lotes/conferir', 'POST', { turma_id: tcn.id, ras: ['11111'] }, 'bc-token');
+ok('Digitalizador não confere turma de outra unidade', r.status === 404, r.status);
+r = await api('/api/redacao/lotes/conferir', 'POST', { turma_id: bc.id, ras: ['11111'] }, 'prof-inexistente');
+ok('Conferência exige login de digitalizador', r.status === 401 || r.status === 403, r.status);
+r = await api('/api/redacao/lotes/conferir', 'POST', { turma_id: bc.id, ras: ['12a'] }, 'bc-token');
+ok('RA inválido é recusado', r.status === 400, r.status);
+ok('Conferência não grava nada', db.prepare('SELECT COUNT(*) AS n FROM redacao_lotes').get().n === 1);
+
+/* Tela do digitalizador */
+await page.setViewportSize({ width: 1280, height: 900 });
+await page.evaluate(() => sessionStorage.setItem('atlas_user_auth', JSON.stringify({ token: 'bc-token' })));
+await page.goto(base + '/redacao.html');
+await page.locator('#upload-area').waitFor({ state: 'visible' });
+await page.locator('#bimestre').selectOption('1');
+await page.locator('#unidade').selectOption('BC');
+await page.locator('#segmento').selectOption('EM');
+await page.locator('#serie').selectOption('3ª Série');
+await page.locator('#turma').selectOption(String(bc.id));
+const esperaRelatorio = () => page.waitForFunction(() => { const t = document.querySelector('#ra-report').textContent; return /RAs? lidos?/.test(t) && !/conferindo|Lendo/.test(t); }, null, { timeout: 40000 });
+await page.locator('#pdf-file').setInputFiles({ name: 'turma.pdf', mimeType: 'application/pdf', buffer: pdfCerto });
+await esperaRelatorio();
+let rel = await page.locator('#ra-report').textContent();
+ok('Relatório: 3 páginas, 2 RAs lidos, 2 da turma, 1 avulsa', /3 páginas · 2 RAs lidos · 2 da turma 3EMA/.test(rel) && /1 folha sem código de barras/.test(rel) && !/bloqueado/.test(rel), rel);
+ok('Turma certa: envio liberado', await page.locator('#send-file').isEnabled());
+await page.locator('#ra-report summary').click();
+ok('Página por página mostra RA, aluno e situação', await page.locator('#ra-report tbody tr').count() === 3 && /11111.*ALUNO TESTE UM.*da turma/.test(await page.locator('#ra-report tbody tr').nth(0).textContent()) && /avulsa/.test(await page.locator('#ra-report tbody tr').nth(2).textContent()));
+await page.locator('#pdf-file').setInputFiles({ name: 'errado.pdf', mimeType: 'application/pdf', buffer: pdfErrado });
+await esperaRelatorio();
+rel = await page.locator('#ra-report').textContent();
+ok('PDF de outra turma: envio bloqueado e explicado', /Envio bloqueado: 3 das 3 folhas lidas são de alunos de outra turma \(2EMA\)/.test(rel) && await page.locator('#send-file').isDisabled(), rel);
+ok('Aluno de outra unidade aparece sem nome', /aluno de outra unidade/.test(rel) && !/ALUNO TESTE CINCO/.test(rel));
+await page.locator('#serie').selectOption('2ª Série');
+await page.locator('#turma').selectOption(String(t2.id));
+await esperaRelatorio();
+rel = await page.locator('#ra-report').textContent();
+ok('Ao escolher a turma certa, a conferência refaz e libera (2 de 3 = maioria)', /2 da turma 2EMA/.test(rel) && !/bloqueado/.test(rel) && await page.locator('#send-file').isEnabled(), rel);
+await page.locator('#send-file').click();
+await page.waitForFunction(() => document.querySelector('#upload-status').textContent.includes('Lote recebido.'), null, { timeout: 15000 }).catch(() => {});
+ok('Envio conferido é recebido e o relatório some', /Lote recebido/.test(await page.locator('#upload-status').textContent()) && await page.locator('#ra-report').isHidden());
+await page.setViewportSize({ width: 390, height: 840 });
+ok('Tela do digitalizador cabe no celular', await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+await page.setViewportSize({ width: 1280, height: 900 });
+await page.evaluate(() => sessionStorage.setItem('atlas_adm_token', 'adm-token'));
+
 // Biblioteca de PDF alterada no caminho: a tela recusa e explica.
 pdfjsAdulterado = true;
 await page.setViewportSize({ width: 1280, height: 900 });
-await page.reload();
+await page.goto(base + '/redacao-lotes-admin.html');
 await page.locator('#app').waitFor({ state: 'visible' });
-await page.getByRole('button', { name: 'Ver páginas alinhadas' }).click();
+await page.getByRole('button', { name: 'Ver páginas alinhadas' }).first().click();
 await page.waitForFunction(() => /não confere/.test(document.querySelector('#align-summary').textContent), null, { timeout: 15000 }).catch(() => {});
 ok('Leitor de PDF alterado é recusado', /não confere/.test(await page.locator('#align-summary').textContent()), await page.locator('#align-summary').textContent());
 /* Login do ADM volta para a página de Lotes. */
