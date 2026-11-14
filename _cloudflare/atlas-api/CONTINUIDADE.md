@@ -1,6 +1,6 @@
 # ATLAS — continuidade (para o assistente que pegar o trabalho)
 
-Atualizado em **14/11/2026**, depois das migrações automáticas do D1 no deploy e do merge feito pelo assistente. Responsável: **Marinho (João Marinho Malcher), Grupo Ideal**. O ADM é só ele.
+Atualizado em **14/11/2026**, após os PRs [#93](https://github.com/marinhomalcher/ideal-olimpico-links/pull/93) e [#94](https://github.com/marinhomalcher/ideal-olimpico-links/pull/94). Responsável: **Marinho (João Marinho Malcher), Grupo Ideal**. O ADM é só ele.
 
 Leia isto inteiro antes de mexer. Converse com o Marinho **sempre em português**, passo a passo, com **link direto**, sem jargão ("console", "branch") sem explicar.
 
@@ -12,8 +12,8 @@ ATLAS = banco de questões (BQI) do Grupo Ideal. Professor cadastra → Supervis
 |---|---|
 | Telas | https://idealolimpico.com.br/atlas/ (GitHub Pages; pasta `atlas/`) |
 | Servidor | Cloudflare Worker `atlas-api` (`_cloudflare/atlas-api/worker.js`), publicado sozinho a cada merge na `main` |
-| Banco | Cloudflare D1 `atlas-teste` (será o oficial). **Schema v10** |
-| Imagens e cópias | R2 `atlas-imagens` (`img/` imagens, `backups/` cópia diária 3h17 de Brasília) |
+| Banco | Cloudflare D1 `atlas-teste` (será o oficial). **Schema v11** |
+| Imagens e cópias | R2 `atlas-imagens` (`img/` imagens, `redacao/` PDFs originais privados, `backups/` cópia diária 3h17 de Brasília) |
 | E-mails | Microsoft Graph como `olimpiadas@grupoideal.com.br`; reserva: Apps Script (`ATLAS_MAILER_URL`) |
 | Portal de inscrições | mesmo repositório (`index.html`, `inscricoes/`, `teste-inscricoes/`) — **NÃO MEXER** |
 
@@ -39,7 +39,7 @@ cd _cloudflare/atlas-api/testes && ./rodar.sh            # todas
 ./rodar.sh itens retirada                                # só algumas
 ```
 
-Ambiente: Node 22+ (usa `node:sqlite`), npm com internet e Playwright com Chromium. Instale o Playwright **fora do repositório** (não há `.gitignore`): `npm install --prefix /tmp/pw playwright && npx --prefix /tmp/pw playwright install --with-deps chromium && export NODE_PATH=/tmp/pw/node_modules`. Todas as suítes usam a data fixa 13/11/2026 (`ATLAS_HOJE_TESTE`). `preparar.sh` baixa KaTeX e ExcelJS via npm para `$ATLAS_TESTE_TMP` (padrão `/tmp/atlas-testes`). Os testes de seleções/edição às vezes falham por tempo de tela: rode de novo antes de investigar. Todas as suítes usam a data fixa 13/11/2026 (`ATLAS_HOJE_TESTE`), para não falharem nas férias; o navegador da suíte `ferias` também tem o relógio fixo. Ao mudar a versão do schema, atualize as verificações "Schema N" em `teste-adm`, `teste-login` e `teste-selecoes`.
+Ambiente: Node 22+ (usa `node:sqlite`), npm com internet e Playwright com Chromium. Instale o Playwright **fora do repositório** (não há `.gitignore`): `npm install --prefix /tmp/pw playwright && npx --prefix /tmp/pw playwright install --with-deps chromium && export NODE_PATH=/tmp/pw/node_modules`. `preparar.sh` baixa KaTeX e ExcelJS via npm para `$ATLAS_TESTE_TMP` (padrão `/tmp/atlas-testes`). Os testes de seleções/edição às vezes falham por tempo de tela: rode de novo antes de investigar. Todas as suítes usam a data fixa 13/11/2026 (`ATLAS_HOJE_TESTE`), para não falharem nas férias; o navegador da suíte `ferias` também tem o relógio fixo. Ao mudar a versão do schema, atualize as verificações "Schema N" em `teste-adm`, `teste-login` e `teste-selecoes`.
 
 ## 4. Regras do Marinho (valem sempre)
 
@@ -70,10 +70,10 @@ Ambiente: Node 22+ (usa `node:sqlite`), npm com internet e Playwright com Chromi
 
 ## 6. Próximos passos combinados
 
-1. **Piloto** com uma disciplina (2–3 professores + supervisor + o digitador Helio). Guias: "Guias do ATLAS para o piloto" (documento no claude.ai do Marinho).
+1. **Piloto do BQI:** Matemática foi escolhida, mas ainda não começou. O Marinho conversará com a equipe para definir os professores que farão testes de inserção de questões. Guias: "Guias do ATLAS para o piloto" (documento no claude.ai do Marinho).
 2. Depois do piloto: zerar o banco (só quando ele pedir) e lançar.
 3. Ideias em aberto: importar provas antigas do Word; endereço próprio para a API (`api.idealolimpico.com.br`); passar o repositório para uma organização "Grupo Ideal" no GitHub.
 4. BQI etapa 2 (depois): importar resultados por planilha, anulações, taxa de acerto por questão. O ATLAS não calcula nota de aluno.
 5. **Redação, etapa 1 (schema v10):** entrada Redação na página inicial, portal inicial com turmas/unidades vinculadas e cadastros próprios na área do ADM. Turmas iniciais de EM: 1EMA/2EMA/3EMA nas três unidades, e 1MED/2MED/3MED em BC e CN; outras turmas surgem pelo cadastro manual ou importação. Professores de redação são vinculados às turmas; digitalizadores, às unidades. A planilha completa `NOME COMPLETO, RA, FILIAL, SÉRIE, CODTURMA, SEGMENTO` é conferida antes de importar: RA único, novos alunos cadastrados, nome/turma/unidade atualizados; troca de série ou segmento dentro do mesmo ano bloqueia a importação. Nenhum aluno é apagado por estar ausente de uma atualização. O cadastro anual de alunos é eliminado na virada do ano somente depois de uma cópia diária bem-sucedida. As novas tabelas entram no backup diário do R2. **Ainda não há upload nem correção de redações nesta etapa.**
 6. **Redação, etapa 2A (schema v11):** o digitalizador escolhe bimestre/unidade/segmento/série/turma e envia um PDF de até 50 MB. O PDF original fica privado no R2; só digitalizador da unidade e ADM podem abrir. O banco guarda um lote ativo por ano/bimestre/turma; o digitalizador confere o arquivo guardado e pode cancelar seus próprios lotes por 2 horas. O ADM vê todos os lotes e pode cancelar depois desse prazo. O cancelamento libera o slot e remove o PDF, com nova tentativa automática de exclusão se o R2 falhar. Não há e-mail à professora nem correção nesta fase. A visualização usa o leitor de PDF do navegador; não há separação por aluno nesta etapa.
-7. **Redação, próximas etapas:** leitura do RA pelo código de barras, separação por aluno e alinhamento pelos marcadores precisam ser validados com um PDF realmente escaneado. Depois vêm correção por competências, exceções, relatórios Excel e backup dos PDFs no OneDrive institucional quando a TI liberar a integração. A professora pode corrigir notas enviadas por competência; o total é recalculado e o Excel corrigido é reenviado. O ADM pode consultar as notas. Aluno que muda de turma/unidade após a avaliação é tratado fora do sistema, por exceção.
+7. **Redação, próximas etapas:** leitura do RA pelo código de barras, separação por aluno e alinhamento pelos marcadores precisam ser validados com um PDF realmente escaneado; o arquivo nominal gerado não substitui esse teste. Depois vêm correção por competências, exceções, relatórios Excel e backup dos PDFs no OneDrive institucional quando a TI liberar a integração. A professora pode corrigir notas enviadas por competência; o total é recalculado e o Excel corrigido é reenviado. O ADM pode consultar as notas. Aluno que muda de turma/unidade após a avaliação é tratado fora do sistema, por exceção. Os mockups e as decisões detalhadas estão em `D:\CEREBRO\GPT\ATLAS_CONTINUIDADE_CLAUDE.md` e `D:\CEREBRO\GPT\ATLAS_REDACAO_REFERENCIAS\` no computador do Marinho; não são telas publicadas.
