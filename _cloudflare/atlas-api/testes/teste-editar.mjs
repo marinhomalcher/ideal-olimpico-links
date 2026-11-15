@@ -135,6 +135,8 @@ await page.click('#edit-item');await page.waitForSelector('#edit-form:not([hidde
 ok('Tela: formulário de edição carrega a questão', (await page.textContent('#alt-a'))==='A1' && (await page.inputValue('#gabarito'))==='C');
 await page.evaluate(()=>document.querySelector('#alt-b').replaceChildren());await paste('#alt-b','B com $x^2$');await page.selectOption('#gabarito','B');
 await page.click('#save-edit');await page.waitForFunction(()=>document.querySelector('#notice').textContent.includes('versão 2'));
+/* A tela mostra o aviso "versão 2" e só depois recarrega o conteúdo: espera o texto (sem isso o teste olhava cedo demais e oscilava). */
+await page.waitForFunction(()=>(document.querySelector('#item-content')?.textContent||'').includes('editada pelo Supervisor'),null,{timeout:8000}).catch(()=>{});
 ok('Tela: edição salva (versão 2) e histórico de versões aparece', (await page.textContent('#item-content')).includes('editada pelo Supervisor'));
 const d3=JSON.parse(db.prepare('SELECT v.dados FROM item_versoes v JOIN itens i ON i.id=v.item_id WHERE i.codigo=? AND v.versao=2').get(c3).dados);
 ok('Edição gravada com fórmula e gabarito novo', d3['alt-b'].includes('atlas-equation') && d3.gabarito==='B' && d3.assunto==='Romantismo');
