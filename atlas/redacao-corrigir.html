@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="pt-BR">
 <head>
-<meta name="atlas-versao" content="20261115m"><script src="atlas-versao.js?v=20261115m" defer></script><script src="atlas-alinhamento.js?v=20261115m"></script>
+<meta name="atlas-versao" content="20261115n"><script src="atlas-versao.js?v=20261115n" defer></script><script src="atlas-alinhamento.js?v=20261115n"></script>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="robots" content="noindex,nofollow"><title>ATLAS | Correção de redações</title>
 <style>
@@ -40,6 +40,15 @@ label.rot{font-size:13px;font-weight:700}
 .est-pendente{color:#8a4b00}.est-corrigida{color:#1f7a3f}.est-condenada{color:#a01e2a}
 .fim{padding:30px;text-align:center}
 [hidden]{display:none!important}
+.comp{grid-template-columns:42px 1fr!important;row-gap:8px}.comp.feita{border-color:#9cc6cc;background:#f5fbfb}
+.notas{grid-column:1/-1;display:grid;grid-template-columns:repeat(6,1fr);gap:6px}
+.notas button{border:1px solid #c9d5de;background:#fff;color:var(--ink);border-radius:8px;height:36px;font:700 15px Arial,sans-serif;padding:0}
+.notas button:hover:not(:disabled){border-color:var(--navy)}.notas button.on{background:var(--navy);border-color:var(--navy);color:#fff;box-shadow:0 2px 6px #10283e44}
+.notas button:disabled{opacity:.45;cursor:not-allowed}.notas .vaga{visibility:hidden}
+.mt-bar{display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:8px 16px;border-bottom:1px solid var(--line);background:#fbfcfd}
+.mt-bar .tool.on{background:#fff3c4;border-color:#e0b100}.mt-bar small{color:var(--muted);font-size:12px;margin-left:6px}
+#folha.marcando{cursor:crosshair;touch-action:none}#folha.apagando{cursor:pointer}
+#mt-previa{position:fixed;z-index:20;background:#ffd54a;opacity:.5;pointer-events:none;border-radius:2px}
 @media(max-width:1000px){main{grid-template-columns:minmax(0,1fr)}.painel{position:static}.folha-card{min-height:0}.school-logo{display:none}}
 @media(max-width:650px){header{padding:0 12px}.brand span{display:none}.comp{grid-template-columns:38px 1fr 84px}.motivo{margin-left:0}}
 </style>
@@ -52,6 +61,7 @@ label.rot{font-size:13px;font-weight:700}
 <section class="card folha-card"><div class="folha-bar"><div><strong>Folha digitalizada</strong> <small id="folha-info">1 página · alinhamento automático</small></div>
 <div class="tools"><button type="button" class="tool on" id="z-pagina">Página inteira</button><button type="button" class="tool" id="z-menos" aria-label="Diminuir zoom">−</button><span class="tool-val" id="z-val">100%</span><button type="button" class="tool" id="z-mais" aria-label="Aumentar zoom">+</button>
 <button type="button" class="tool" id="a-menos" title="Girar 0,25° no sentido anti-horário">↶ −0,25°</button><span class="tool-val" id="a-val">0,00°</span><button type="button" class="tool" id="a-mais" title="Girar 0,25° no sentido horário">+0,25° ↷</button><button type="button" class="tool" id="a-auto" title="Volta ao alinhamento automático">Auto</button></div></div>
+<div class="mt-bar" id="mt-bar"><button type="button" class="tool" id="mt-on" aria-pressed="false">🖍 Marca-texto</button><button type="button" class="tool" id="mt-apagar" aria-pressed="false">Borracha</button><button type="button" class="tool" id="mt-desfazer">↺ Desfazer</button><small id="mt-info">Ligue o marca-texto e arraste sobre a linha. O aluno verá os destaques no espelho.</small></div>
 <div class="folha-area" id="area"><canvas id="folha" width="10" height="14" aria-label="Folha da redação"></canvas></div></section>
 <section class="card painel" id="painel">
 <div class="topo"><div><small id="pos">REDAÇÃO</small><h2 id="aluno"></h2><div class="sub" id="sub"></div></div><div class="timer" id="timer-box"><small id="timer-rot">TEMPO DE CORREÇÃO</small><b id="timer">00:00</b></div></div>
@@ -66,6 +76,7 @@ label.rot{font-size:13px;font-weight:700}
 <p id="status" class="status" role="status"></p>
 </section>
 </main>
+<div id="mt-previa" hidden></div>
 <section class="card fim" id="fim" hidden><h2>Todas as redações deste lote foram corrigidas.</h2><p>Você pode revisar qualquer uma pela lista. <button type="button" class="lista-btn" id="fim-lista">Abrir a lista</button> · <a href="redacao.html">Voltar às minhas turmas</a></p></section>
 <div class="lista" id="lista" hidden role="dialog" aria-modal="true" aria-label="Redações do lote"><div class="lista-box"><header><strong>Redações do lote</strong><button type="button" class="tool" id="fechar-lista">Fechar</button></header><ol id="lista-itens"></ol></div></div>
 <script>
@@ -87,26 +98,32 @@ function montarPainel(){
   for(const [k,t,s] of COMPS){
     const row=document.createElement('div');row.className='comp';row.innerHTML='<span class="tag"></span><span><strong></strong><small></small></span>';
     row.querySelector('.tag').textContent=k.toUpperCase();row.querySelector('strong').textContent=t;row.querySelector('small').textContent=s;
-    const sel=document.createElement('select');sel.id='sel-'+k;sel.setAttribute('aria-label','Nota da '+k.toUpperCase());sel.append(new Option('—',''));for(const v of (k==='c2'?ESCALA_C2:ESCALA))sel.append(new Option(String(v),String(v)));
-    sel.addEventListener('change',recalcular);row.append(sel);box.append(row);
+    /* Notas por botões: clicar marca; clicar de novo no mesmo desmarca; clicar em outro troca. */
+    const g=document.createElement('div');g.className='notas';g.id='sel-'+k;g.dataset.valor='';g.setAttribute('role','group');g.setAttribute('aria-label','Nota da '+k.toUpperCase());
+    for(const v of ESCALA){const b=document.createElement('button');b.type='button';b.textContent=String(v);b.dataset.v=String(v);b.setAttribute('aria-pressed','false');
+      if(k==='c2'&&v===0){b.className='vaga';b.tabIndex=-1;b.setAttribute('aria-hidden','true')}
+      else b.addEventListener('click',()=>{marcarNota(k,g.dataset.valor===String(v)?'':String(v));recalcular()});g.append(b)}
+    row.append(g);box.append(row);
     if(k==='c5'){const m=document.createElement('div');m.className='motivo';m.id='c5-motivo-box';m.hidden=true;const ms=document.createElement('select');ms.id='c5-motivo';ms.setAttribute('aria-label','Motivo da nota zero na C5');ms.append(new Option('Motivo da nota zero na C5…',''));for(const x of L.motivos.c5)ms.append(new Option(x,x));m.append(ms);box.append(m)}
   }
   $('#zero').replaceChildren(new Option('Zerar a redação inteira por critério…',''),...L.motivos.zero.map(x=>new Option(x,x)));
   $('#zero').addEventListener('change',recalcular);
   $('#cond-motivo').replaceChildren(new Option('Escolha o motivo…',''),...L.motivos.condenar.map(x=>new Option(x,x)));
 }
-function valores(){const v={};for(const [k] of COMPS)v[k]=$('#sel-'+k).value;return v}
+function marcarNota(k,v){const g=$('#sel-'+k);g.dataset.valor=v;for(const b of g.querySelectorAll('button[data-v]')){const on=b.dataset.v===v;b.classList.toggle('on',on);b.setAttribute('aria-pressed',String(on))}g.closest('.comp').classList.toggle('feita',v!=='')}
+function valores(){const v={};for(const [k] of COMPS)v[k]=$('#sel-'+k).dataset.valor;return v}
 function recalcular(){
-  const zero=$('#zero').value;for(const [k] of COMPS)$('#sel-'+k).disabled=!!zero||travada();
+  const zero=$('#zero').value;for(const [k] of COMPS)for(const b of $('#sel-'+k).querySelectorAll('button:not(.vaga)'))b.disabled=!!zero||travada();
   const v=valores();$('#c5-motivo-box').hidden=!!zero||v.c5!=='0';
   if(zero){$('#total').textContent='0';return}
   const ok=COMPS.every(([k])=>v[k]!=='');$('#total').textContent=ok?String(COMPS.reduce((s,[k])=>s+Number(v[k]),0)):'—';
 }
 const travada=()=>atual?.estado==='condenada';
 function preencher(f){
-  $('#zero').value=f.zero_motivo||'';for(const [k] of COMPS)$('#sel-'+k).value=f[k]==null?'':String(f[k]);
+  $('#zero').value=f.zero_motivo||'';for(const [k] of COMPS)marcarNota(k,f[k]==null?'':String(f[k]));
+  marcas=(f.marcacoes||[]).map(m=>({...m}));modoMT('');
   $('#c5-motivo').value=f.c5_motivo||'';$('#obs').value=f.observacao||'';$('#cond').hidden=true;recalcular();
-  const trava=travada();for(const id of ['#zero','#obs','#c5-motivo','#btn-concluir','#btn-condenar'])$(id).disabled=trava;
+  const trava=travada();for(const id of ['#zero','#obs','#c5-motivo','#btn-concluir','#btn-condenar','#mt-on','#mt-apagar','#mt-desfazer'])$(id).disabled=trava;
   $('#btn-concluir').textContent=f.estado==='pendente'?'Concluir e ir para a próxima →':'Salvar revisão →';
   const av=$('#aviso-estado');av.hidden=f.estado==='pendente';
   av.textContent=f.estado==='condenada'?'Página condenada ('+(f.condenada_motivo||'')+'). Ela está com o ADM.':f.estado==='corrigida'?'Redação já corrigida. Você pode revisar as notas; o tempo da primeira correção fica guardado.':'';
@@ -116,7 +133,7 @@ function cronometro(liga){clearInterval(relogio);if(!liga){$('#timer-rot').textC
   $('#timer-rot').textContent='TEMPO DE CORREÇÃO';inicio=Date.now();const tick=()=>{const s=Math.floor((Date.now()-inicio)/1000);$('#timer').textContent=String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0')};tick();relogio=setInterval(tick,1000)}
 /* ---------- folha ---------- */
 function desenhar(){
-  if(!origem)return;A.desenhar($('#folha'),origem,anal,{ajuste});$('#a-val').textContent=graus(Math.round((anal.inclinacao+ajuste)*100)/100);
+  if(!origem)return;A.desenhar($('#folha'),origem,anal,{ajuste});pintarMarcas();$('#a-val').textContent=graus(Math.round((anal.inclinacao+ajuste)*100)/100);
   const c=$('#folha'),area=$('#area');
   if(zoom==='pagina'){const h=Math.max(300,Math.min(area.clientHeight,innerHeight-Math.max(0,area.getBoundingClientRect().top))-24),w=area.clientWidth-24;const esc=Math.min(h/c.height,w/c.width);c.style.width=Math.round(c.width*esc)+'px';c.style.height='auto';$('#z-val').textContent=Math.round(esc*c.width/(area.clientWidth-24)*100)+'%'}
   else{c.style.width=Math.round((area.clientWidth-24)*zoom/100)+'px';c.style.height='auto';$('#z-val').textContent=zoom+'%'}
@@ -129,6 +146,28 @@ $('#z-menos').addEventListener('click',()=>{zoom=Math.max(25,(zoom==='pagina'?zo
 $('#a-mais').addEventListener('click',()=>{ajuste=Math.round((ajuste+0.25)*100)/100;desenhar()});
 $('#a-menos').addEventListener('click',()=>{ajuste=Math.round((ajuste-0.25)*100)/100;desenhar()});
 $('#a-auto').addEventListener('click',()=>{ajuste=0;desenhar()});
+/* ---------- marca-texto: faixas retas amarelas, guardadas em frações da folha (0 a 1) ---------- */
+let marcas=[],modo='',arraste=null;const ALT_FAIXA=0.018;
+function pintarMarcas(){const c=$('#folha'),ctx=c.getContext('2d');ctx.save();ctx.globalCompositeOperation='multiply';ctx.fillStyle='#ffe066';
+  for(const m of marcas)ctx.fillRect(m.x*c.width,m.y*c.height,m.w*c.width,m.h*c.height);ctx.restore();
+  $('#mt-info').textContent=modo==='marcar'?'Arraste sobre a linha para destacar.':modo==='apagar'?'Clique num destaque para apagar.':(marcas.length?marcas.length+(marcas.length===1?' destaque nesta folha.':' destaques nesta folha.'):'Ligue o marca-texto e arraste sobre a linha. O aluno verá os destaques no espelho.')}
+function modoMT(m){modo=m;const c=$('#folha');c.classList.toggle('marcando',m==='marcar');c.classList.toggle('apagando',m==='apagar');
+  for(const [id,on] of [['#mt-on',m==='marcar'],['#mt-apagar',m==='apagar']]){$(id).classList.toggle('on',on);$(id).setAttribute('aria-pressed',String(on))}if(origem)desenhar()}
+$('#mt-on').addEventListener('click',()=>modoMT(modo==='marcar'?'':'marcar'));
+$('#mt-apagar').addEventListener('click',()=>modoMT(modo==='apagar'?'':'apagar'));
+$('#mt-desfazer').addEventListener('click',()=>{if(marcas.length){marcas.pop();desenhar()}});
+function pontoFolha(e){const r=$('#folha').getBoundingClientRect();return {x:Math.min(1,Math.max(0,(e.clientX-r.left)/r.width)),y:Math.min(1,Math.max(0,(e.clientY-r.top)/r.height)),r}}
+$('#folha').addEventListener('pointerdown',e=>{if(!origem||travada())return;const p=pontoFolha(e);
+  if(modo==='apagar'){const i=marcas.findLastIndex(m=>p.x>=m.x&&p.x<=m.x+m.w&&p.y>=m.y-0.004&&p.y<=m.y+m.h+0.004);if(i>=0){marcas.splice(i,1);desenhar()}return}
+  if(modo!=='marcar')return;e.preventDefault();$('#folha').setPointerCapture(e.pointerId);arraste={x0:p.x,y:p.y,x1:p.x};previa()});
+$('#folha').addEventListener('pointermove',e=>{if(!arraste)return;arraste.x1=pontoFolha(e).x;previa()});
+function previa(){const pv=$('#mt-previa');if(!arraste){pv.hidden=true;return}const r=$('#folha').getBoundingClientRect();const x=Math.min(arraste.x0,arraste.x1),w=Math.abs(arraste.x1-arraste.x0);
+  Object.assign(pv.style,{left:(r.left+x*r.width)+'px',top:(r.top+(arraste.y-ALT_FAIXA/2)*r.height)+'px',width:Math.max(2,w*r.width)+'px',height:(ALT_FAIXA*r.height)+'px'});pv.hidden=false}
+function soltar(){if(!arraste)return;const x=Math.min(arraste.x0,arraste.x1),w=Math.abs(arraste.x1-arraste.x0);
+  if(w>=0.01){const y=Math.min(1-ALT_FAIXA,Math.max(0,arraste.y-ALT_FAIXA/2));marcas.push({x:+x.toFixed(4),y:+y.toFixed(4),w:+Math.min(w,1-x).toFixed(4),h:ALT_FAIXA})}
+  arraste=null;previa();desenhar()}
+$('#folha').addEventListener('pointerup',soltar);$('#folha').addEventListener('pointercancel',()=>{arraste=null;previa()});
+$('#area').addEventListener('scroll',()=>{if(arraste)previa()});
 addEventListener('resize',()=>{if(zoom==='pagina')desenhar()});
 
 function progresso(){const p=L.progresso,feitas=p.corrigidas+p.condenadas;$('#prog-txt').textContent=`${p.corrigidas} corrigidas / ${p.folhas} folhas`+(p.condenadas?` · ${p.condenadas} condenadas`:'');$('#prog-barra').style.width=(p.folhas?feitas/p.folhas*100:0)+'%'}
@@ -154,10 +193,10 @@ async function enviar(body,texto){
 $('#btn-concluir').addEventListener('click',()=>{
   const zero=$('#zero').value,v=valores(),obs=$('#obs').value;
   const segundos=atual.estado==='pendente'?Math.round((Date.now()-inicio)/1000):0;
-  if(zero)return enviar({zero_motivo:zero,observacao:obs,segundos},'Nota zero registrada ('+zero+').');
+  if(zero)return enviar({zero_motivo:zero,observacao:obs,segundos,marcacoes:marcas},'Nota zero registrada ('+zero+').');
   const falta=COMPS.filter(([k])=>v[k]==='').map(([k])=>k.toUpperCase());if(falta.length)return msg('Falta a nota de: '+falta.join(', ')+'.','error');
   if(v.c5==='0'&&!$('#c5-motivo').value)return msg('Escolha o motivo da nota zero na C5.','error');
-  const body={observacao:obs,segundos};for(const [k] of COMPS)body[k]=Number(v[k]);if(v.c5==='0')body.c5_motivo=$('#c5-motivo').value;
+  const body={observacao:obs,segundos,marcacoes:marcas};for(const [k] of COMPS)body[k]=Number(v[k]);if(v.c5==='0')body.c5_motivo=$('#c5-motivo').value;
   enviar(body,atual.estado==='pendente'?'Correção enviada: '+$('#total').textContent+' pontos.':'Revisão salva.');
 });
 $('#btn-condenar').addEventListener('click',()=>{$('#cond').hidden=false;$('#cond-motivo').focus()});

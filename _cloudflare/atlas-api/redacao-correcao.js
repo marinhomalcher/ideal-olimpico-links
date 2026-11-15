@@ -45,10 +45,10 @@ async function loteDaProfessora(env, loteId, pessoa) {
 async function folhas(env, lote) {
   return (await env.DB.prepare(
     'SELECT p.pagina, p.aluno_ra AS ra, a.nome, p.angulo, p.invertida, c.total, c.c1, c.c2, c.c3, c.c4, c.c5, c.zero_motivo, c.c5_motivo, c.observacao, ' +
-    'c.condenada, c.condenada_motivo, c.enviada_em, c.revisada_em, c.segundos ' +
+    'c.condenada, c.condenada_motivo, c.enviada_em, c.revisada_em, c.segundos, c.marcacoes ' +
     "FROM redacao_paginas p LEFT JOIN redacao_alunos a ON a.ra = p.aluno_ra LEFT JOIN redacao_correcoes c ON c.lote_id = p.lote_id AND c.pagina = p.pagina " +
     "WHERE p.lote_id = ? AND p.situacao = 'aluno' ORDER BY p.pagina"
-  ).bind(lote.id).all()).results.map(f => ({ ...f, estado: !f.enviada_em ? 'pendente' : f.condenada ? 'condenada' : 'corrigida' }));
+  ).bind(lote.id).all()).results.map(f => ({ ...f, marcacoes: lerMarcacoes(f.marcacoes), estado: !f.enviada_em ? 'pendente' : f.condenada ? 'condenada' : 'corrigida' }));
 }
 
 function progresso(lista) {
@@ -72,6 +72,21 @@ async function turmasComLotes(env, pessoa, ano) {
     ).bind(t.id, ano).all()).results;
   }
   return turmas;
+}
+
+function lerMarcacoes(txt) { try { const v = JSON.parse(txt || '[]'); return Array.isArray(v) ? v : []; } catch { return []; } }
+
+/* Marca-texto: faixas retas na folha alinhada, em frações da largura/altura (0 a 1). Devolve o JSON a gravar ou null. */
+export function conferirMarcacoes(lista) {
+  if (lista === undefined || lista === null) return null;
+  if (!Array.isArray(lista) || lista.length > 400) erro(400, 'Marcações inválidas.');
+  const r4 = v => Math.round(v * 10000) / 10000;
+  const out = lista.map(m => {
+    const x = Number(m?.x), y = Number(m?.y), w = Number(m?.w), h = Number(m?.h);
+    if (![x, y, w, h].every(Number.isFinite) || x < 0 || y < 0 || w <= 0 || h <= 0 || x + w > 1.0001 || y + h > 1.0001 || h > 0.1) erro(400, 'Marcações inválidas.');
+    return { x: r4(x), y: r4(y), w: r4(w), h: r4(h) };
+  });
+  return out.length ? JSON.stringify(out) : null;
 }
 
 /* Confere e calcula a nota enviada. Devolve as colunas a gravar. */
@@ -107,20 +122,22 @@ async function salvar(env, lote, n, body, pessoa, registrar) {
   const pag = await env.DB.prepare("SELECT aluno_ra FROM redacao_paginas WHERE lote_id = ? AND pagina = ? AND situacao = 'aluno'").bind(lote.id, n).first();
   if (!pag) erro(404, 'Folha não encontrada ou ainda sem aluno.');
   const nota = conferirNota(body);
-  const anterior = await env.DB.prepare('SELECT enviada_em, condenada FROM redacao_correcoes WHERE lote_id = ? AND pagina = ?').bind(lote.id, n).first();
+  const anterior = await env.DB.prepare('SELECT enviada_em, condenada, marcacoes FROM redacao_correcoes WHERE lote_id = ? AND pagina = ?').bind(lote.id, n).first();
+  /* Sem o campo marcacoes, uma revisão mantém os destaques que já existiam. */
+  const marcacoes = nota.condenada ? null : (body?.marcacoes === undefined && anterior ? anterior.marcacoes : conferirMarcacoes(body?.marcacoes));
   const h = agora();
   if (!anterior) {
     /* Tempo só da primeira correção (sem pausa; se fechar, recomeça do zero na tela). */
     const segundos = Math.max(0, Math.min(86400, Math.round(Number(body?.segundos) || 0)));
     await env.DB.prepare(
-      'INSERT INTO redacao_correcoes (lote_id, pagina, aluno_ra, professor_id, c1, c2, c3, c4, c5, total, zero_motivo, c5_motivo, observacao, condenada, condenada_motivo, segundos, enviada_em) ' +
-      'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
-    ).bind(lote.id, n, pag.aluno_ra, pessoa.id, nota.c1, nota.c2, nota.c3, nota.c4, nota.c5, nota.total, nota.zero_motivo, nota.c5_motivo, nota.observacao, nota.condenada, nota.condenada_motivo, segundos, h).run();
+      'INSERT INTO redacao_correcoes (lote_id, pagina, aluno_ra, professor_id, c1, c2, c3, c4, c5, total, zero_motivo, c5_motivo, observacao, condenada, condenada_motivo, segundos, enviada_em, marcacoes) ' +
+      'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+    ).bind(lote.id, n, pag.aluno_ra, pessoa.id, nota.c1, nota.c2, nota.c3, nota.c4, nota.c5, nota.total, nota.zero_motivo, nota.c5_motivo, nota.observacao, nota.condenada, nota.condenada_motivo, segundos, h, marcacoes).run();
   } else {
     if (anterior.condenada) erro(409, 'Esta página foi condenada e está com o ADM.');
     await env.DB.prepare(
-      'UPDATE redacao_correcoes SET professor_id = ?, c1 = ?, c2 = ?, c3 = ?, c4 = ?, c5 = ?, total = ?, zero_motivo = ?, c5_motivo = ?, observacao = ?, condenada = ?, condenada_motivo = ?, revisada_em = ? WHERE lote_id = ? AND pagina = ?'
-    ).bind(pessoa.id, nota.c1, nota.c2, nota.c3, nota.c4, nota.c5, nota.total, nota.zero_motivo, nota.c5_motivo, nota.observacao, nota.condenada, nota.condenada_motivo, h, lote.id, n).run();
+      'UPDATE redacao_correcoes SET professor_id = ?, c1 = ?, c2 = ?, c3 = ?, c4 = ?, c5 = ?, total = ?, zero_motivo = ?, c5_motivo = ?, observacao = ?, condenada = ?, condenada_motivo = ?, revisada_em = ?, marcacoes = ? WHERE lote_id = ? AND pagina = ?'
+    ).bind(pessoa.id, nota.c1, nota.c2, nota.c3, nota.c4, nota.c5, nota.total, nota.zero_motivo, nota.c5_motivo, nota.observacao, nota.condenada, nota.condenada_motivo, h, marcacoes, lote.id, n).run();
   }
   await registrar(env, nota.condenada ? 'redacao_pagina_condenada' : anterior ? 'redacao_correcao_revisada' : 'redacao_correcao_enviada',
     { lote_id: lote.id, pagina: n, total: nota.total, motivo: nota.condenada_motivo }, pessoa.id);
