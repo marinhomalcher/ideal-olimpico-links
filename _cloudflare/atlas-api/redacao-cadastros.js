@@ -130,7 +130,7 @@ export async function rotaRedacaoAdm(request, env, path, { readJson, hojeSP, reg
     }
     const anterior = await env.DB.prepare('SELECT usuario_id FROM redacao_equipe WHERE usuario_id = ?').bind(usuario.id).first();
     if (anterior) erro(409, 'Esta pessoa já está cadastrada na Redação.');
-    const ops = [env.DB.prepare('INSERT INTO redacao_equipe (usuario_id, funcao) VALUES (?, ?)').bind(usuario.id, funcao)];
+    const ops = [env.DB.prepare('INSERT INTO redacao_equipe (usuario_id, funcao, professor, digitalizador) VALUES (?, ?, ?, ?)').bind(usuario.id, funcao, funcao === 'professor' ? 1 : 0, funcao === 'digitalizador' ? 1 : 0)];
     for (const id of atribuicoes.turmas) ops.push(env.DB.prepare('INSERT INTO redacao_professor_turmas (usuario_id, turma_id) VALUES (?, ?)').bind(usuario.id, id));
     for (const unidade of atribuicoes.unidades) ops.push(env.DB.prepare('INSERT INTO redacao_digitalizador_unidades (usuario_id, unidade) VALUES (?, ?)').bind(usuario.id, unidade));
     await env.DB.batch(ops);
@@ -147,7 +147,7 @@ export async function rotaRedacaoAdm(request, env, path, { readJson, hojeSP, reg
     if (!['professor', 'digitalizador'].includes(funcao)) erro(400, 'Função inválida.');
     const ativo = body.ativo === false ? 0 : 1;
     const atribuicoes = await validarAtribuicoes(env, funcao, body);
-    const ops = [env.DB.prepare('UPDATE redacao_equipe SET funcao = ?, ativo = ? WHERE usuario_id = ?').bind(funcao, ativo, id),
+    const ops = [env.DB.prepare('UPDATE redacao_equipe SET funcao = ?, ativo = ?, professor = ?, digitalizador = ? WHERE usuario_id = ?').bind(funcao, ativo, funcao === 'professor' ? 1 : 0, funcao === 'digitalizador' ? 1 : 0, id),
       env.DB.prepare('DELETE FROM redacao_professor_turmas WHERE usuario_id = ?').bind(id),
       env.DB.prepare('DELETE FROM redacao_digitalizador_unidades WHERE usuario_id = ?').bind(id)];
     if (atual.disciplina === null && atual.digitador === 0) {
@@ -201,14 +201,19 @@ export async function rotaRedacaoUsuario(request, env, path, { sessaoAtual }) {
   if (path !== '/api/redacao/sessao' || request.method !== 'GET') erro(404, 'Rota indisponível.');
   const sessao = await sessaoAtual(request, env, 'usuario');
   const pessoa = await env.DB.prepare(
-    'SELECT u.id, u.nome, u.email, e.funcao FROM redacao_equipe e JOIN usuarios u ON u.id = e.usuario_id WHERE e.usuario_id = ? AND e.ativo = 1 AND u.ativo = 1'
+    'SELECT u.id, u.nome, u.email, e.professor, e.digitalizador FROM redacao_equipe e JOIN usuarios u ON u.id = e.usuario_id WHERE e.usuario_id = ? AND e.ativo = 1 AND u.ativo = 1'
   ).bind(sessao.usuario_id).first();
-  if (!pessoa) erro(403, 'Você não está cadastrado na equipe de Redação.');
-  if (pessoa.funcao === 'professor') {
+  if (!pessoa || (!pessoa.professor && !pessoa.digitalizador)) erro(403, 'Você não está cadastrado na equipe de Redação.');
+  /* Uma pessoa pode ser professora de redação e digitalizadora ao mesmo tempo. */
+  pessoa.funcoes = [...(pessoa.professor ? ['professor'] : []), ...(pessoa.digitalizador ? ['digitalizador'] : [])];
+  pessoa.funcao = pessoa.funcoes[0];
+  delete pessoa.professor; delete pessoa.digitalizador;
+  if (pessoa.funcoes.includes('professor')) {
     pessoa.turmas = (await env.DB.prepare(
       'SELECT t.id, t.ano, t.unidade, t.segmento, t.serie, t.codigo FROM redacao_professor_turmas pt JOIN redacao_turmas t ON t.id = pt.turma_id WHERE pt.usuario_id = ? AND t.ativa = 1 ORDER BY t.ano DESC, t.unidade, t.segmento, t.serie, t.codigo'
     ).bind(pessoa.id).all()).results;
-  } else {
+  }
+  if (pessoa.funcoes.includes('digitalizador')) {
     pessoa.unidades = (await env.DB.prepare('SELECT unidade FROM redacao_digitalizador_unidades WHERE usuario_id = ? ORDER BY unidade').bind(pessoa.id).all()).results.map(x => x.unidade);
   }
   return { ok: true, usuario: pessoa, expira_em: sessao.expira_em };
