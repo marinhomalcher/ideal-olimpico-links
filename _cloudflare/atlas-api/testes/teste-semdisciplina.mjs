@@ -222,10 +222,10 @@ ok('Tela Sup: devolvida e some da fila', db.prepare('SELECT disciplina FROM iten
 await page.goto('https://idealolimpico.com.br/atlas/admin.html');await page.evaluate(t=>sessionStorage.setItem('atlas_adm_token',t),tAdm);await page.reload();
 await page.waitForSelector('#sem-disc-aviso:not([hidden])');
 ok('Tela ADM: painel avisa quantas questões esperam disciplina', /3 questões sem disciplina/.test(await page.textContent('#sem-disc-aviso')), await page.textContent('#sem-disc-aviso'));
-await page.goto('https://idealolimpico.com.br/atlas/admin-questoes.html');await page.waitForSelector('#sem-disc-list table');
+await page.goto('https://idealolimpico.com.br/atlas/admin-questoes.html');await page.waitForSelector('#sem-disc-list table',{state:'attached'});
 ok('Tela ADM: quadro "Questões sem disciplina" lista 3', (await page.$$('#sem-disc-list tbody tr')).length===3&&(await page.textContent('#sem-disc-n'))==='3');
 ok('Tela ADM: mostra quem devolveu', (await page.textContent('#sem-disc-list')).includes('Devolvida pelo supervisor de Matemática (Sup Mat)'));
-await page.locator('#sem-disc-list tbody tr',{hasText:'digitada na tela'}).locator('button').click();await page.waitForSelector('#definir-box:not([hidden])');
+await page.click('#tab-pend');await page.locator('#sem-disc-list tbody tr',{hasText:'digitada na tela'}).locator('button').click();await page.waitForSelector('#definir-box:not([hidden])');
 ok('Tela ADM: abrir mostra a escolha da disciplina', await page.isVisible('#definir-disc'));
 await page.click('#definir-enviar');await page.waitForTimeout(150);
 ok('Tela ADM: sem escolher, pede a disciplina', /Escolha a disciplina/.test(await page.textContent('#app-status')));

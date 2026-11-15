@@ -211,7 +211,8 @@ await page.addInitScript(t=>{try{sessionStorage.setItem('atlas_adm_token',t)}cat
 await page.goto('https://idealolimpico.com.br/atlas/admin-questoes.html');
 await page.waitForFunction(c=>document.querySelector('#fix-list').textContent.includes(c),cA);
 ok('Tela ADM: pedido pendente listado', (await page.textContent('#fix-list')).includes('Vírgula faltando'));
-await page.locator('#fix-list tr',{hasText:cA}).locator('button').click();await page.waitForSelector('#details:not([hidden])');
+await page.waitForFunction(()=>document.querySelector('#pend-n').textContent==='1'&&!document.querySelector('#pend-n').hidden);ok('Tela ADM: aba Pendências mostra a contagem', true);
+await page.click('#tab-pend');await page.locator('#fix-list tr',{hasText:cA}).locator('button').click();await page.waitForSelector('#details:not([hidden])');
 ok('Tela ADM: abre a questão com o pedido em destaque', await page.isVisible('#fix-pending') && (await page.textContent('#fix-item'))==='Fazer o conserto');
 await page.click('#fix-item');await page.waitForSelector('#edit-form:not([hidden])');await page.waitForSelector('#ed-dificuldade option:nth-child(3)',{state:'attached'});await page.selectOption('#ed-dificuldade','Difícil');
 await page.evaluate(()=>document.querySelector('#comando').replaceChildren());await paste('#comando','Comando, com vírgula');
@@ -221,15 +222,29 @@ const d4=JSON.parse(db.prepare('SELECT v.dados FROM item_versoes v JOIN itens i 
 ok('ADM pode mudar a dificuldade no conserto', d4.dificuldade==='Difícil', d4.dificuldade);
 ok('Conserto gravado preservando o resto', d4.comando.includes('vírgula') && d4['alt-c']==='C consertada' && d4.assunto==='Romantismo');
 // busca + desfazer descarte
-await page.fill('#codigo',cVelha.toLowerCase());await page.click('#search-form button');await page.waitForFunction(c=>document.querySelector('#det-title').textContent.includes(c),cVelha);
+await page.fill('#f-q',cVelha.toLowerCase());await page.waitForFunction(c=>document.querySelector('#det-title').textContent.includes(c),cVelha);
 ok('Tela ADM: busca aceita minúsculas; prazo vencido avisado', (await page.textContent('#undo-note')).includes('já terminou') && !(await page.isVisible('#undo-discard')));
 const cNova=await novo(); await decidir(cNova,'descartar','Teste tela');
-await page.fill('#codigo',cNova);await page.click('#search-form button');await page.waitForFunction(c=>document.querySelector('#det-title').textContent.includes(c),cNova);
+await page.fill('#f-q',cNova);await page.waitForFunction(c=>document.querySelector('#det-title').textContent.includes(c),cNova);
 ok('Tela ADM: descarte recente mostra botão e prazo', await page.isVisible('#undo-discard') && (await page.textContent('#undo-note')).includes('restam 30'));
 await page.click('#undo-discard');await page.click('#confirm-undo');await page.waitForFunction(()=>document.querySelector('#app-status').textContent.includes('Descarte desfeito'));
 ok('Tela ADM: descarte desfeito', db.prepare('SELECT situacao s FROM itens WHERE codigo=?').get(cNova).s==='analise' && (await page.textContent('#det-title')).includes('Em análise'));
-await page.fill('#codigo','123');await page.click('#search-form button');
-ok('Tela ADM: código incompleto avisado', (await page.textContent('#app-status')).includes('código completo'));
+await page.fill('#f-q','ZZZ-nada');await page.waitForFunction(()=>document.querySelector('#banco-info').textContent.includes('Nenhuma questão'));
+ok('Tela ADM: busca sem resultado avisa', await page.isVisible('#nav-vazio') && await page.isHidden('#details'));
+// navegar pelas aprovadas com filtros e setas
+await page.click('#f-limpar');await page.waitForFunction(()=>Number(document.querySelector('#nav-total').textContent)>=1&&!!document.querySelector('#q-dados .meta'));
+const total1=Number(await page.textContent('#nav-total'));
+ok('Tela ADM: começa nas aprovadas, com Editar', total1===db.prepare("SELECT COUNT(*) n FROM itens WHERE situacao='aprovado'").get().n && (await page.textContent('#fix-item'))==='Editar questão', String(total1));
+await page.selectOption('#f-situacao','todas');await page.waitForFunction(n=>Number(document.querySelector('#nav-total').textContent)>n,total1);
+ok('Tela ADM: filtro de situação mostra todas', Number(await page.textContent('#nav-total'))===db.prepare('SELECT COUNT(*) n FROM itens').get().n);
+await page.evaluate(()=>ir(0));await page.waitForFunction(()=>document.querySelector('#nav-num').value==='0'&&current&&current.codigo===nav[0]&&document.querySelector('#det-title').textContent.includes('Questão'));await page.waitForTimeout(300);
+const t0=await page.textContent('#det-title');await page.click('#item-content');await page.keyboard.press('ArrowRight');
+await page.waitForFunction(t=>document.querySelector('#det-title').textContent!==t,t0);
+ok('Tela ADM: seta do teclado passa para a próxima', await page.inputValue('#nav-num')==='1');
+await page.setViewportSize({width:1920,height:1000});
+const centroA=await page.evaluate(()=>{const r=document.querySelector('#details').getBoundingClientRect();return Math.abs((r.left+r.right)/2-document.documentElement.clientWidth/2)});
+ok('Tela ADM: questão no centro da tela', centroA<=1, String(centroA));
+await page.screenshot({path:S+'adm-navegar.png'});await page.setViewportSize({width:1280,height:900});
 ok('Tela: sem erros de JavaScript nem caixas do navegador', errors.length===0 && dialogs.length===0, errors.join(' ; ')+dialogs.join(';'));
 const shotPage=page;await shotPage.goto('https://idealolimpico.com.br/atlas/admin-questoes.html?codigo='+cA);await shotPage.waitForSelector('#details:not([hidden])');await shotPage.screenshot({path:S+'admq.png',fullPage:false});
 
