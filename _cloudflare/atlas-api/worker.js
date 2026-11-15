@@ -439,6 +439,50 @@ async function verificarCodigoAcesso(request, env) {
   };
 }
 
+// ---------- portal do aluno: envio do código de login (servidor a servidor) ----------
+// Só o Apps Script do portal chama esta rota, com o segredo PORTAL_ATLAS_SECRET (painel da Cloudflare).
+// O Apps Script gera e confere o código; o ATLAS só entrega o e-mail e não guarda o código nem o RA.
+// O destino é sempre RA@aluno.grupoideal.com.br: quem chama não escolhe o endereço.
+// Sai só pela Microsoft (sem a reserva do Apps Script, cujo texto e cota são do ATLAS).
+const PORTAL_SEGREDO_MINIMO = 32;
+const PORTAL_DOMINIO_ALUNO = '@aluno.grupoideal.com.br';
+const LINK_PORTAL = 'https://idealolimpico.com.br/inscricoes/';
+function portalConfigurado(env) {
+  return typeof env.PORTAL_ATLAS_SECRET === 'string' && env.PORTAL_ATLAS_SECRET.length >= PORTAL_SEGREDO_MINIMO;
+}
+async function enviarCodigoPortalAluno(request, env) {
+  if (!portalConfigurado(env) || !microsoftConfigurado(env)) throw new HttpError(503, 'Envio indisponível.');
+  const segredo = env.PORTAL_ATLAS_SECRET;
+  const auth = request.headers.get('Authorization') || '';
+  const recebido = auth.startsWith('Bearer ') ? auth.slice(7) : '';
+  // Compara os HMACs (mesmo tamanho), para não revelar nada pelo tempo de resposta.
+  if (!secureEqual(await hmacHex(segredo, 'portal-auth:' + recebido), await hmacHex(segredo, 'portal-auth:' + segredo))) {
+    throw new HttpError(401, 'Não autorizado.');
+  }
+  const body = await readJson(request, 1024);
+  const ra = typeof body.ra === 'string' ? body.ra : '';
+  const codigo = typeof body.codigo === 'string' ? body.codigo : '';
+  if (!/^\d{1,15}$/.test(ra) || !/^\d{6}$/.test(codigo)) throw new HttpError(400, 'Dados inválidos.');
+
+  // Limites próprios do ATLAS (o Apps Script tem os dele). Chaves embaralhadas: o RA não fica no banco.
+  // A caixa olimpiadas@ envia no máximo 30 e-mails por minuto (limite do Exchange Online).
+  const intervalo = await consultarLimiteLogin(env, await hmacHex(segredo, 'portal-intervalo:' + ra), 60, 1);
+  if (!intervalo.permitido) throw new HttpError(429, 'Aguarde 1 minuto antes de pedir outro código.');
+  const porRa = await consultarLimiteLogin(env, await hmacHex(segredo, 'portal-ra:' + ra), 3600, 10);
+  const porMinuto = await consultarLimiteLogin(env, await hmacHex(segredo, 'portal-total-minuto'), 60, 25);
+  const porHora = await consultarLimiteLogin(env, await hmacHex(segredo, 'portal-total-hora'), 3600, 1200);
+  if (!porRa.permitido) throw new HttpError(429, 'Muitos códigos pedidos para esta matrícula. Aguarde ' + porRa.aguardeMinutos + ' minutos.');
+  if (!porMinuto.permitido || !porHora.permitido) throw new HttpError(429, 'Muitos alunos entrando agora. Tente de novo em 1 minuto.');
+
+  const assunto = 'Seu código de acesso ao Portal IDEAL OLÍMPICO';
+  const texto = 'Seu código para entrar no Portal IDEAL OLÍMPICO é: ' + codigo +
+    '\n\nEle expira em 10 minutos. Não envie este código a ninguém.' +
+    '\nSe você não pediu este código, ignore esta mensagem.\n\n' + LINK_PORTAL;
+  const ok = await enviarEmail(env, ra + PORTAL_DOMINIO_ALUNO, assunto, texto, null);
+  if (!ok) throw new HttpError(502, 'Não foi possível enviar o código.');
+  return { ok: true };
+}
+
 // ---------- questões (itens) ----------
 // Código oficial: letra da disciplina + 7 dígitos aleatórios (sem zero à esquerda, nunca todos iguais).
 const LETRA_DISCIPLINA = Object.freeze({
@@ -2310,7 +2354,12 @@ export default {
     try {
       if (url.pathname === '/api/saude' && request.method === 'GET') {
         const row = await env.DB.prepare("SELECT valor FROM meta WHERE chave = 'schema_versao'").first();
-        return reply({ ok: true, modo: 'teste', banco: 'conectado', schema: row ? row.valor : null, avisos_ativos: env.ATLAS_AVISOS_ATIVOS === '1', envio: microsoftConfigurado(env) ? 'microsoft' : 'apps-script' }, 200, origin);
+        return reply({ ok: true, modo: 'teste', banco: 'conectado', schema: row ? row.valor : null, avisos_ativos: env.ATLAS_AVISOS_ATIVOS === '1', envio: microsoftConfigurado(env) ? 'microsoft' : 'apps-script', portal_aluno: portalConfigurado(env) }, 200, origin);
+      }
+      if (url.pathname === '/api/portal/codigo-aluno' && request.method === 'POST') {
+        // Só servidor a servidor: navegador (com Origin) é recusado.
+        if (origin) throw new HttpError(403, 'Origem não permitida.');
+        return reply(await enviarCodigoPortalAluno(request, env), 200, null);
       }
       if (url.pathname === '/api/login/codigo' && request.method === 'POST') {
         if (!ALLOWED_ORIGINS.includes(origin)) throw new HttpError(403, 'Origem não permitida.');
