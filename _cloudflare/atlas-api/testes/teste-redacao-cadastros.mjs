@@ -89,13 +89,13 @@ ok('Página inicial mostra Redação', await page.locator('[data-role="Redação
 await page.locator('[data-role="Redação"]').click();
 ok('Redação abre login institucional', await page.locator('#overlay.open #email-step').isVisible());
 await page.route('https://atlas-api.marinhomalcher.workers.dev/**', async route => {
-  const path = new URL(route.request().url()).pathname;
-  const body = path === '/api/adm/sessao' ? { ok: true, email: 'adm@example.com' }
-    : path === '/api/adm/redacao/turmas' ? { ok: true, ano: 2026, turmas: (await api('/api/adm/redacao/turmas')).data.turmas }
-    : path === '/api/adm/redacao/equipe' ? { ok: true, equipe: (await api('/api/adm/redacao/equipe')).data.equipe }
-    : { ok: false, error: 'Rota não simulada.' };
-  await route.fulfill({ status: body.ok ? 200 : 404, headers: { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'Authorization, Content-Type', 'Access-Control-Allow-Methods': 'GET, POST, PUT, OPTIONS' }, body: JSON.stringify(body) });
+  const req = route.request(), u = new URL(req.url()), dados = req.postData();
+  const r = u.pathname === '/api/adm/sessao' ? { status: 200, data: { ok: true, email: 'adm@example.com' } }
+    : await api(u.pathname + u.search, req.method(), dados ? JSON.parse(dados) : undefined);
+  await route.fulfill({ status: r.status, headers: { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'Authorization, Content-Type', 'Access-Control-Allow-Methods': 'GET, POST, PUT, OPTIONS' }, body: JSON.stringify(r.data) });
 });
+const CDN = (process.env.ATLAS_TESTE_TMP || '/tmp/atlas-testes') + '/cdn/package/dist/exceljs.min.js';
+await page.route('https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js', r2 => r2.fulfill({ status: 200, headers: { 'content-type': 'application/javascript', 'access-control-allow-origin': '*' }, body: fs.readFileSync(CDN) }));
 await page.goto(base + '/redacao-admin.html');
 await page.evaluate(() => sessionStorage.setItem('atlas_adm_token', 'adm-token'));
 await page.reload();
@@ -105,6 +105,38 @@ await page.locator('[data-tab="equipe"]').click();
 ok('ADM escolhe turmas para professor', await page.locator('[name="prof-turma"]').count() === 16);
 await page.locator('#equipe-funcao').selectOption('digitalizador');
 ok('ADM escolhe unidades para digitalizador', await page.locator('[name="dig-unidade"]').count() === 3 && await page.locator('#digitalizador-choices').isVisible());
+/* Alunos saiu de Redação: cadastros e virou página própria no menu do ADM. */
+ok('Redação: cadastros não tem mais a aba Alunos e aponta para a página nova', await page.locator('[data-tab="alunos"]').count() === 0 && await page.locator('#aviso-alunos a[href="alunos-admin.html"]').count() === 1);
+await page.locator('[data-tab="turmas"]').click();
+ok('"Ver alunos" leva à página Alunos com a turma', (await page.locator('#turmas-lista a', { hasText: 'Ver alunos' }).first().getAttribute('href')).startsWith('alunos-admin.html?turma='));
+for (const f of ['admin.html', 'admin-questoes.html', 'admin-enviar.html', 'admin-relatorio.html', 'admin-selecoes.html']) {
+  const menu = fs.readFileSync(atlas + f, 'utf8').match(/<aside><small>ÁREA DO ADM<\/small>(.*?)<\/aside>/)?.[1] || '';
+  ok('Menu do ADM com "Alunos" logo abaixo de "Professores e disciplinas": ' + f, /^<a href="admin\.html"[^>]*>Professores e disciplinas<\/a><a href="alunos-admin\.html"[^>]*>Alunos<\/a>/.test(menu) && menu.includes('redacao-admin.html'));
+}
+ok('Login do ADM volta para a página Alunos', fs.readFileSync(atlas + 'admin.html', 'utf8').includes("['alunos-admin.html','redacao-admin.html','redacao-lotes-admin.html']"));
+const turmaAluno = db.prepare("SELECT turma_id FROM redacao_alunos WHERE ra = '12345'").get().turma_id;
+await page.goto(base + '/alunos-admin.html?turma=' + turmaAluno);
+await page.waitForFunction(() => /aluno\(s\) nesta turma/.test(document.querySelector('#consultar-status').textContent), null, { timeout: 10000 }).catch(() => {});
+ok('Página Alunos abre já mostrando a turma pedida', await page.locator('#consultar-turma').inputValue() === String(turmaAluno) && await page.locator('#alunos-lista tr').count() === db.prepare('SELECT COUNT(*) AS n FROM redacao_alunos WHERE turma_id = ?').get(turmaAluno).n, await page.locator('#consultar-status').textContent());
+{
+  const E = require(CDN), wb = new E.Workbook(), ws = wb.addWorksheet('ALUNOS');
+  ws.addRow(['NOME COMPLETO', 'RA', 'FILIAL', 'SÉRIE', 'CODTURMA', 'SEGMENTO']);
+  ws.addRow(['ALUNO TESTE PLANILHA', '77777', 'BC', '1ª Série', '1EMA', 'EM']);
+  const xlsx = Buffer.from(await wb.xlsx.writeBuffer());
+  await page.locator('#arquivo').setInputFiles({ name: 'ALUNOS.xlsx', mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', buffer: xlsx });
+  await page.locator('#previa-button').click();
+  await page.waitForFunction(() => /Prévia pronta/.test(document.querySelector('#alunos-status').textContent), null, { timeout: 15000 }).catch(() => {});
+  ok('Página Alunos confere a planilha', /1 alunos · 1 novos/.test(await page.locator('#previa').textContent()), await page.locator('#alunos-status').textContent());
+  await page.locator('#importar-button').click();
+  await page.waitForFunction(() => /Importação concluída/.test(document.querySelector('#alunos-status').textContent), null, { timeout: 15000 }).catch(() => {});
+  ok('Página Alunos importa a planilha', db.prepare("SELECT COUNT(*) AS n FROM redacao_alunos WHERE ra = '77777'").get().n === 1, await page.locator('#alunos-status').textContent());
+}
+await page.setViewportSize({ width: 390, height: 840 });
+ok('Página Alunos cabe no celular', await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+await page.evaluate(() => sessionStorage.removeItem('atlas_adm_token'));
+await page.goto(base + '/alunos-admin.html');
+await page.locator('#auth-error').waitFor({ state: 'visible' });
+ok('Sem login, a página Alunos manda para o ADM com retorno', await page.locator('#auth-error a').getAttribute('href') === 'admin.html?volta=alunos-admin.html');
 ok('Sem erro JavaScript nas telas', errors.length === 0, errors.join(' | '));
 await browser.close();
 await new Promise(resolve => server.close(resolve));
