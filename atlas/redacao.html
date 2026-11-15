@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="pt-BR">
 <head>
-<meta name="atlas-versao" content="20261115c"><script src="atlas-versao.js?v=20261115c" defer></script><script src="atlas-alinhamento.js?v=20261115c"></script>
+<meta name="atlas-versao" content="20261115d"><script src="atlas-versao.js?v=20261115d" defer></script><script src="atlas-alinhamento.js?v=20261115d"></script>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="robots" content="noindex,nofollow"><title>ATLAS | Redação</title>
 <style>
@@ -14,6 +14,7 @@ header{height:70px;background:var(--navy);color:#fff;display:flex;align-items:ce
 main{max-width:1080px;margin:38px auto;padding:0 18px}.crumb{font-size:12px;color:#6a8394}.intro{display:flex;justify-content:space-between;align-items:start;gap:20px}.intro h1{font-size:30px;margin:8px 0 4px}.intro p{margin:0 0 24px;color:#5b6d7a}.card{background:#fff;border:1px solid var(--line);border-radius:13px;box-shadow:0 7px 24px #1f3b4f0c;padding:23px;margin-bottom:16px}h2{font-size:18px;margin:0 0 13px;color:var(--navy)}.list{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px}.turma{border:1px solid var(--line);border-radius:10px;padding:14px;background:#fbfdfe}.turma strong{display:block;color:var(--navy);font-size:17px}.turma small{color:#587084}.notice{background:#eff5f8;border:1px solid #d6e4eb;border-radius:9px;padding:13px;color:#416177}.error{color:#a51c2c}.unit{display:inline-block;padding:7px 11px;border-radius:999px;background:#edf4f8;color:#26526d;margin:0 7px 7px 0;font-weight:700}
 .fields{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:13px}.fields label{font-size:13px;font-weight:700;display:block;margin-bottom:5px}.fields select,.fields input{width:100%;padding:10px;border:1px solid #bdccd5;border-radius:8px;background:#fff;font:inherit}.wide{grid-column:span 2}.actions{display:flex;gap:9px;flex-wrap:wrap;margin-top:16px}.primary,.secondary,.danger{border-radius:8px;padding:9px 14px;font:700 14px Arial,sans-serif;cursor:pointer}.primary{background:var(--navy);border:1px solid var(--navy);color:#fff}.secondary{background:#fff;border:1px solid #a5b8c5;color:var(--navy)}.danger{background:#fff;border:1px solid #b72d3b;color:#a12230}.primary:disabled{opacity:.5;cursor:not-allowed}.hint{color:#607483;font-size:13px}.status{min-height:22px;margin:10px 0}.lot-list{display:grid;gap:10px}.lot{border:1px solid var(--line);border-radius:9px;padding:13px;background:#fbfdfe}.lot.cancelled{opacity:.7}.lot strong{display:block}.lot small{display:block;color:#627785;margin-top:4px}.confirm{background:#fff4f4;border:1px solid #edc5c8;padding:10px;border-radius:8px;margin-top:10px}.confirm button{margin:7px 6px 0 0}.viewer{position:fixed;inset:0;z-index:10;background:#071725cc;padding:18px;display:grid;place-items:center}.viewer[hidden]{display:none}.viewer-box{width:min(1200px,100%);height:min(94vh,1000px);background:#fff;border-radius:12px;display:flex;flex-direction:column;overflow:hidden}.viewer-bar{display:flex;justify-content:space-between;align-items:center;gap:15px;padding:10px 15px}.viewer iframe{border:0;flex:1;width:100%;background:#edf1f3}.viewer a{color:var(--navy)}.viewer .actions{margin:0}
 .ra-report{margin-top:14px;border:1px solid var(--line);border-radius:10px;padding:12px 14px;background:#f8fbfc}.ra-report .resumo{margin:0;font-weight:700}.ra-report .ok{color:#1f7a3f}.ra-report .alerta{color:#8a4b00}.ra-report .bloqueio{color:#a51c2c;margin:8px 0 0;font-weight:700}.ra-report details{margin-top:8px}.ra-report summary{cursor:pointer;color:var(--navy);font-weight:700}.ra-tabela{overflow:auto}.ra-report table{width:100%;border-collapse:collapse;margin-top:6px;font-size:13px}.ra-report th,.ra-report td{text-align:left;padding:5px 6px;border-bottom:1px solid #e3eaee}.ra-report td.erro{color:#a51c2c}.ra-report td.aviso{color:#8a4b00}
+.lote-prof{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-top:8px;padding-top:8px;border-top:1px solid var(--line)}.lote-prof a.primary{text-decoration:none;display:inline-block}
 @media(max-width:900px){.school-logo{position:static;transform:none;margin:auto}.brand span{display:none}}
 @media(max-width:650px){header{height:auto;min-height:76px;flex-wrap:wrap;padding:9px 14px}.brand b{font-size:18px}.school-logo{order:3;width:100%;height:48px}.school-logo img{width:145px}.user{font-size:12px}.intro h1{font-size:24px}.fields{grid-template-columns:1fr}.wide{grid-column:auto}.viewer{padding:5px}.viewer-box{height:99vh}}
 </style>
@@ -146,15 +147,20 @@ async function carregar(){
   const list=document.querySelector('#list');list.replaceChildren();
   if(u.funcao==='professor'){
     document.querySelector('#list-title').textContent='Turmas';
-    for(const t of u.turmas||[]){const item=document.createElement('div');item.className='turma';const strong=document.createElement('strong');strong.textContent=t.codigo;const small=document.createElement('small');small.textContent=`${{BC:'Batista Campos',AM:'Augusto Montenegro',CN:'Cidade Nova'}[t.unidade]} · ${t.segmento} · ${t.serie} · ${t.ano}`;item.append(strong,small);list.append(item)}
+    /* Turmas da professora com os lotes enviados e o progresso da correção. */
+    let dados={turmas:[]};try{dados=await api('/api/redacao/correcao/turmas')}catch(e){status.textContent=e.message;status.className='error'}
+    for(const t of dados.turmas){const item=document.createElement('div');item.className='turma';const strong=document.createElement('strong');strong.textContent=t.codigo;const small=document.createElement('small');small.textContent=`${{BC:'Batista Campos',AM:'Augusto Montenegro',CN:'Cidade Nova'}[t.unidade]} · ${t.segmento} · ${t.serie}`;item.append(strong,small);
+      if(!t.lotes.length){const p=document.createElement('small');p.textContent='Nenhum lote de redações recebido ainda.';item.append(p)}
+      for(const l of t.lotes){const linha=document.createElement('div');linha.className='lote-prof';const info=document.createElement('span');const feitas=l.corrigidas+l.condenadas;info.textContent=`${l.bimestre}º bimestre · ${l.corrigidas} corrigidas / ${l.folhas} folhas`+(l.condenadas?` · ${l.condenadas} condenadas`:'');const a=document.createElement('a');a.className='primary';a.href='redacao-corrigir.html?lote='+l.id;a.textContent=!l.folhas?'Ver lote':feitas>=l.folhas?'Revisar':feitas?'Continuar correção':'Corrigir';linha.append(info,a);item.append(linha)}
+      list.append(item)}
     if(!list.children.length){const p=document.createElement('p');p.textContent='Ainda não há turmas vinculadas. Peça ao administrador para cadastrá-las.';list.append(p)}
   }else{
     document.querySelector('#list-title').textContent='Unidades';
     for(const sigla of u.unidades||[]){const el=document.createElement('span');el.className='unit';el.textContent={BC:'Batista Campos',AM:'Augusto Montenegro',CN:'Cidade Nova'}[sigla];list.append(el)}
     if(!list.children.length){const p=document.createElement('p');p.textContent='Ainda não há unidades vinculadas. Peça ao administrador para cadastrá-las.';list.append(p)}
   }
-  if(u.funcao==='professor'){const aviso=document.createElement('p');aviso.className='notice';aviso.textContent='A correção das redações será liberada nas próximas etapas.';document.querySelector('#content').append(aviso)}
-  else await iniciarDigitalizacao(u);
+
+  if(u.funcao!=='professor')await iniciarDigitalizacao(u);
 }
 document.querySelector('#logout').addEventListener('click',async()=>{sessionStorage.removeItem('atlas_user_auth');localStorage.removeItem('atlas_user_auth');try{if(saved?.token)await fetch(API+'/api/login/sair',{method:'POST',headers:{Authorization:'Bearer '+saved.token}})}catch{}location.href='index.html'});
 carregar();

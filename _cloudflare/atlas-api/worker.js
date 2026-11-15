@@ -1,6 +1,7 @@
 // ATLAS — servidor (Cloudflare Worker).
 import { rotaRedacaoAdm, rotaRedacaoUsuario, limparAlunosVirada, RedacaoError } from './redacao-cadastros.js';
 import { rotaLotesUsuario, rotaLotesAdm, limparPdfCancelados } from './redacao-lotes.js';
+import { rotaCorrecao } from './redacao-correcao.js';
 // Administração: login "Entrar com Google", liberado SOMENTE para o e-mail em ADMIN_EMAIL.
 // Professores e Supervisores: login por código no e-mail institucional.
 // Questões: enviadas pelo Professor e analisadas pelo Supervisor da disciplina (tabelas itens/item_versoes/revisoes).
@@ -1851,7 +1852,7 @@ async function rotasSelecoesAdm(request, env, path, url, sessao) {
 // Guarda as tabelas de conteúdo e cadastro; não guarda sessões nem códigos de login.
 // As imagens já ficam no R2 e não são copiadas de novo.
 const TABELAS_BACKUP = ['meta', 'usuarios', 'retiradas', 'grupos', 'grupo_versoes', 'itens', 'item_versoes', 'revisoes', 'consertos', 'selecoes', 'selecao_itens', 'eventos',
-  'redacao_turmas', 'redacao_alunos', 'redacao_equipe', 'redacao_professor_turmas', 'redacao_digitalizador_unidades', 'redacao_importacoes', 'redacao_lotes', 'redacao_paginas'];
+  'redacao_turmas', 'redacao_alunos', 'redacao_equipe', 'redacao_professor_turmas', 'redacao_digitalizador_unidades', 'redacao_importacoes', 'redacao_lotes', 'redacao_paginas', 'redacao_correcoes'];
 const MANTER_BACKUPS = 60;
 
 async function fazerBackup(env, origem) {
@@ -2324,7 +2325,9 @@ export default {
         if (!ALLOWED_ORIGINS.includes(origin)) throw new HttpError(403, 'Origem não permitida.');
         const resultado = url.pathname.startsWith('/api/redacao/lotes')
           ? await rotaLotesUsuario(request, env, url.pathname, { sessaoAtual, hojeSP, registrar, readJson })
-          : await rotaRedacaoUsuario(request, env, url.pathname, { sessaoAtual });
+          : url.pathname.startsWith('/api/redacao/correcao')
+            ? await rotaCorrecao(request, env, url.pathname, { sessaoAtual, hojeSP, registrar, readJson })
+            : await rotaRedacaoUsuario(request, env, url.pathname, { sessaoAtual });
         return resultado?.__pdf ? respostaPdf(resultado, origin) : reply(resultado, 200, origin);
       }
       if (url.pathname.startsWith('/api/')) {

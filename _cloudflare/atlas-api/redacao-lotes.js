@@ -1,5 +1,6 @@
 // Recebimento dos PDFs da Redação. Leitura de cartões e correção virão depois.
 import { RedacaoError } from './redacao-cadastros.js';
+import { devolverCondenada } from './redacao-correcao.js';
 
 const MAX_PDF = 50 * 1024 * 1024;
 const HORAS_CANCELAMENTO = 2;
@@ -40,11 +41,12 @@ async function lotes(env, ano, unidades = null) {
     'SELECT l.id, l.ano, l.bimestre, l.turma_id, l.digitalizador_id, l.nome_arquivo, l.bytes, ' +
     'l.enviado_em, l.cancelavel_ate, l.cancelado_em, l.cancelado_por, l.arquivo_excluido_em, ' +
     't.unidade, t.segmento, t.serie, t.codigo, u.nome AS digitalizador, ' +
-    'p.total AS paginas, p.aluno AS paginas_aluno, p.avulsa AS paginas_avulsa, p.duvida AS paginas_duvida, p.descartada AS paginas_descartada ' +
+    'p.total AS paginas, p.aluno AS paginas_aluno, p.avulsa AS paginas_avulsa, p.duvida AS paginas_duvida, p.descartada AS paginas_descartada, cc.condenadas AS paginas_condenada ' +
     'FROM redacao_lotes l JOIN redacao_turmas t ON t.id = l.turma_id ' +
     'JOIN usuarios u ON u.id = l.digitalizador_id ' +
     "LEFT JOIN (SELECT lote_id, COUNT(*) AS total, SUM(situacao = 'aluno') AS aluno, SUM(situacao = 'avulsa') AS avulsa, " +
     "SUM(situacao = 'duvida') AS duvida, SUM(situacao = 'descartada') AS descartada FROM redacao_paginas GROUP BY lote_id) p ON p.lote_id = l.id " +
+    "LEFT JOIN (SELECT lote_id, COUNT(*) AS condenadas FROM redacao_correcoes WHERE condenada = 1 GROUP BY lote_id) cc ON cc.lote_id = l.id " +
     'WHERE l.ano = ?' + filtro +
     ' ORDER BY l.enviado_em DESC, l.id DESC'
   ).bind(ano, ...(unidades || [])).all()).results;
@@ -177,6 +179,10 @@ async function situacaoRas(env, ras, ano) {
    outra turma/unidade, fora do cadastro ou RA repetido → dúvida para o ADM. */
 async function gravarPaginas(env, lote, body, quem, registrar, usuarioId) {
   if (lote.cancelado_em) erro(409, 'Este lote foi cancelado.');
+  /* Depois que a professora começou a corrigir, o índice não pode ser refeito (as notas se perderiam). */
+  if (await env.DB.prepare('SELECT 1 FROM redacao_correcoes WHERE lote_id = ? LIMIT 1').bind(lote.id).first()) {
+    erro(409, 'Este lote já tem redações corrigidas pela professora; a leitura não pode ser refeita.');
+  }
   const lista = Array.isArray(body?.paginas) ? body.paginas : null;
   if (!lista || !lista.length || lista.length > 400) erro(400, 'Leitura das páginas inválida.');
   const paginas = lista.map((p, i) => {
@@ -216,15 +222,20 @@ function resumoPaginas(paginas) {
 async function paginasDoLote(env, lote) {
   const paginas = (await env.DB.prepare(
     'SELECT p.pagina, p.ra_lido, p.angulo, p.invertida, p.marcadores, p.situacao, p.motivo, p.aluno_ra, p.resolvido_por, p.resolvido_em, a.nome AS aluno_nome, ' +
-    'l.nome AS lido_nome, tl.codigo AS lido_turma, tl.unidade AS lido_unidade ' +
+    'l.nome AS lido_nome, tl.codigo AS lido_turma, tl.unidade AS lido_unidade, ' +
+    'c.condenada, c.condenada_motivo, c.observacao AS condenada_obs, CASE WHEN c.enviada_em IS NOT NULL AND c.condenada = 0 THEN 1 ELSE 0 END AS corrigida ' +
     'FROM redacao_paginas p LEFT JOIN redacao_alunos a ON a.ra = p.aluno_ra ' +
+    'LEFT JOIN redacao_correcoes c ON c.lote_id = p.lote_id AND c.pagina = p.pagina ' +
     'LEFT JOIN redacao_alunos l ON l.ra = p.ra_lido LEFT JOIN redacao_turmas tl ON tl.id = l.turma_id ' +
     'WHERE p.lote_id = ? ORDER BY p.pagina'
   ).bind(lote.id).all()).results;
   const alunos = (await env.DB.prepare(
     'SELECT ra, nome FROM redacao_alunos WHERE turma_id = ? ORDER BY nome COLLATE NOCASE'
   ).bind(lote.turma_id).all()).results;
-  return { ok: true, lote: { id: lote.id, codigo: lote.codigo, unidade: lote.unidade, bimestre: lote.bimestre, nome_arquivo: lote.nome_arquivo, cancelado: !!lote.cancelado_em }, paginas, alunos, resumo: resumoPaginas(paginas) };
+  const resumo = resumoPaginas(paginas);
+  resumo.condenada = paginas.filter(p => p.condenada).length;
+  resumo.corrigida = paginas.filter(p => p.corrigida).length;
+  return { ok: true, lote: { id: lote.id, codigo: lote.codigo, unidade: lote.unidade, bimestre: lote.bimestre, nome_arquivo: lote.nome_arquivo, cancelado: !!lote.cancelado_em }, paginas, alunos, resumo };
 }
 /* Decisão do ADM numa página: atribuir a um aluno do cadastro ou descartar. */
 async function resolverPagina(env, lote, n, body, sessao, registrar) {
@@ -232,7 +243,16 @@ async function resolverPagina(env, lote, n, body, sessao, registrar) {
   const p = await env.DB.prepare('SELECT * FROM redacao_paginas WHERE lote_id = ? AND pagina = ?').bind(lote.id, n).first();
   if (!p) erro(404, 'Página não encontrada.');
   const horario = agora(), quem = sessao.email || 'adm';
+  /* Folha já corrigida não muda aqui; condenada pela professora pode ser devolvida, trocada ou descartada. */
+  const corr = await env.DB.prepare('SELECT condenada FROM redacao_correcoes WHERE lote_id = ? AND pagina = ?').bind(lote.id, n).first();
+  if (corr && !corr.condenada) erro(409, 'Esta folha já foi corrigida pela professora e não pode ser alterada aqui.');
+  if (body?.acao === 'devolver') {
+    await devolverCondenada(env, lote.id, n);
+    await registrar(env, 'redacao_condenada_devolvida', { lote_id: lote.id, pagina: n, adm: quem });
+    return await paginasDoLote(env, lote);
+  }
   if (body?.acao === 'descartar') {
+    if (corr) await devolverCondenada(env, lote.id, n);
     await env.DB.prepare("UPDATE redacao_paginas SET situacao = 'descartada', aluno_ra = NULL, resolvido_por = ?, resolvido_em = ? WHERE lote_id = ? AND pagina = ?")
       .bind(quem, horario, lote.id, n).run();
   } else if (body?.acao === 'atribuir') {
@@ -242,6 +262,7 @@ async function resolverPagina(env, lote, n, body, sessao, registrar) {
     if (!aluno) erro(404, 'RA não encontrado no cadastro de alunos.');
     const ocupada = await env.DB.prepare("SELECT pagina FROM redacao_paginas WHERE lote_id = ? AND aluno_ra = ? AND situacao = 'aluno' AND pagina <> ?").bind(lote.id, ra, n).first();
     if (ocupada) erro(409, `Este aluno já está na página ${ocupada.pagina} deste lote. Descarte ou corrija aquela página antes.`);
+    if (corr) await devolverCondenada(env, lote.id, n);
     await env.DB.prepare("UPDATE redacao_paginas SET situacao = 'aluno', aluno_ra = ?, resolvido_por = ?, resolvido_em = ? WHERE lote_id = ? AND pagina = ?")
       .bind(ra, quem, horario, lote.id, n).run();
   } else erro(400, 'Ação inválida.');
