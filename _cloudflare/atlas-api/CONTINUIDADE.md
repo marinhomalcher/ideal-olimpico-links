@@ -1,84 +1,245 @@
 # ATLAS — continuidade (para o assistente que pegar o trabalho)
 
-Atualizado em **14/11/2026**, após os PRs [#93](https://github.com/marinhomalcher/ideal-olimpico-links/pull/93), [#94](https://github.com/marinhomalcher/ideal-olimpico-links/pull/94) e o do alinhamento das folhas de Redação (Claude). Responsável: **Marinho (João Marinho Malcher), Grupo Ideal**. O ADM é só ele.
+Atualizado em **15/11/2026**, depois do PR [#113](https://github.com/marinhomalcher/ideal-olimpico-links/pull/113) (Claude). Responsável: **Marinho (João Marinho Malcher), Grupo Ideal**. O ADM é só ele.
 
-Leia isto inteiro antes de mexer. Converse com o Marinho **sempre em português**, passo a passo, com **link direto**, sem jargão ("console", "branch") sem explicar.
+Estado no ar, conferido depois do merge do #113:
+- site na versão `20261115n`;
+- API com `schema 16`;
+- **26 suítes / 1.021 verificações** passando.
+
+Leia isto inteiro antes de mexer. Converse com o Marinho **sempre em português**, passo a passo, em linguagem simples e com **link direto**. Explique os termos técnicos: "branch" é o ramo separado do código, "PR" é o pedido de junção e "merge" é juntar à versão oficial. Ele gosta de **respostas curtas**.
 
 ## 1. O que é e onde está
 
-ATLAS = banco de questões (BQI) do Grupo Ideal. Professor cadastra → Supervisor da disciplina analisa (aprova, pede ajuste, edita, descarta) → questão aprovada vai para seleções de provas.
+ATLAS = banco de questões (BQI) do Grupo Ideal + módulo de **Redação** (correção das redações das turmas).
+- **BQI:** o Professor cadastra a questão, o Supervisor da disciplina analisa, e a questão aprovada vai para as seleções de provas.
+- **Redação:** o digitalizador envia o PDF da turma, a professora corrige na tela e as notas ficam guardadas.
 
 | Peça | Onde |
 |---|---|
 | Telas | https://idealolimpico.com.br/atlas/ (GitHub Pages; pasta `atlas/`) |
-| Servidor | Cloudflare Worker `atlas-api` (`_cloudflare/atlas-api/worker.js`), publicado sozinho a cada merge na `main` |
-| Banco | Cloudflare D1 `atlas-teste` (será o oficial). **Schema v12** |
-| Imagens e cópias | R2 `atlas-imagens` (`img/` imagens, `redacao/` PDFs originais privados, `backups/` cópia diária 3h17 de Brasília) |
+| Servidor | Cloudflare Worker `atlas-api` (`worker.js`, `redacao-*.js`, `pessoas.js`), publicado sozinho a cada merge na `main` |
+| Banco | Cloudflare D1 `atlas-teste` (será o oficial). **Schema v16** |
+| Arquivos | R2 `atlas-imagens`: `img/` (imagens das questões), `redacao/` (PDFs originais, privados), `backups/` (cópia diária do D1 às 3h17 de Brasília, guarda 60) |
 | E-mails | Microsoft Graph como `olimpiadas@grupoideal.com.br`; reserva: Apps Script (`ATLAS_MAILER_URL`) |
-| Portal de inscrições | mesmo repositório (`index.html`, `inscricoes/`, `teste-inscricoes/`) — **NÃO MEXER** |
+| Portal de inscrições | mesmo repositório (`index.html`, `inscricoes/`, `teste-inscricoes/`) — **NÃO MEXER** (exceção futura: só o "MEU DESEMPENHO", §7) |
 
-O repositório é **público**: nada de segredo no código. Segredos só no painel da Cloudflare / Propriedades do Apps Script.
+O repositório é **público**: nada de segredo no código, **nenhuma planilha nem PDF real de aluno**. PDFs e planilhas reais só podem ser usados localmente, fora do repositório, e apagados depois.
 
 ## 2. Como entregar uma mudança
 
-- **Só um assistente por vez** (Claude ou ChatGPT/Codex; regra de 14/11/2026). Antes de começar: puxe a `main` atualizada, confira se há PR aberto de outro assistente e não mexa nos mesmos arquivos; se houver dúvida, pergunte ao Marinho. Branches: Claude usa `claude/...`, Codex usa `codex/...`; nunca reaproveite a do outro. Conflito no merge: atualize a branch a partir da `main`, rode os testes de novo, nunca force.
-0. **Nada é implementado nem publicado sem autorização do Marinho** (regra de 14/11/2026). Antes, apresente as opções com prós e contras (de preferência como perguntas de marcar, item por item) e espere o "pode fazer". Vale para código, banco, telas e até mudanças só de texto.
-1. Branch nova a partir da `main` → commit → PR. **Nunca** commit direto na `main`. **O próprio assistente faz o merge** (autorizado pelo Marinho em 13/11/2026), depois dos testes passarem, e conta ao Marinho o que foi ao ar.
-2. Mudou alguma coisa em `atlas/`? Rode `python3 _cloudflare/atlas-api/nova-versao.py AAAAMMDDx` (nova versão a cada entrega). As páginas abertas se recarregam sozinhas.
-3. Mudou o banco? Crie `migrations/000N_*.sql` (número seguinte), acrescente o mesmo bloco no fim de `schema.sql` (`-- ---------- vN ----------`), suba `meta.schema_versao`. **O SQL é aplicado sozinho no merge**: o comando de implantação do Worker na Cloudflare (Workers & Pages → atlas-api → Settings → Build → Deploy command) é
-   `npx wrangler d1 migrations apply atlas-teste --remote && npx wrangler deploy`
-   — aplica as migrações pendentes (controle na tabela `d1_migrations` do banco) e só então publica o Worker; se uma migração falhar, nada é publicado e o Worker antigo continua no ar. O comando das branches que não são a `main` **não** aplica migrações. Regras: nunca edite nem renomeie uma migração já mergeada (crie outra); escreva o SQL para rodar uma vez só, de ponta a ponta; diga no PR e ao Marinho que há migração. As migrações 0003–0008 foram aplicadas à mão antes disso e marcadas como aplicadas em `d1_migrations`. Ao zerar o banco, mantenha também `d1_migrations`.
-4. Rode os testes (abaixo) antes de abrir o PR. Depois do merge, confira que `main` ficou igual à sua branch e que a implantação do `atlas-api` apareceu na Cloudflare (o Marinho pode mandar print de Workers e Pages → atlas-api → Implantações).
+0. **Nada é implementado nem publicado sem autorização do Marinho.**
+   - Antes, apresente as opções com prós e contras, de preferência como **perguntas de marcar**, com a recomendada primeiro e marcada "(Recomendado)".
+   - Espere o "pode fazer" (ou "faça", "bora", "pode").
+   - Se ele pedir para **ver antes** ("me mostre uns PNGs"), gere imagens da tela real com a mudança desenhada por cima, usando folha ou dados fictícios.
+1. **Só um assistente por vez** (Claude ou ChatGPT/Codex).
+   - Puxe a `main` atualizada e confira se há PR aberto de outro assistente. Não mexa nos mesmos arquivos.
+   - Branches: Claude usa `claude/...` e o Codex usa `codex/...`.
+   - Se houver conflito, atualize a branch a partir da `main` e rode os testes de novo. Nunca force.
+2. **Fluxo:** branch nova a partir da `main` → commit → PR → testes passando (local e GitHub Actions) → **o próprio assistente faz o merge** (autorizado em 13/11/2026) → confere que está no ar → conta ao Marinho, passo a passo.
+3. **Mudou algo em `atlas/`:** rode `python3 _cloudflare/atlas-api/nova-versao.py AAAAMMDDx` (nova letra a cada entrega no dia). As páginas abertas se recarregam sozinhas.
+4. **Mudou o banco:**
+   - crie `migrations/00NN_*.sql`; a última é a **0016**, então a próxima é a 0017;
+   - acrescente o mesmo bloco no fim de `schema.sql` (`-- ---------- vN ----------`);
+   - suba `meta.schema_versao`;
+   - atualize as verificações "Schema N" em `teste-adm`, `teste-login`, `teste-selecoes`, `teste-redacao-cadastros` e `teste-redacao-lotes`;
+   - crie um teste que aplique a migração sobre o schema anterior (ex.: `teste-redacao-correcao`, migração 0016).
+
+   **Aplicação:** o SQL entra sozinho no merge. O comando de implantação na Cloudflare é `npx wrangler d1 migrations apply atlas-teste --remote && npx wrangler deploy`. Se a migração falhar, nada é publicado.
+
+   **Cuidados:**
+   - nunca edite uma migração já mergeada;
+   - prefira acrescentar coluna ou tabela.
+
+   **Antes de juntar:** antes do merge de qualquer migração que altere ou apague tabela, peça ao Marinho para fazer uma cópia: área do ADM → **Cópias de segurança** → **"Fazer cópia agora"**. Junte só depois de **"cópia feita"** (ou de um print mostrando a "Última cópia" com o horário daquele momento).
+5. **Depois do merge:**
+   - confira a versão em `https://idealolimpico.com.br/atlas/versao.json`;
+   - confira o schema em `/api/saude` (com o cabeçalho `Origin: https://idealolimpico.com.br`).
+6. **Este arquivo (`CONTINUIDADE.md`) só é atualizado quando o Marinho pedir** (regra de 15/11/2026: atualizar a cada entrega gastava muito).
 
 ## 3. Testes
 
-`_cloudflare/atlas-api/testes/` — 24 suítes. Usam SQLite real (`node:sqlite`) no lugar do D1, R2 falso em memória e Playwright (Chromium) nas telas. Nenhum e-mail real sai. `rodar.sh` retorna erro se qualquer suíte falhar; o GitHub Actions também o executa em Linux em cada PR do ATLAS.
+`_cloudflare/atlas-api/testes/`, com **26 suítes**:
+- **Como funcionam:** SQLite real (`node:sqlite`) no lugar do D1. R2 falso que recusa fluxo sem tamanho como a Cloudflare (`r2-cloudflare.mjs`, `r2Rigoroso`). Playwright com Chromium nas telas. Nenhum e-mail real sai.
+- **Folha de redação:** a folha de teste é **fictícia**, desenhada por `folha-ficticia.mjs` (`FOLHA_JS`, `pdfDeJpegs`).
+- **Falhas:** quando uma suíte falha, `rodar.sh` mostra 60 linhas do erro. O GitHub Actions roda tudo em Linux em cada PR.
 
 ```
 cd _cloudflare/atlas-api/testes && ./rodar.sh            # todas
-./rodar.sh itens retirada                                # só algumas
+./rodar.sh selecoes redacao-correcao                     # só algumas
 ```
 
-Ambiente: Node 22+ (usa `node:sqlite`), npm com internet e Playwright com Chromium. Instale o Playwright **fora do repositório** (não há `.gitignore`): `npm install --prefix /tmp/pw playwright && npx --prefix /tmp/pw playwright install --with-deps chromium && export NODE_PATH=/tmp/pw/node_modules`. `preparar.sh` baixa KaTeX, ExcelJS e pdf.js via npm para `$ATLAS_TESTE_TMP` (padrão `/tmp/atlas-testes`). Os testes de seleções/edição às vezes falham por tempo de tela: rode de novo antes de investigar. Todas as suítes usam a data fixa 13/11/2026 (`ATLAS_HOJE_TESTE`), para não falharem nas férias; o navegador da suíte `ferias` também tem o relógio fixo. Ao mudar a versão do schema, atualize as verificações "Schema N" em `teste-adm`, `teste-login` e `teste-selecoes`.
+**Ambiente:**
+- Node 22 ou mais novo.
+- Playwright **fora do repositório** (`npm install --prefix /tmp/pw playwright`; `export NODE_PATH=/tmp/pw/node_modules`).
+- `preparar.sh` baixa KaTeX, ExcelJS e pdf.js para `/tmp/atlas-testes`.
+
+**Datas:**
+- as regras de férias usam a data fixa 13/11/2026 (`ATLAS_HOJE_TESTE`);
+- relatórios, seleções e cópias usam o ano e o mês atuais (constante `ANO`).
 
 ## 4. Regras do Marinho (valem sempre)
 
-- Só e-mail `@grupoideal.com.br`, sem exceção nem subdomínio. ADM entra com Google (só `ADMIN_EMAIL`); os demais com código de 6 dígitos por e-mail.
-- Sem `confirm()`/`alert()`/`prompt()` (o app do Claude bloqueia): confirmações dentro da página.
-- Testes nunca mandam e-mail real a professor.
-- Excel: números centralizados. Arquivos revisados mantêm o mesmo nome.
-- **O banco está em TESTE.** Só zerar quando o Marinho pedir; quando ele pedir, é para zerar (manter usuários, `meta`, `d1_migrations`, `backups/`; fazer cópia antes).
-- Supervisor: edita texto, tags, assunto, subtema e Bloom; **não** muda etapa, origem, fonte nem dificuldade (só preenche dificuldade se estiver vazia). Dificuldade é ajustada pela escola depois da pré-testagem.
-- Só o ADM: desfaz descarte (30 dias), corrige questão aprovada, faz consertos pedidos pelo Supervisor.
-- Tags: professor é obrigado a pôr pelo menos 2 (máx. 12).
-- **Férias:** professor e supervisor ficam fora em julho e no recesso de 15/12 a 31/01; o **digitador só em julho** (trabalha no recesso). Horário de Brasília. ADM entra sempre. Tela grande "FÉRIAS".
-- Reconhecimento de questão por print/OCR: **descartado** (não há IA para isso). Importar provas antigas do Word continua como opção futura.
-- Hospedagem: não tirar do GitHub Pages (o portal de inscrições está junto).
+- **Acesso:**
+  - só e-mail `@grupoideal.com.br`, sem exceção;
+  - o ADM entra com Google (`ADMIN_EMAIL`);
+  - os demais entram com código de 6 dígitos;
+  - o **digitalizador entra pelo cartão "Redação" → "Entrar na Redação"**.
+- **Telas:**
+  - sem `confirm()`, `alert()` nem `prompt()`;
+  - **botões não podem mudar de lugar** quando se clica (larguras fixas, linha própria);
+  - todas as páginas usam **até 1.920 px de largura**, com o topo alinhado ao conteúdo;
+  - a prioridade é o **PC**; no celular, só não pode quebrar;
+  - manter as cores do ATLAS: vinho no BQI e no ADM, azul-marinho na Redação.
+- **Excel:** números centralizados; arquivos revisados mantêm o mesmo nome.
+- **O banco está em TESTE.** Só zerar quando o Marinho pedir, com cópia antes, mantendo usuários, `meta`, `d1_migrations` e `backups/`.
+- **BQI:**
+  - o Supervisor edita texto, tags, assunto, subtema e Bloom;
+  - a dificuldade é da escola (só se preenche quando vazia);
+  - só o ADM desfaz descarte (30 dias), corrige questão **aprovada** (o servidor recusa as outras situações) e faz consertos.
+- **Férias:**
+  - professor, supervisor e classificador: julho e de 15/12 a 31/01;
+  - digitador e digitalizador: só julho;
+  - ADM: entra sempre.
+- **Redação:**
+  - o **EF1 está fora** (decisão de 15/11);
+  - segmentos: EF2 e EM;
+  - unidades: BC (Batista Campos), AM (Augusto Montenegro) e CN (Cidade Nova).
 
 ## 5. Funcionalidades prontas
 
-- Professor: questão única ou grupo/testlet (2–10 questões com o mesmo texto-base), editor com imagens (R2) e LaTeX, colar alternativas juntas no comando ou no campo A (A) / a) / A. / A[tab] / letra sozinha na linha / "A texto" — este último só com letra maiúscula e a sequência A–E completa, valendo o último "A " do texto), referência com "Acesso em:" sempre na linha de baixo, aviso de questão repetida (assinatura SHA-256), rascunho guardado se o login vencer, quadro **Meu resumo** (mês/ano, filtro de mês).
-- Supervisor: fila com selos "possível repetida" e "CLASSIFICAR", decisões, edição, pedido de conserto ao ADM, seleções para provas (série 1ª–3ª × REG/MED; grupo entra inteiro).
-- ADM: cadastros (professor, supervisor por disciplina, **digitador** com prazo de acesso), Questões (busca por código, desfazer descarte, consertos), **Enviar questões** (sem classificação, origem fixa "Acervo Ideal", sem tags), **Relatório de produção** (por professor/mês; filtros todos/área LC-CH-CN-MT/disciplina/professor; Excel), Seleções recebidas, cópias de segurança, **retirada das questões autorais de professor desligado** (professor desativado + 3 etapas; 6 meses para devolver; vencido o prazo, e-mail e alerta ao ADM; exclusão definitiva faz cópia antes e mantém questões que estão em provas montadas).
-- Digitador: entra como professor e cai em `digitador.html`; envia por disciplina, sem classificar.
-- Questões do ADM/digitador: aprovação bloqueada até haver assunto, Bloom, dificuldade e ≥ 2 tags; sem "pedir ajuste" e sem e-mail.
-- **Código provisório X** (14/11/2026): questão do ADM ou do digitador nasce com `X` + 7 números; na aprovação o X vira a letra da disciplina, com os mesmos números (evento `codigo_definitivo` guarda o anterior; a busca do ADM acha pelo X). Os números nunca se repetem entre letras (`sortearCodigoLivre`). Questão de professor continua com a letra da disciplina desde o envio.
-- **Sem disciplina** (`itens.disciplina = 'Sem disciplina'`): o digitador pode escolher "Não sei a disciplina"; o supervisor (só em questão do ADM/digitador, em análise) usa "Devolver ao ADM (não é da minha disciplina)", sem sugestão nem motivo. O ADM vê o aviso no painel e o quadro "Questões sem disciplina" em Questões, escolhe a disciplina e a questão vai para a fila do supervisor dela.
-- **Classificadores (força-tarefa)** (schema v9; tabela `reservas`, `usuarios.classificador`): professor marcado pelo ADM no cadastro. Na área do professor aparece o cartão "Força-tarefa" → `classificar.html`: "Próxima questão" entrega uma questão do ADM/digitador da disciplina dele ainda sem classificação e a reserva por 2 h (ninguém pega a mesma). Ele preenche assunto/subtema/Bloom/dificuldade/≥ 2 tags, pode corrigir erros de digitação (o evento `item_classificado` guarda o que mudou), pode devolver ao ADM e "Parar por agora" libera a reserva. Não aprova. Fecha no recesso (é professor). Na fila do supervisor as classificadas vêm primeiro com o selo "pronta para aprovar" e um aviso de quem classificou e o que mudou; se discordar, o supervisor edita. Relatório de produção e Excel têm a coluna "Classif.".
-- Avisos por e-mail **ligados** (`ATLAS_AVISOS_ATIVOS = "1"`).
-- **Vários textos de apoio** (até 4; `dados.textos_extras = [{texto, referencia}]`, o 1º continua em `texto-base`/`referencia`; títulos TEXTO I, II… automáticos), **fonte por alternativa** (`ref-a`…`ref-e`), referências em fonte 8 à direita, e **formato na prova** (`layout` = `coluna` padrão | `pagina`; no grupo vale para todas as questões; mudar só o formato é permitido mesmo com questão do grupo aprovada). Textos II–IV abrem embaixo, em largura total como o Texto I; a referência de cada texto fica atrás do botão "+ Inserir referência do texto ou da imagem" (abre sozinha quando já tem conteúdo). Componente comum: `AtlasRich.extras()` em `atlas-editor.js`.
+### BQI (questões)
+- **Professor:**
+  - questão única ou grupo/testlet;
+  - editor com imagens (R2) e LaTeX;
+  - vários textos de apoio, fonte por alternativa e formato na prova;
+  - colar alternativas;
+  - aviso de repetida;
+  - Meu resumo;
+  - cartão "Força-tarefa" (classificador → `classificar.html`).
+- **Supervisor:**
+  - fila com os selos "possível repetida", "CLASSIFICAR" e "pronta para aprovar";
+  - decisões, edição, conserto e "Devolver ao ADM".
+- **Seleções para provas (`supervisor-selecoes.html`, PR #111), em três colunas com a questão exatamente no centro da tela.** Na edição, o menu lateral some e aparece "← Voltar às seleções".
+  - **Centro:**
+    - ⏮ ← "Questão N de M" → ⏭;
+    - teclado: ← → e **A** (adiciona ou remove);
+    - "+ Adicionar questão" (vira "Remover da prova"; no grupo, "Adicionar o grupo (N questões)");
+    - a questão inteira (`/api/itens/:codigo`) e, embaixo, "Resposta e resolução".
+  - **Esquerda (a prova):**
+    - série, tipo e título;
+    - total, **Ver escolhidas** (janela com ↑ ↓ e Retirar) e **Finalizar prova** (envia ao ADM);
+    - termômetro de dificuldade: Fácil = 1, Média = 2, Difícil = 3, pela média;
+    - barras do gabarito A–E (aviso se uma letra tiver 40% ou mais, com 5 ou mais questões);
+    - assuntos cobertos e níveis de Bloom;
+    - "Excluir esta seleção".
+  - **Direita:**
+    - filtros (busca, assunto, dificuldade, origem, Bloom);
+    - dados da questão: código, autor, classificação, tags clicáveis, histórico de uso e espaço reservado para o "% de acerto dos alunos".
+- **ADM → Questões (`admin-questoes.html`, PR #112):** duas abas.
+  - **Navegar**, com três colunas e a questão no centro. O menu do ADM vira uma faixa no topo.
+    - **Direita, filtros:** disciplina, professor, situação (começa em Aprovadas; tem Em análise, Aguardando ajuste, Descartadas e Todas), etapa, assunto, dificuldade, origem, Bloom e busca. Código completo na busca acha a questão em qualquer situação.
+    - **Esquerda:** dados da questão, uso nas provas, versões, histórico e consertos.
+    - **Centro:** setas e teclado; botão **Editar questão** (só aprovadas; vira "Fazer o conserto" quando há pedido); a questão vira o formulário de correção já existente.
+    - **Rota:** `GET /api/adm/banco` (só o ADM) traz até 2.000 questões, com `usos`, `disciplinas`, `professores` e `assuntos`.
+  - **Pendências:** sem disciplina, consertos e imagens antigas, com a contagem na aba.
+- **ADM (outras páginas):**
+  - Enviar questões ("Acervo Ideal", código provisório X);
+  - Relatório de produção (+ Excel);
+  - Seleções recebidas;
+  - Questões retiradas (`admin.html?secao=retiradas`);
+  - Cópias de segurança (`admin.html?secao=copias`).
+- **Menu do ADM**, igual em todas as `admin*.html`: Cadastros e funções, Alunos, Redação, Questões, Enviar questões, Relatório de produção, Seleções recebidas, Questões retiradas, Cópias de segurança.
 
-## 6. Próximos passos combinados
+### Cadastros e funções (`admin.html`, schema v15, PR #107)
+- **Cadastro único de pessoas** (`pessoas.js`):
+  - `GET/POST /api/adm/pessoas`, `PUT /api/adm/pessoas/:id`;
+  - uma pessoa pode acumular funções: **Banco de questões** (professor da disciplina, que pode ser supervisor ou classificador, ou digitador), **Professor de redação** (turmas), **Digitalizador** (unidades) e **Coordenador** (unidade/segmento/série; por enquanto só vai receber o Excel das notas).
+- **Lista:**
+  - busca por nome (ignora acentos e filtra enquanto digita);
+  - filtros por função e disciplina;
+  - selos de cada função.
+- **Banco:** `redacao_equipe` ganhou os campos `professor` e `digitalizador` (0/1); há a tabela `coordenadores`. Quem sai do banco ou muda de disciplina deixa de ser supervisor.
 
-1. **Piloto do BQI:** Matemática foi escolhida, mas ainda não começou. O Marinho conversará com a equipe para definir os professores que farão testes de inserção de questões. Guias: "Guias do ATLAS para o piloto" (documento no claude.ai do Marinho).
-2. Depois do piloto: zerar o banco (só quando ele pedir) e lançar.
-3. Ideias em aberto: importar provas antigas do Word; endereço próprio para a API (`api.idealolimpico.com.br`); passar o repositório para uma organização "Grupo Ideal" no GitHub.
-4. BQI etapa 2 (depois): importar resultados por planilha, anulações, taxa de acerto por questão. O ATLAS não calcula nota de aluno.
-5. **Redação, etapa 1 (schema v10):** entrada Redação na página inicial, portal inicial com turmas/unidades vinculadas e cadastros próprios na área do ADM. Turmas iniciais de EM: 1EMA/2EMA/3EMA nas três unidades, e 1MED/2MED/3MED em BC e CN; outras turmas surgem pelo cadastro manual ou importação. Professores de redação são vinculados às turmas; digitalizadores, às unidades. A planilha completa `NOME COMPLETO, RA, FILIAL, SÉRIE, CODTURMA, SEGMENTO` é conferida antes de importar: RA único, novos alunos cadastrados, nome/turma/unidade atualizados; troca de série ou segmento dentro do mesmo ano bloqueia a importação. Nenhum aluno é apagado por estar ausente de uma atualização. O cadastro anual de alunos é eliminado na virada do ano somente depois de uma cópia diária bem-sucedida. As novas tabelas entram no backup diário do R2. **Ainda não há upload nem correção de redações nesta etapa.**
-6. **Redação, etapa 2A (schema v11):** o digitalizador escolhe bimestre/unidade/segmento/série/turma e envia um PDF de até 50 MB. O PDF original fica privado no R2; só digitalizador da unidade e ADM podem abrir. O banco guarda um lote ativo por ano/bimestre/turma; o digitalizador confere o arquivo guardado e pode cancelar seus próprios lotes por 2 horas. O ADM vê todos os lotes e pode cancelar depois desse prazo. O cancelamento libera o slot e remove o PDF, com nova tentativa automática de exclusão se o R2 falhar. **Correção (14/11/2026, Claude):** o envio dava "Erro interno" no ar porque o R2 da Cloudflare só aceita fluxo de tamanho conhecido; agora o PDF passa por `FixedLengthStream` com o `Content-Length` do navegador (sem tamanho → 411; envio interrompido → 400, nada guardado). Os testes usam `testes/r2-cloudflare.mjs` (`r2Rigoroso`), que recusa fluxo sem tamanho como a Cloudflare: use-o em toda suíte que envie arquivo em fluxo ao R2. Não há e-mail à professora nem correção nesta fase. A visualização usa o leitor de PDF do navegador; não há separação por aluno nesta etapa.
-7. **Redação, alinhamento das folhas (sem SQL):** `atlas/atlas-alinhamento.js` (`window.AtlasAlinhamento`) acha os 4 marcadores em "L" da FOLHA DE REDAÇÃO e endireita + centraliza a página (giro, deslocamento e escala, sem deformar; medidas em `MODELO.cantos`, tiradas do PDF nominal), percebe folha de cabeça para baixo pela tinta do cabeçalho (funciona também na avulsa) e avisa quando acha só 2–3 marcadores ou nenhum. Usa o canal vermelho (as linhas vermelhas somem) e apaga traços finos antes de procurar os marcadores (no scan em cinza a linha da assinatura encosta no "L"). O PDF é aberto no navegador com pdf.js 4.10.38 (jsDelivr), conferido por SHA-384 antes de usar. Prévia **só do ADM** em `redacao-lotes-admin.html` → "Ver páginas alinhadas": antes/depois, guia tracejada, −0,25°/+0,25°, "Girar 180°", "Desfazer ajustes" (botões numa linha própria, que não se move; o texto mostra só o ângulo total, automático + cliques); **nada é gravado**. Os avisos "entre como ADM" das páginas da Redação usam `admin.html?volta=<página>`: depois do login o ADM volta à página (só `redacao-admin.html` e `redacao-lotes-admin.html`). Testes (`teste-redacao-alinhamento`) com folha fictícia desenhada no próprio teste. Validado localmente com o PDF nominal real (8 páginas, giros até ±5° e 180°, cor e cinza): erro máx. 0,04° e ~1 px; o PDF real **não** foi para o repositório. **Leitura do RA (bloco 1, sem SQL):** `analisar()` também lê o Code 128 do topo da folha (decodificador próprio em `atlas-alinhamento.js`, várias linhas da faixa do código na folha já alinhada, dígito verificador conferido, vale a leitura mais repetida) e devolve `ra` (avulsa → `null`). Validado localmente nas 8 folhas reais: 168/168 leituras certas, nenhuma errada (giros até ±4° e 180°, cinza, JPEG). Em `redacao.html`, ao escolher o PDF, o digitalizador vê o relatório (páginas, RAs lidos, quantos da turma, folhas sem código, RA repetido, tabela página por página) antes de enviar; `POST /api/redacao/lotes/conferir` (só leitura) diz a situação de cada RA: `turma`, `outra_turma` (com nome e turma), `outra_unidade` (sem nome) ou `fora_cadastro`, e avisa `cadastro_vazio`. **Bloqueia o envio** se mais da metade das folhas lidas for de outra turma/unidade; 1–2 folhas fora só avisam. Se o leitor falhar, avisa e deixa enviar. A conferência é só na tela (não há bloqueio no servidor). Ainda falta: scan real, separação por aluno e gravar RA/ângulo/ajustes por página no banco.
-8. **Alunos (página própria, 15/11/2026):** o cadastro anual de alunos saiu de Redação: cadastros e virou o item **"Alunos"** do menu do ADM (`atlas/alunos-admin.html`, logo abaixo de "Professores e disciplinas"; menu igual em todas as páginas `admin*.html`). Mesmas rotas `/api/adm/redacao/alunos*` e mesmas regras (inclusive a limpeza na virada do ano, mantida por decisão do Marinho até surgir outro uso). "Ver alunos" em Redação: cadastros abre `alunos-admin.html?turma=ID`.
-9. **Ordem combinada (15/11/2026):** terminar a Redação primeiro — (1) página Alunos ✔; (2) índice por página (`redacao_paginas`) gravado no envio + fila de dúvidas do ADM ✔; (3) tela de correção da professora (só a folha alinhada, competências, zeros, cronômetro; avulsa escolhida pela professora entre os não identificados; "não fez a prova"); (4) Excel por coordenação, correção de notas, relatório de tempo; (5) **por último**, integração com a área do aluno do portal de inscrições ("MEU DESEMPENHO").
-10. **Redação, índice por página (schema v12, migração 0012, 15/11/2026):** tabela `redacao_paginas` (lote, página, `ra_lido`, ângulo, invertida, marcadores, `situacao` aluno/avulsa/duvida/descartada, `motivo` outra_turma/outra_unidade/fora_cadastro/repetido, `aluno_ra`, quem/quando resolveu); entra no backup diário. Uma folha por aluno, **só frente**; não se detecta página em branco (a professora avalia). Depois do upload, `redacao.html` envia a leitura feita no navegador para `POST /api/redacao/lotes/:id/paginas` (só o digitalizador dono, em até 2 h); **o servidor decide a situação** (sem código → avulsa; RA da turma → aluno; outra turma/unidade, fora do cadastro ou RA repetido → dúvida). ADM: coluna "Folhas" em `redacao-lotes-admin.html` ("leitura pendente" se não houve leitura) e janela **"Folhas e dúvidas"** (`GET/POST /api/adm/redacao/lotes/:id/paginas`, `POST …/paginas/:n` com `{acao:'atribuir', ra}` ou `{acao:'descartar'}`): atribuir a qualquer RA do cadastro (o mesmo aluno não fica em duas páginas do lote), descartar, "Ver folha" (abre a prévia alinhada na página) e **"Refazer leitura"** (lê no navegador do ADM e substitui o índice, apagando decisões, com confirmação). Avulsas ficam para a professora (tela de correção, etapa 3).
-11. **Integração com o portal de inscrições — decisões (15/11/2026), só para a etapa final:** o portal (`inscricoes/`) é dos alunos do próprio Ideal; o aluno entra com **matrícula de 5 dígitos (= RA do ATLAS) + data de nascimento**; o servidor `ideal-olimpico-producao` (Cloudflare) só repassa ao **Google Apps Script** (código fora do repositório; dados numa planilha Google). Decidido: (a) integrar só **depois que houver notas**; (b) o **servidor do portal confirma a sessão do aluno e pede ao ATLAS** só as notas daquela matrícula, com segredo entre servidores guardado só na Cloudflare (o ATLAS nunca aceita uma matrícula vinda do navegador); (c) a **planilha importada no ATLAS** continua a lista oficial; (d) a regra "NÃO MEXER no portal" fica **liberada só para o 'MEU DESEMPENHO'**, sempre com autorização prévia e teste na homologação. Pendências a decidir na época: reforço do login do portal (matrícula + nascimento é fraco para notas de menores), LGPD/retenção de notas entre anos.
-12. **Redação, próximas etapas:** leitura do RA pelo código de barras, separação por aluno e alinhamento pelos marcadores precisam ser validados com um PDF realmente escaneado; o arquivo nominal gerado não substitui esse teste. Depois vêm correção por competências, exceções, relatórios Excel e backup dos PDFs no OneDrive institucional quando a TI liberar a integração. A professora pode corrigir notas enviadas por competência; o total é recalculado e o Excel corrigido é reenviado. O ADM pode consultar as notas. Aluno que muda de turma/unidade após a avaliação é tratado fora do sistema, por exceção. Os mockups e as decisões detalhadas estão em `D:\CEREBRO\GPT\ATLAS_CONTINUIDADE_CLAUDE.md` e `D:\CEREBRO\GPT\ATLAS_REDACAO_REFERENCIAS\` no computador do Marinho; não são telas publicadas.
+### Alunos (`alunos-admin.html`)
+- Importação da planilha `NOME COMPLETO, RA, FILIAL, SÉRIE, CODTURMA, SEGMENTO`, com prévia. Linhas do EF1 são ignoradas (`ignorados_ef1`).
+- Consulta em cascata Unidade → Segmento → Série → Turma (`?turma=ID` já preenche).
+
+### Redação
+1. **ADM → Redação (`redacao-admin.html`)**, em abas:
+   - **Lotes** (link para `redacao-lotes-admin.html`);
+   - **Turmas**: filtros por unidade e segmento, lembrados no navegador;
+   - **Equipe**: "Mapa da equipe" por unidade, com digitalizadores, coordenadores por série e professor por turma (mostra só o código da turma). Para editar, vai a "Cadastros e funções".
+2. **Envio (digitalizador, `redacao.html`):**
+   - escolhe bimestre → unidade → segmento → série → turma;
+   - o navegador lê o RA de cada folha (Code 128) e mostra um relatório **antes** do envio;
+   - a conferência é feita por `POST /api/redacao/lotes/conferir`;
+   - **bloqueia** se mais da metade das folhas for de outra turma ou unidade;
+   - o upload usa `FixedLengthStream` (o R2 exige tamanho conhecido); limite de 50 MB; um lote ativo por ano/bimestre/turma; o digitalizador pode cancelar em até 2 h;
+   - depois do upload, envia o índice das páginas.
+3. **Alinhamento (`atlas/atlas-alinhamento.js`):**
+   - acha os 4 marcadores em "L" (canal vermelho, abertura 3×3 contra traços finos);
+   - ajusta giro, escala e deslocamento sem deformar;
+   - detecta folha de cabeça para baixo pela tinta do cabeçalho;
+   - tem decodificador próprio de Code 128 para o RA;
+   - usa pdf.js 4.10.38 (jsDelivr), conferido por SHA-384 antes de carregar.
+   - **Validado com PDF real escaneado da turma ITAIME:** 168/168 RAs certos, todos da turma da planilha. O PDF real não está no repositório.
+4. **Índice por página (schema v12, `redacao_paginas`):** o servidor decide a situação de cada página: aluno, avulsa, dúvida ou descartada.
+   - **"Folhas e dúvidas" (ADM):** atribuir, descartar ou devolver; "Ver folha"; "Refazer leitura" (bloqueado quando já há correção); botão "Corrigir" nas páginas identificadas; condenadas aparecem primeiro.
+5. **Correção (professora, `redacao-corrigir.html?lote=ID`, schema v13 + v16):**
+   - **Rotas** (`redacao-correcao.js`):
+     - `GET /api/redacao/correcao/turmas`;
+     - `GET …/lotes/:id`;
+     - `GET …/lotes/:id/pdf`;
+     - `POST …/lotes/:id/paginas/:n`.
+   - **Folha:**
+     - aparece **já alinhada**, com Página inteira, zoom e ajuste −0,25°/+0,25°/Auto;
+     - **marca-texto amarelo** em faixas retas (Marca-texto, Borracha, Desfazer), sem comentário em cada destaque.
+   - **Notas:**
+     - **por botões** (0/40/80/120/160/200; a C2 não tem o 0): clicar marca, clicar de novo desmarca, clicar em outro troca;
+     - total recalculado no servidor (`conferirNota`);
+     - zerar a redação inteira (11 motivos);
+     - C5 = 0 exige motivo.
+   - **Outros:** observação opcional; condenar página (motivos; ela vai ao ADM); cronômetro sem pausa (guarda o tempo da 1ª correção); lista do lote; revisão.
+   - **Destaques:**
+     - ficam em `redacao_correcoes.marcacoes`, como JSON `[{x,y,w,h}]` em frações da folha alinhada;
+     - revisão sem o campo mantém os destaques; lista vazia apaga;
+     - **o PDF original nunca é alterado**.
+   - **Minhas turmas (`redacao.html`):**
+     - a professora vê os lotes com progresso e Corrigir/Continuar/Revisar;
+     - quem tem as duas funções vê as duas áreas (`funcoes`);
+     - botão "← Voltar ao início".
+   - **Teste real:** o Marinho corrigiu a turma ITAIME inteira em produção; as 8 páginas foram identificadas certas.
+6. **Backup diário:** inclui `redacao_paginas`, `redacao_correcoes` e `coordenadores`. As cópias guardam os metadados, não os PDFs.
+
+## 6. Próximos passos (confirmar a ordem com o Marinho antes)
+
+1. **Espelho do aluno + integração com o portal de inscrições:** o Marinho disse em 15/11 que esta será a **próxima implementação**.
+   - **Formato decidido:** cada página vira um **PNG** já alinhado, com os destaques amarelos, as notas C1–C5 e as observações. O PDF original fica intacto.
+   - Mockup aprovado: espelho com a folha à esquerda e, à direita, a nota final, as competências com barras e as observações.
+   - Decisões sobre a integração: §7.
+2. **Mapa da turma + "Concluir turma" + Excel por e-mail** (combinado, ainda não feito):
+   - **Mapa da turma:** aba dentro da tela de correção e botão em Minhas turmas, com linha de médias, cores nas notas e filtro de situação. **Sem mapa no ADM.**
+   - **"Editar"** no mapa volta para a redação.
+   - **"Concluir turma"** envia o Excel (formato da planilha de alunos + notas) aos coordenadores (por unidade/série; cada um só os seus alunos), ao ADM e à professora.
+   - Se a nota mudar depois, o Excel corrigido é reenviado.
+3. **Bloco B da correção:**
+   - avulsa: a professora escolhe o aluno entre os não identificados;
+   - "não fez a prova";
+   - condenar o lote inteiro;
+   - relatório de tempo no ADM (por professor: turmas, tempo total e média).
+4. **BQI:**
+   - piloto de Matemática (ainda não começou);
+   - depois, zerar o banco quando o Marinho pedir.
+   - **Ideias:** importar provas do Word; `api.idealolimpico.com.br`; organização GitHub; BQI etapa 2 (resultados por planilha, taxa de acerto, que vai preencher o "% de acerto" já reservado nas telas).
+5. **Possível pedido futuro:** o ADM editar questões em qualquer situação. Hoje o servidor só deixa editar as aprovadas; apresente as opções se ele pedir.
+
+## 7. Integração com o portal de inscrições — decisões (15/11/2026)
+
+- O aluno entra no portal (`inscricoes/`) com **matrícula de 5 dígitos (= RA do ATLAS) + data de nascimento**. O servidor `ideal-olimpico-producao` repassa ao Google Apps Script (código fora do repositório).
+- Decidido:
+  - integrar só **depois que houver notas**;
+  - o **servidor do portal** confirma a sessão do aluno e pede ao ATLAS as notas daquela matrícula, com um segredo entre servidores guardado só na Cloudflare (o ATLAS **nunca** aceita uma matrícula vinda do navegador);
+  - a planilha importada no ATLAS é a lista oficial;
+  - "NÃO MEXER no portal" fica liberado **só para o "MEU DESEMPENHO"**, com autorização e teste na homologação (`teste-inscricoes/`).
+- A decidir na época: reforço do login do portal (matrícula + nascimento é fraco para notas de menores); LGPD e retenção das notas e dos espelhos entre anos.
