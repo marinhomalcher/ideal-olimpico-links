@@ -277,3 +277,19 @@ dialog[open] > .modal-actions {
   background: #fff;
   padding-bottom: max(16px, env(safe-area-inset-bottom));
 }
+
+/* PC 16:9 (15/11/2026): páginas até 1920 px, como o ATLAS, e cadastro lado a lado.
+   Só vale para telas largas; celular e tablet continuam iguais. */
+@media (min-width:1280px){
+  .head,main,.cart-inner{max-width:1920px}
+  header{padding-left:clamp(24px,3vw,56px);padding-right:clamp(24px,3vw,56px)}
+  main{padding-left:clamp(24px,3vw,56px);padding-right:clamp(24px,3vw,56px)}
+  .cadastro-wrap{max-width:1600px}
+  .cadastro-cols{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.15fr);gap:32px;align-items:start}
+  .cadastro-cols .dados-grid{grid-template-columns:repeat(2,minmax(0,1fr));margin-bottom:0}
+  .cadastro-cols .dados-grid .dado-readonly:first-child{grid-column:1/-1}
+  .cadastro-cols .contatos-box{border-top:0;padding-top:0;border-left:1px solid var(--borda);padding-left:32px}
+}
+@media (min-width:1600px){
+  .cards{grid-template-columns:repeat(4,minmax(0,1fr))}
+}
