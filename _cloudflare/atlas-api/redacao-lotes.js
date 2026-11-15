@@ -17,7 +17,7 @@ async function digitalizador(request, env, sessaoAtual) {
   const sessao = await sessaoAtual(request, env, 'usuario');
   const pessoa = await env.DB.prepare(
     "SELECT u.id, u.nome, u.email FROM usuarios u JOIN redacao_equipe e ON e.usuario_id = u.id " +
-    "WHERE u.id = ? AND u.ativo = 1 AND e.ativo = 1 AND e.funcao = 'digitalizador'"
+    "WHERE u.id = ? AND u.ativo = 1 AND e.ativo = 1 AND e.digitalizador = 1"
   ).bind(sessao.usuario_id).first();
   if (!pessoa) erro(403, 'Apenas digitalizadores ativos podem receber lotes.');
   const unidades = (await env.DB.prepare(

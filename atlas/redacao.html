@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="pt-BR">
 <head>
-<meta name="atlas-versao" content="20261115g"><script src="atlas-versao.js?v=20261115g" defer></script><script src="atlas-alinhamento.js?v=20261115g"></script>
+<meta name="atlas-versao" content="20261115h"><script src="atlas-versao.js?v=20261115h" defer></script><script src="atlas-alinhamento.js?v=20261115h"></script>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="robots" content="noindex,nofollow"><title>ATLAS | Redação</title>
 <style>
@@ -141,11 +141,13 @@ async function carregar(){
   if(r.status===401){sessionStorage.removeItem('atlas_user_auth');localStorage.removeItem('atlas_user_auth');location.replace('index.html?perfil=Redação');return}
   if(!r.ok||!d.ok){document.querySelector('#subtitle').textContent='Acesso indisponível';status.textContent=d.error||'Não foi possível confirmar seu acesso.';status.className='error';return}
   const u=d.usuario;document.querySelector('#user-name').textContent=u.nome;
-  document.querySelector('#title').textContent=u.funcao==='professor'?'Minhas turmas':'Digitalização de redações';
-  document.querySelector('#subtitle').textContent=u.funcao==='professor'?'Turmas vinculadas ao seu cadastro':'Unidades liberadas para seu cadastro';
+  /* Uma pessoa pode ser professora de redação e digitalizadora: mostra as duas áreas. */
+  const funcoes=u.funcoes||[u.funcao],ehProf=funcoes.includes('professor'),ehDig=funcoes.includes('digitalizador');
+  document.querySelector('#title').textContent=ehProf&&ehDig?'Redação':ehProf?'Minhas turmas':'Digitalização de redações';
+  document.querySelector('#subtitle').textContent=ehProf&&ehDig?'Suas turmas e as unidades em que você digitaliza':ehProf?'Turmas vinculadas ao seu cadastro':'Unidades liberadas para seu cadastro';
   document.querySelector('#content').hidden=false;
   const list=document.querySelector('#list');list.replaceChildren();
-  if(u.funcao==='professor'){
+  if(ehProf){
     document.querySelector('#list-title').textContent='Turmas';
     /* Turmas da professora com os lotes enviados e o progresso da correção. */
     let dados={turmas:[]};try{dados=await api('/api/redacao/correcao/turmas')}catch(e){status.textContent=e.message;status.className='error'}
@@ -160,7 +162,7 @@ async function carregar(){
     if(!list.children.length){const p=document.createElement('p');p.textContent='Ainda não há unidades vinculadas. Peça ao administrador para cadastrá-las.';list.append(p)}
   }
 
-  if(u.funcao!=='professor')await iniciarDigitalizacao(u);
+  if(ehDig)await iniciarDigitalizacao(u);
 }
 document.querySelector('#logout').addEventListener('click',async()=>{sessionStorage.removeItem('atlas_user_auth');localStorage.removeItem('atlas_user_auth');try{if(saved?.token)await fetch(API+'/api/login/sair',{method:'POST',headers:{Authorization:'Bearer '+saved.token}})}catch{}location.href='index.html'});
 carregar();

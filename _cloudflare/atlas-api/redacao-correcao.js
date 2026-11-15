@@ -24,7 +24,7 @@ export const MOTIVOS_CONDENAR = ['folha ilegível', 'erro de digitalização', '
 async function professora(request, env, sessaoAtual) {
   const sessao = await sessaoAtual(request, env, 'usuario');
   const p = await env.DB.prepare(
-    "SELECT u.id, u.nome, u.email FROM redacao_equipe e JOIN usuarios u ON u.id = e.usuario_id WHERE u.id = ? AND u.ativo = 1 AND e.ativo = 1 AND e.funcao = 'professor'"
+    "SELECT u.id, u.nome, u.email FROM redacao_equipe e JOIN usuarios u ON u.id = e.usuario_id WHERE u.id = ? AND u.ativo = 1 AND e.ativo = 1 AND e.professor = 1"
   ).bind(sessao.usuario_id).first();
   if (!p) erro(403, 'Apenas professores de Redação corrigem redações.');
   return p;

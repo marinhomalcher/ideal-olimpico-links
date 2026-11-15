@@ -2,6 +2,7 @@
 import { rotaRedacaoAdm, rotaRedacaoUsuario, limparAlunosVirada, RedacaoError } from './redacao-cadastros.js';
 import { rotaLotesUsuario, rotaLotesAdm, limparPdfCancelados } from './redacao-lotes.js';
 import { rotaCorrecao } from './redacao-correcao.js';
+import { listarPessoas, salvarPessoa } from './pessoas.js';
 // Administração: login "Entrar com Google", liberado SOMENTE para o e-mail em ADMIN_EMAIL.
 // Professores e Supervisores: login por código no e-mail institucional.
 // Questões: enviadas pelo Professor e analisadas pelo Supervisor da disciplina (tabelas itens/item_versoes/revisoes).
@@ -87,7 +88,7 @@ async function bloquearFeriasLogin(env, email) {
   const dig = emFerias(env, true) ? null : await env.DB.prepare(
     "SELECT 1 AS ok FROM usuarios u LEFT JOIN redacao_equipe e ON e.usuario_id = u.id " +
     "WHERE u.email = ? COLLATE NOCASE AND u.ativo = 1 AND u.papel = 'professor' " +
-    "AND (u.digitador = 1 OR (e.funcao = 'digitalizador' AND e.ativo = 1)) " +
+    "AND (u.digitador = 1 OR (e.digitalizador = 1 AND e.ativo = 1)) " +
     "AND (u.acesso_ate IS NULL OR u.acesso_ate >= date('now','-3 hours'))"
   ).bind(email).first();
   bloquearFerias(env, !!dig);
@@ -1852,7 +1853,7 @@ async function rotasSelecoesAdm(request, env, path, url, sessao) {
 // Guarda as tabelas de conteúdo e cadastro; não guarda sessões nem códigos de login.
 // As imagens já ficam no R2 e não são copiadas de novo.
 const TABELAS_BACKUP = ['meta', 'usuarios', 'retiradas', 'grupos', 'grupo_versoes', 'itens', 'item_versoes', 'revisoes', 'consertos', 'selecoes', 'selecao_itens', 'eventos',
-  'redacao_turmas', 'redacao_alunos', 'redacao_equipe', 'redacao_professor_turmas', 'redacao_digitalizador_unidades', 'redacao_importacoes', 'redacao_lotes', 'redacao_paginas', 'redacao_correcoes'];
+  'redacao_turmas', 'redacao_alunos', 'redacao_equipe', 'redacao_professor_turmas', 'redacao_digitalizador_unidades', 'redacao_importacoes', 'redacao_lotes', 'redacao_paginas', 'redacao_correcoes', 'coordenadores'];
 const MANTER_BACKUPS = 60;
 
 async function fazerBackup(env, origem) {
@@ -2163,7 +2164,17 @@ async function rotasAdm(request, env, path) {
     return { ok: true };
   }
   if (path === '/api/adm/professores' && request.method === 'GET') {
-    return { ok: true, disciplinas: DISCIPLINAS, professores: await listarProfessores(env) };
+    return { ok: true, disciplinas: DISCIPLINAS, professores: await listarProfessores(env), pessoas: await listarPessoas(env) };
+  }
+  /* Cadastros e funções: cadastro único de pessoas (várias funções por pessoa). */
+  if (path === '/api/adm/pessoas' && request.method === 'GET') {
+    return { ok: true, disciplinas: DISCIPLINAS, pessoas: await listarPessoas(env) };
+  }
+  const pessoaMatch = path.match(/^\/api\/adm\/pessoas(?:\/(\d+))?$/);
+  if (pessoaMatch && ((request.method === 'POST' && !pessoaMatch[1]) || (request.method === 'PUT' && pessoaMatch[1]))) {
+    const id = await salvarPessoa(env, pessoaMatch[1] ? Number(pessoaMatch[1]) : null, await readJson(request),
+      { limparNome, limparEmail, limparAcessoAte, emailEmUso, DISCIPLINAS, registrar, sessao });
+    return { ok: true, id, pessoas: await listarPessoas(env), professores: await listarProfessores(env) };
   }
   if (path === '/api/adm/professores' && request.method === 'POST') {
     const body = await readJson(request);
@@ -2176,7 +2187,7 @@ async function rotasAdm(request, env, path) {
       .bind(nome, email, disciplina, digitador ? 1 : 0, acessoAte, classificador).run();
     const id = result.meta?.last_row_id;
     await registrar(env, digitador ? 'digitador_cadastrado' : 'professor_cadastrado', { adm: sessao.email, id, nome, email, disciplina, acesso_ate: acessoAte });
-    return { ok: true, id, professores: await listarProfessores(env) };
+    return { ok: true, id, professores: await listarProfessores(env), pessoas: await listarPessoas(env) };
   }
   const match = path.match(/^\/api\/adm\/professores\/(\d+)$/);
   if (match && request.method === 'PUT') {
@@ -2200,7 +2211,7 @@ async function rotasAdm(request, env, path) {
     if (!classificador || !ativo || disciplina !== atual.disciplina) ops.push(env.DB.prepare('DELETE FROM reservas WHERE usuario_id = ?').bind(id));
     await env.DB.batch(ops);
     await registrar(env, 'professor_alterado', { adm: sessao.email, id, antes: atual, depois: { nome, email, disciplina, ativo, papel, digitador, acesso_ate: acessoAte, classificador } });
-    return { ok: true, professores: await listarProfessores(env) };
+    return { ok: true, professores: await listarProfessores(env), pessoas: await listarPessoas(env) };
   }
   if (path === '/api/adm/supervisor' && request.method === 'POST') {
     const body = await readJson(request);
@@ -2220,7 +2231,7 @@ async function rotasAdm(request, env, path) {
       ...(usuarioId !== null ? [env.DB.prepare("UPDATE usuarios SET papel = 'supervisor' WHERE id = ?").bind(usuarioId)] : [])
     ]);
     await registrar(env, 'supervisor_definido', { adm: sessao.email, disciplina, usuario_id: usuarioId });
-    return { ok: true, professores: await listarProfessores(env) };
+    return { ok: true, professores: await listarProfessores(env), pessoas: await listarPessoas(env) };
   }
   throw new HttpError(404, 'Rota indisponível.');
 }
@@ -2264,7 +2275,7 @@ export default {
         ).bind(sessao.usuario_id).first();
         if (!usuario) throw new HttpError(401, 'Acesso desativado. Entre novamente.');
         const digRedacao = await env.DB.prepare(
-          "SELECT 1 AS ok FROM redacao_equipe WHERE usuario_id = ? AND funcao = 'digitalizador' AND ativo = 1"
+          "SELECT 1 AS ok FROM redacao_equipe WHERE usuario_id = ? AND digitalizador = 1 AND ativo = 1"
         ).bind(usuario.id).first();
         bloquearFerias(env, usuario.papel === 'digitador' || !!digRedacao);
         return reply({ ok: true, usuario, expira_em: sessao.expira_em }, 200, origin);

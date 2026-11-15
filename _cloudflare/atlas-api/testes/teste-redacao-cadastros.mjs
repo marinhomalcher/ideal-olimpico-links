@@ -27,7 +27,7 @@ async function api(path, method = 'GET', body, token = 'adm-token') {
   const r = await worker.fetch(new Request('https://atlas-api.example' + path, { method, headers: { Origin: origin, Authorization: 'Bearer ' + token, ...(body === undefined ? {} : { 'Content-Type': 'application/json' }) }, body: body === undefined ? undefined : JSON.stringify(body) }), env, { waitUntil() {} });
   return { status: r.status, data: await r.json() };
 }
-ok('Schema 14', db.prepare("SELECT valor FROM meta WHERE chave='schema_versao'").get().valor === '14');
+ok('Schema 15', db.prepare("SELECT valor FROM meta WHERE chave='schema_versao'").get().valor === '15');
 let r = await api('/api/adm/redacao/turmas');
 ok('15 turmas iniciais', r.status === 200 && r.data.turmas.length === 15, r.data.turmas?.length);
 const primeira = r.data.turmas.find(x => x.unidade === 'BC' && x.codigo === '1EMA');
@@ -136,33 +136,7 @@ await page.locator('#app').waitFor({ state: 'visible' });
 ok('A escolha do filtro é lembrada', await page.locator('#f-unidade').inputValue() === 'BC' && await page.locator('#turmas-lista tr').count() === nBcEm);
 ok('Abas da Redação: Lotes, Turmas e Equipe', (await page.locator('.tabs').textContent()).replace(/\s+/g, '') === 'LotesTurmasEquipe' && await page.locator('.tabs a[href="redacao-lotes-admin.html"]').count() === 1);
 await page.locator('[data-tab="equipe"]').click();
-ok('Aba Equipe abre na lista; formulário escondido atrás de "+ Vincular pessoa"', await page.locator('#equipe-form-panel').isHidden() && await page.locator('#equipe-novo').isVisible() && await page.locator('#equipe-lista tr').count() > 0);
-await page.locator('#equipe-novo').click();
-ok('"+ Vincular pessoa" abre o formulário vazio', await page.locator('#equipe-form-panel').isVisible() && (await page.locator('#equipe-form-title').textContent()) === 'Vincular pessoa à Redação' && await page.locator('#equipe-novo').isHidden());
-ok('ADM escolhe turmas para professor (filtro mostra só a unidade/segmento)', await page.locator('[name="prof-turma"]').count() === 16 && await page.locator('#turmas-choices label:visible').count() === nBcEm);
-await page.locator('#e-unidade').selectOption('CN');
-ok('Filtro da equipe troca para Cidade Nova', await page.locator('#turmas-choices label:visible').count() === db.prepare("SELECT COUNT(*) AS n FROM redacao_turmas WHERE unidade = 'CN' AND segmento = 'EM'").get().n);
-await page.locator('#turmas-choices label:visible input').first().check();
-await page.locator('#e-unidade').selectOption('BC');
-await page.locator('#turmas-choices label:visible input').first().check();
-ok('Resumo mostra as turmas marcadas em filtros diferentes', /2 turmas marcadas: .*CN.*BC|2 turmas marcadas: .*BC.*CN/.test(await page.locator('#turmas-resumo').textContent()), await page.locator('#turmas-resumo').textContent());
-/* Botão "Editar" da equipe abre o cadastro para edição (digitalizador, professora e supervisor do BQI que é digitalizador). */
-db.prepare("INSERT INTO usuarios (nome, email, papel, disciplina, ativo) VALUES ('Supervisor Mat Exemplo', 'supmat@grupoideal.com.br', 'supervisor', 'Matemática', 1)").run();
-await api('/api/adm/redacao/equipe', 'POST', { nome: 'ignorado', email: 'supmat@grupoideal.com.br', funcao: 'digitalizador', unidades: ['BC'] });
-await page.reload();
-await page.locator('#app').waitFor({ state: 'visible' });
-await page.locator('[data-tab="equipe"]').click();
-for (const quem of ['Digitalizador Exemplo', 'Professora Exemplo', 'Supervisor Mat Exemplo']) {
-  const linha = page.locator('#equipe-lista tr', { hasText: quem });
-  if (!(await linha.count())) { ok('Editar: pessoa ' + quem + ' na lista', false, await page.locator('#equipe-lista').textContent()); continue; }
-  await linha.getByRole('button', { name: 'Editar' }).click();
-  await page.waitForTimeout(300);
-  ok('Editar abre o cadastro de ' + quem, (await page.locator('#equipe-form-title').textContent()).includes('Editar vínculos de ' + quem) && await page.locator('#equipe-cancel').isVisible(), (await page.locator('#equipe-form-title').textContent()) + ' | erros: ' + errors.join(' | '));
-  await page.locator('#equipe-cancel').click();
-  ok('Cancelar edição esconde o formulário de novo (' + quem + ')', await page.locator('#equipe-form-panel').isHidden() && await page.locator('#equipe-novo').isVisible());
-}
-await page.locator('#equipe-novo').click();await page.locator('#equipe-funcao').selectOption('digitalizador');
-ok('ADM escolhe unidades para digitalizador', await page.locator('[name="dig-unidade"]').count() === 3 && await page.locator('#digitalizador-choices').isVisible());
+ok('Aba Equipe aponta para Cadastros e funções (equipe da Redação cadastrada lá)', await page.locator('#equipe #link-cadastros').isVisible() && await page.locator('#equipe-form').count() === 0);
 /* Alunos saiu de Redação: cadastros e virou página própria no menu do ADM. */
 ok('Link "Lotes recebidos" saiu do canto de Redação: cadastros (agora fica no menu do ADM)', await page.locator('header a[href="redacao-lotes-admin.html"]').count() === 0);
 ok('Redação: cadastros não tem mais a aba Alunos e aponta para a página nova', await page.locator('[data-tab="alunos"]').count() === 0 && await page.locator('#aviso-alunos a[href="alunos-admin.html"]').count() === 1);
@@ -170,7 +144,7 @@ await page.locator('[data-tab="turmas"]').click();
 ok('"Ver alunos" leva à página Alunos com a turma', (await page.locator('#turmas-lista a', { hasText: 'Ver alunos' }).first().getAttribute('href')).startsWith('alunos-admin.html?turma='));
 for (const f of ['admin.html', 'admin-questoes.html', 'admin-enviar.html', 'admin-relatorio.html', 'admin-selecoes.html']) {
   const menu = fs.readFileSync(atlas + f, 'utf8').match(/<aside><small>ÁREA DO ADM<\/small>(.*?)<\/aside>/)?.[1] || '';
-  ok('Menu do ADM com "Alunos" logo abaixo de "Professores e disciplinas": ' + f, /^<a href="admin\.html"[^>]*>Professores e disciplinas<\/a><a href="alunos-admin\.html"[^>]*>Alunos<\/a>/.test(menu) && menu.includes('<a href="alunos-admin.html">Alunos</a><a href="redacao-lotes-admin.html">Redação</a>') && !menu.includes('redacao-admin.html'));
+  ok('Menu do ADM com "Alunos" logo abaixo de "Cadastros e funções": ' + f, /^<a href="admin\.html"[^>]*>Cadastros e funções<\/a><a href="alunos-admin\.html"[^>]*>Alunos<\/a>/.test(menu) && menu.includes('<a href="alunos-admin.html">Alunos</a><a href="redacao-lotes-admin.html">Redação</a>') && !menu.includes('redacao-admin.html'));
 }
 ok('Login do ADM volta para a página Alunos', fs.readFileSync(atlas + 'admin.html', 'utf8').includes("['alunos-admin.html','redacao-admin.html','redacao-lotes-admin.html']"));
 const turmaAluno = db.prepare("SELECT turma_id FROM redacao_alunos WHERE ra = '12345'").get().turma_id;
