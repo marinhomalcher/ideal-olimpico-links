@@ -1,6 +1,7 @@
 // Cadastros da Redação. As notas e os PDFs serão adicionados em entregas posteriores.
 const UNIDADES = ['BC', 'AM', 'CN'];
-const SEGMENTOS = ['EF1', 'EF2', 'EM'];
+/* EF1 fica fora da Redação (decisão do Marinho, 15/11/2026): turmas e alunos do EF1 foram apagados e a planilha os ignora. */
+const SEGMENTOS = ['EF2', 'EM'];
 const EMAIL = /^[a-z0-9._+-]+@grupoideal\.com\.br$/;
 
 export class RedacaoError extends Error {
@@ -173,8 +174,10 @@ export async function rotaRedacaoAdm(request, env, path, { readJson, hojeSP, reg
   if ((path === '/api/adm/redacao/alunos/previa' || path === '/api/adm/redacao/alunos/importar') && request.method === 'POST') {
     const body = await readJson(request, 2 * 1024 * 1024);
     if (inteiro(body.ano, 2026, 2100) !== ano) erro(400, 'Envie uma planilha do ano atual.');
-    const p = await prepararImportacao(env, body.alunos, ano);
-    const resumo = { ok: true, linhas: p.alunos.length, novos: p.novos, atualizados: p.atualizados,
+    const todas = Array.isArray(body.alunos) ? body.alunos : [];
+    const semEf1 = todas.filter(r => String(r?.segmento ?? '').trim().toUpperCase() !== 'EF1');
+    const p = await prepararImportacao(env, semEf1, ano);
+    const resumo = { ok: true, linhas: p.alunos.length, ignorados_ef1: todas.length - semEf1.length, novos: p.novos, atualizados: p.atualizados,
       novas_turmas: p.novasTurmas, mudancas: p.mudancas, conflitos: p.conflitos };
     if (path.endsWith('/previa')) return resumo;
     if (p.conflitos.length) erro(409, 'A planilha contém mudança de série ou segmento. Corrija os RAs indicados antes de importar.');

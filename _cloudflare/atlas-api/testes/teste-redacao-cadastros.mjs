@@ -27,7 +27,7 @@ async function api(path, method = 'GET', body, token = 'adm-token') {
   const r = await worker.fetch(new Request('https://atlas-api.example' + path, { method, headers: { Origin: origin, Authorization: 'Bearer ' + token, ...(body === undefined ? {} : { 'Content-Type': 'application/json' }) }, body: body === undefined ? undefined : JSON.stringify(body) }), env, { waitUntil() {} });
   return { status: r.status, data: await r.json() };
 }
-ok('Schema 13', db.prepare("SELECT valor FROM meta WHERE chave='schema_versao'").get().valor === '13');
+ok('Schema 14', db.prepare("SELECT valor FROM meta WHERE chave='schema_versao'").get().valor === '14');
 let r = await api('/api/adm/redacao/turmas');
 ok('15 turmas iniciais', r.status === 200 && r.data.turmas.length === 15, r.data.turmas?.length);
 const primeira = r.data.turmas.find(x => x.unidade === 'BC' && x.codigo === '1EMA');
@@ -69,6 +69,32 @@ r = await api('/api/adm/redacao/alunos/importar', 'POST', { ano: 2026, alunos: i
 ok('Importação com conflito não altera banco', r.status === 409 && db.prepare("SELECT serie FROM redacao_alunos WHERE ra='12345'").get().serie === '1ª Série', r.data.error);
 r = await api('/api/adm/redacao/alunos/previa', 'POST', { ano: 2026, alunos: [rows[0], rows[0]] });
 ok('RA repetido na planilha é recusado', r.status === 400, r.data.error);
+/* EF1 saiu da Redação: a planilha ignora as linhas de EF1 e não cria turmas de EF1. */
+r = await api('/api/adm/redacao/alunos/previa', 'POST', { ano: 2026, alunos: [rows[0], { ra: '55501', nome: 'Aluno EF1', unidade: 'BC', segmento: 'EF1', serie: '1ANO', codigo: '1EFA' }] });
+ok('Prévia ignora as linhas de EF1 e avisa', r.status === 200 && r.data.linhas === 1 && r.data.ignorados_ef1 === 1 && r.data.novas_turmas.length === 0, JSON.stringify(r.data));
+r = await api('/api/adm/redacao/alunos/importar', 'POST', { ano: 2026, alunos: [rows[0], { ra: '55501', nome: 'Aluno EF1', unidade: 'BC', segmento: 'EF1', serie: '1ANO', codigo: '1EFA' }] });
+ok('Importação não grava aluno nem turma de EF1', r.status === 200 && !db.prepare("SELECT 1 FROM redacao_alunos WHERE ra = '55501'").get() && !db.prepare("SELECT 1 FROM redacao_turmas WHERE segmento = 'EF1'").get(), r.data.error);
+r = await api('/api/adm/redacao/turmas', 'POST', { unidade: 'BC', segmento: 'EF1', serie: '1ANO', codigo: '1EFA' });
+ok('Cadastro manual de turma EF1 é recusado', r.status === 400, r.status);
+{
+  /* Migração 0014: apaga turmas/alunos/vínculos de EF1; turma de EF1 com lote fica. */
+  const m = new DatabaseSync(':memory:');
+  const sql = fs.readFileSync(repo + '_cloudflare/atlas-api/schema.sql', 'utf8');
+  m.exec(sql.split('-- ---------- v14 ----------')[0]);
+  m.exec("INSERT INTO usuarios (nome, email, papel, ativo) VALUES ('P', 'p@grupoideal.com.br', 'professor', 1)");
+  m.exec("INSERT INTO redacao_turmas (ano, unidade, segmento, serie, codigo) VALUES (2026,'BC','EF1','1ANO','1EFA'), (2026,'BC','EF1','2ANO','2EFA')");
+  const ef = m.prepare("SELECT id FROM redacao_turmas WHERE codigo IN ('1EFA','2EFA') ORDER BY codigo").all().map(x => x.id);
+  m.prepare("INSERT INTO redacao_alunos (ra, nome, turma_id, ano, segmento, serie) VALUES ('9001','A',?,2026,'EF1','1ANO')").run(ef[0]);
+  m.prepare("INSERT INTO redacao_equipe (usuario_id, funcao) VALUES (1, 'professor')").run();
+  m.prepare('INSERT INTO redacao_professor_turmas (usuario_id, turma_id) VALUES (1, ?)').run(ef[0]);
+  m.prepare("INSERT INTO redacao_lotes (ano, bimestre, turma_id, digitalizador_id, r2_key, nome_arquivo, bytes, enviado_em, cancelavel_ate) VALUES (2026,1,?,1,'k','n.pdf',10,'x','y')").run(ef[1]);
+  m.exec(fs.readFileSync(repo + '_cloudflare/atlas-api/migrations/0014_redacao_sem_ef1.sql', 'utf8'));
+  ok('Migração 0014 apaga turmas, alunos e vínculos de EF1 (mantém a que tem lote)',
+    !m.prepare("SELECT 1 FROM redacao_turmas WHERE codigo = '1EFA'").get() && !!m.prepare("SELECT 1 FROM redacao_turmas WHERE codigo = '2EFA'").get() &&
+    !m.prepare("SELECT 1 FROM redacao_alunos WHERE segmento = 'EF1'").get() && !m.prepare('SELECT 1 FROM redacao_professor_turmas').get() &&
+    m.prepare("SELECT valor FROM meta WHERE chave='schema_versao'").get().valor === '14');
+  ok('Turmas iniciais do EM continuam após a migração', m.prepare("SELECT COUNT(*) AS n FROM redacao_turmas WHERE segmento = 'EM'").get().n === 15);
+}
 r = await api('/api/adm/redacao/alunos?turma_id=' + primeira.id);
 ok('ADM consulta alunos da turma', r.status === 200 && Array.isArray(r.data.alunos), r.data.error);
 const atlas = repo + 'atlas/';
@@ -100,9 +126,23 @@ await page.goto(base + '/redacao-admin.html');
 await page.evaluate(() => sessionStorage.setItem('atlas_adm_token', 'adm-token'));
 await page.reload();
 await page.locator('#app').waitFor({ state: 'visible' });
-ok('ADM vê turmas e cadastros da Redação', await page.locator('#turmas-lista tr').count() === 16 && await page.locator('[data-tab="equipe"]').isVisible());
+ok('Lista de turmas só aparece depois de escolher a unidade', await page.locator('#turmas-lista tr').count() === 0 && await page.locator('#turmas-dica').isVisible() && await page.locator('[data-tab="equipe"]').isVisible());
+ok('Segmento só oferece EF2 e EM (EM já escolhido); cadastro também sem EF1', await page.locator('#f-segmento').inputValue() === 'EM' && await page.locator('#f-segmento option').count() === 2 && await page.locator('#turma-segmento option[value="EF1"]').count() === 0);
+await page.locator('#f-unidade').selectOption('BC');
+const nBcEm = db.prepare("SELECT COUNT(*) AS n FROM redacao_turmas WHERE unidade = 'BC' AND segmento = 'EM'").get().n;
+ok('Filtro Batista Campos + EM mostra só essas turmas', await page.locator('#turmas-lista tr').count() === nBcEm && nBcEm > 0 && (await page.locator('#turmas-lista').textContent()).includes('Batista Campos') && !(await page.locator('#turmas-lista').textContent()).includes('Cidade Nova'), nBcEm);
+await page.reload();
+await page.locator('#app').waitFor({ state: 'visible' });
+ok('A escolha do filtro é lembrada', await page.locator('#f-unidade').inputValue() === 'BC' && await page.locator('#turmas-lista tr').count() === nBcEm);
+ok('Abas da Redação: Lotes, Turmas e Equipe', (await page.locator('.tabs').textContent()).replace(/\s+/g, '') === 'LotesTurmasEquipe' && await page.locator('.tabs a[href="redacao-lotes-admin.html"]').count() === 1);
 await page.locator('[data-tab="equipe"]').click();
-ok('ADM escolhe turmas para professor', await page.locator('[name="prof-turma"]').count() === 16);
+ok('ADM escolhe turmas para professor (filtro mostra só a unidade/segmento)', await page.locator('[name="prof-turma"]').count() === 16 && await page.locator('#turmas-choices label:visible').count() === nBcEm);
+await page.locator('#e-unidade').selectOption('CN');
+ok('Filtro da equipe troca para Cidade Nova', await page.locator('#turmas-choices label:visible').count() === db.prepare("SELECT COUNT(*) AS n FROM redacao_turmas WHERE unidade = 'CN' AND segmento = 'EM'").get().n);
+await page.locator('#turmas-choices label:visible input').first().check();
+await page.locator('#e-unidade').selectOption('BC');
+await page.locator('#turmas-choices label:visible input').first().check();
+ok('Resumo mostra as turmas marcadas em filtros diferentes', /2 turmas marcadas: .*CN.*BC|2 turmas marcadas: .*BC.*CN/.test(await page.locator('#turmas-resumo').textContent()), await page.locator('#turmas-resumo').textContent());
 await page.locator('#equipe-funcao').selectOption('digitalizador');
 ok('ADM escolhe unidades para digitalizador', await page.locator('[name="dig-unidade"]').count() === 3 && await page.locator('#digitalizador-choices').isVisible());
 /* Alunos saiu de Redação: cadastros e virou página própria no menu do ADM. */
@@ -112,7 +152,7 @@ await page.locator('[data-tab="turmas"]').click();
 ok('"Ver alunos" leva à página Alunos com a turma', (await page.locator('#turmas-lista a', { hasText: 'Ver alunos' }).first().getAttribute('href')).startsWith('alunos-admin.html?turma='));
 for (const f of ['admin.html', 'admin-questoes.html', 'admin-enviar.html', 'admin-relatorio.html', 'admin-selecoes.html']) {
   const menu = fs.readFileSync(atlas + f, 'utf8').match(/<aside><small>ÁREA DO ADM<\/small>(.*?)<\/aside>/)?.[1] || '';
-  ok('Menu do ADM com "Alunos" logo abaixo de "Professores e disciplinas": ' + f, /^<a href="admin\.html"[^>]*>Professores e disciplinas<\/a><a href="alunos-admin\.html"[^>]*>Alunos<\/a>/.test(menu) && menu.includes('<a href="redacao-admin.html">Redação: cadastros</a><a href="redacao-lotes-admin.html">Redação: lotes</a>'));
+  ok('Menu do ADM com "Alunos" logo abaixo de "Professores e disciplinas": ' + f, /^<a href="admin\.html"[^>]*>Professores e disciplinas<\/a><a href="alunos-admin\.html"[^>]*>Alunos<\/a>/.test(menu) && menu.includes('<a href="alunos-admin.html">Alunos</a><a href="redacao-lotes-admin.html">Redação</a>') && !menu.includes('redacao-admin.html'));
 }
 ok('Login do ADM volta para a página Alunos', fs.readFileSync(atlas + 'admin.html', 'utf8').includes("['alunos-admin.html','redacao-admin.html','redacao-lotes-admin.html']"));
 const turmaAluno = db.prepare("SELECT turma_id FROM redacao_alunos WHERE ra = '12345'").get().turma_id;
