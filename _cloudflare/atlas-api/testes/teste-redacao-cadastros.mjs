@@ -106,12 +106,13 @@ ok('ADM escolhe turmas para professor', await page.locator('[name="prof-turma"]'
 await page.locator('#equipe-funcao').selectOption('digitalizador');
 ok('ADM escolhe unidades para digitalizador', await page.locator('[name="dig-unidade"]').count() === 3 && await page.locator('#digitalizador-choices').isVisible());
 /* Alunos saiu de Redação: cadastros e virou página própria no menu do ADM. */
+ok('Link "Lotes recebidos" saiu do canto de Redação: cadastros (agora fica no menu do ADM)', await page.locator('header a[href="redacao-lotes-admin.html"]').count() === 0);
 ok('Redação: cadastros não tem mais a aba Alunos e aponta para a página nova', await page.locator('[data-tab="alunos"]').count() === 0 && await page.locator('#aviso-alunos a[href="alunos-admin.html"]').count() === 1);
 await page.locator('[data-tab="turmas"]').click();
 ok('"Ver alunos" leva à página Alunos com a turma', (await page.locator('#turmas-lista a', { hasText: 'Ver alunos' }).first().getAttribute('href')).startsWith('alunos-admin.html?turma='));
 for (const f of ['admin.html', 'admin-questoes.html', 'admin-enviar.html', 'admin-relatorio.html', 'admin-selecoes.html']) {
   const menu = fs.readFileSync(atlas + f, 'utf8').match(/<aside><small>ÁREA DO ADM<\/small>(.*?)<\/aside>/)?.[1] || '';
-  ok('Menu do ADM com "Alunos" logo abaixo de "Professores e disciplinas": ' + f, /^<a href="admin\.html"[^>]*>Professores e disciplinas<\/a><a href="alunos-admin\.html"[^>]*>Alunos<\/a>/.test(menu) && menu.includes('redacao-admin.html'));
+  ok('Menu do ADM com "Alunos" logo abaixo de "Professores e disciplinas": ' + f, /^<a href="admin\.html"[^>]*>Professores e disciplinas<\/a><a href="alunos-admin\.html"[^>]*>Alunos<\/a>/.test(menu) && menu.includes('<a href="redacao-admin.html">Redação: cadastros</a><a href="redacao-lotes-admin.html">Redação: lotes</a>'));
 }
 ok('Login do ADM volta para a página Alunos', fs.readFileSync(atlas + 'admin.html', 'utf8').includes("['alunos-admin.html','redacao-admin.html','redacao-lotes-admin.html']"));
 const turmaAluno = db.prepare("SELECT turma_id FROM redacao_alunos WHERE ra = '12345'").get().turma_id;
