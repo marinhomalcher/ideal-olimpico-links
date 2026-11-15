@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="pt-BR">
 <head>
-<meta name="atlas-versao" content="20261115e"><script src="atlas-versao.js?v=20261115e" defer></script>
+<meta name="atlas-versao" content="20261115f"><script src="atlas-versao.js?v=20261115f" defer></script>
 <meta charset="utf-8"><meta name="robots" content="noindex, nofollow"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="referrer" content="strict-origin-when-cross-origin">
 <title>ATLAS | Administração</title>
@@ -19,15 +19,15 @@
 <div class="panel"><h1>Área do Administrador</h1><p>Entre com a sua conta Google de administrador.</p><div id="google-button"></div><p class="status" id="login-status" role="status"></p></div>
 </section>
 
-<div class="shell" id="app-view" hidden><aside><small>ÁREA DO ADM</small><a href="admin.html" class="atual">Professores e disciplinas</a><a href="alunos-admin.html">Alunos</a><a href="redacao-lotes-admin.html">Redação</a><a href="admin-questoes.html">Questões</a><a href="admin-enviar.html">Enviar questões</a><a href="admin-relatorio.html">Relatório de produção</a><a href="admin-selecoes.html">Seleções recebidas</a></aside><main>
+<div class="shell" id="app-view" hidden><aside><small>ÁREA DO ADM</small><a href="admin.html" class="atual">Professores e disciplinas</a><a href="alunos-admin.html">Alunos</a><a href="redacao-lotes-admin.html">Redação</a><a href="admin-questoes.html">Questões</a><a href="admin-enviar.html">Enviar questões</a><a href="admin-relatorio.html">Relatório de produção</a><a href="admin-selecoes.html">Seleções recebidas</a><a href="admin.html?secao=retiradas">Questões retiradas</a><a href="admin.html?secao=copias">Cópias de segurança</a></aside><main>
 <div class="crumb">Administrador / Cadastros</div><h1>Professores e disciplinas</h1><p class="lead">Cadastre os professores, vincule cada um à sua disciplina e escolha o supervisor de cada disciplina.</p>
 <p class="status" id="app-status" role="status"></p>
 <a id="sem-disc-aviso" href="admin-questoes.html#sem-disc-panel" hidden style="display:block;border:1px solid #e2a1a7;background:#fbecef;color:#8c2028;border-radius:10px;padding:12px 16px;margin:0 0 16px;font-weight:bold;text-decoration:none"></a>
 <div id="ret-alertas"></div>
-<section class="panel"><h2>Supervisores por disciplina</h2><p class="hint">Escolha um professor da disciplina ou cadastre um novo. Cada disciplina tem um supervisor.</p><div class="sup-grid" id="supervisors"></div></section>
-<section class="panel"><h2>Professores cadastrados</h2><p class="hint">A disciplina definida aqui será carregada no cadastro de questões. O Professor não escolhe a disciplina.</p><div class="summary" id="summary"></div><div class="toolbar"><input id="search" type="search" placeholder="Buscar por professor, e-mail ou disciplina"><button class="primary" id="add">+ Cadastrar novo professor</button></div><div class="table-wrap" id="list"></div></section>
+<section class="panel" id="sec-supervisores"><h2>Supervisores por disciplina</h2><p class="hint">Escolha um professor da disciplina ou cadastre um novo. Cada disciplina tem um supervisor.</p><div class="sup-grid" id="supervisors"></div></section>
+<section class="panel" id="sec-professores"><h2>Professores cadastrados</h2><p class="hint">A disciplina definida aqui será carregada no cadastro de questões. O Professor não escolhe a disciplina.</p><div class="summary" id="summary"></div><div class="toolbar"><input id="search" type="search" placeholder="Buscar por professor, e-mail ou disciplina"><button class="primary" id="add">+ Cadastrar novo professor</button></div><div class="table-wrap" id="list"></div></section>
 <section class="panel" id="ret-painel"><h2>Questões retiradas (professores desligados)</h2><p class="hint">Quando um professor é desligado, desative o cadastro dele e use <strong>Retirar questões autorais</strong> na linha dele. As questões saem do banco, mas podem voltar durante 6 meses. Vencido o prazo, o ATLAS pergunta a você (aqui e por e-mail) se exclui definitivamente.</p><div class="table-wrap" id="ret-lista"><div class="empty">Nenhuma retirada.</div></div></section>
-<section class="panel"><h2>Cópias de segurança</h2><p class="hint">O banco do ATLAS é copiado automaticamente todo dia às 3h17 (horário de Brasília) para o armazenamento R2. Ficam guardadas as 60 cópias mais recentes. As imagens já ficam guardadas no R2.</p><p id="backup-ultimo"></p><div class="toolbar"><button type="button" class="secondary" id="backup-agora">Fazer cópia agora</button><button type="button" class="secondary" id="backup-ver">Ver cópias guardadas</button></div><p class="status" id="backup-status" role="status"></p><div class="table-wrap" id="backup-lista" hidden style="max-height:320px;overflow:auto"></div></section>
+<section class="panel" id="sec-copias"><h2>Cópias de segurança</h2><p class="hint">O banco do ATLAS é copiado automaticamente todo dia às 3h17 (horário de Brasília) para o armazenamento R2. Ficam guardadas as 60 cópias mais recentes. As imagens já ficam guardadas no R2.</p><p id="backup-ultimo"></p><div class="toolbar"><button type="button" class="secondary" id="backup-agora">Fazer cópia agora</button><button type="button" class="secondary" id="backup-ver">Ver cópias guardadas</button></div><p class="status" id="backup-status" role="status"></p><div class="table-wrap" id="backup-lista" hidden style="max-height:320px;overflow:auto"></div></section>
 </main></div>
 
 <dialog id="ret-dialog"><div id="ret-corpo"></div></dialog>
@@ -68,10 +68,22 @@ async function avisoSemDisciplina(){try{const d=await api('/api/adm/sem-discipli
   a.textContent=n===1?'1 questão sem disciplina esperando você → abrir em Questões':n+' questões sem disciplina esperando você → abrir em Questões';a.hidden=!n}catch{}}
 async function showApp(email){
   $('#login-view').hidden=true;$('#app-view').hidden=false;$('#user-box').hidden=false;$('#role-label').hidden=true;$('#user-email').textContent=email||'';
+  aplicarSecao();
   status($('#app-status'),'Carregando professores…');
   const data=await api('/api/adm/professores');subjects=data.disciplinas||subjects;teachers=data.professores||[];
   subject.replaceChildren(new Option('Selecione a disciplina',''),...subjects.map(s=>new Option(s,s)));
   status($('#app-status'),'');await carregarRetiradas();render();carregarBackups(false);avisoSemDisciplina();
+}
+/* "Questões retiradas" e "Cópias de segurança" têm item próprio no menu: admin.html?secao=… mostra só aquele quadro. */
+function aplicarSecao(){
+  const SEC={retiradas:{id:'ret-painel',titulo:'Questões retiradas',lead:'Questões autorais de professores desligados: devolver, adiar ou excluir definitivamente.'},copias:{id:'sec-copias',titulo:'Cópias de segurança',lead:'Cópias diárias do banco do ATLAS no armazenamento R2.'}};
+  const k=new URLSearchParams(location.search).get('secao'),alvo=SEC[k];
+  const main=$('#app-view main'),paineis=['sec-supervisores','sec-professores','ret-painel','sec-copias'].map(id=>document.getElementById(id));
+  if(!alvo){$('#ret-painel').hidden=true;$('#sec-copias').hidden=true;return}
+  for(const el of paineis)el.hidden=el.id!==alvo.id;
+  main.querySelector('h1').textContent=alvo.titulo;main.querySelector('.lead').textContent=alvo.lead;main.querySelector('.crumb').textContent='Administrador / '+alvo.titulo;
+  const aviso=$('#sem-disc-aviso');if(aviso)aviso.remove();
+  document.querySelectorAll('aside a').forEach(a=>a.classList.toggle('atual',a.getAttribute('href')==='admin.html?secao='+k));
 }
 function hojeSP(){return new Intl.DateTimeFormat('en-CA',{timeZone:'America/Sao_Paulo'}).format(new Date())}
 function prazoHTML(t){if(!t.acesso_ate)return '';const v=t.acesso_ate<hojeSP();const [a,m,d]=t.acesso_ate.split('-');return `<span class="prazo${v?' vencido':''}">${v?'Acesso vencido em ':'Acesso até '}${d}/${m}/${a}</span>`}
@@ -90,7 +102,7 @@ function render(){
   list.querySelectorAll('.row-subject').forEach(sel=>sel.addEventListener('change',()=>update(Number(sel.closest('tr').dataset.id),{disciplina:sel.value},'Disciplina alterada.')));
   list.querySelectorAll('.edit').forEach(b=>b.addEventListener('click',()=>openEdit(Number(b.closest('tr').dataset.id))));
   list.querySelectorAll('.retirar').forEach(b=>b.addEventListener('click',()=>iniciarRetirada(Number(b.closest('tr').dataset.id))));
-  list.querySelectorAll('.ver-ret').forEach(b=>b.addEventListener('click',()=>$('#ret-painel').scrollIntoView({behavior:'smooth'})));
+  list.querySelectorAll('.ver-ret').forEach(b=>b.addEventListener('click',()=>{location.href='admin.html?secao=retiradas'}));
   list.querySelectorAll('.toggle').forEach(b=>b.addEventListener('click',()=>{const t=teachers.find(x=>x.id===Number(b.closest('tr').dataset.id));update(t.id,{ativo:!t.ativo},t.ativo?'Professor desativado.':'Professor ativado.')}));
 }
 async function run(action,okMessage){status($('#app-status'),'Salvando…');try{const data=await action();if(data.professores)teachers=data.professores;render();status($('#app-status'),okMessage);return data}catch(e){if(e.message!=='__sessao__'){status($('#app-status'),e.message,true);render()}throw e}}
