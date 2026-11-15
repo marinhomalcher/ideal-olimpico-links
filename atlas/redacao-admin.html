@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="pt-BR">
 <head>
-<meta name="atlas-versao" content="20261115i"><script src="atlas-versao.js?v=20261115i" defer></script>
+<meta name="atlas-versao" content="20261115j"><script src="atlas-versao.js?v=20261115j" defer></script>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow">
 <title>ATLAS | Cadastros de Redação</title>
 <style>
@@ -51,7 +51,7 @@ function renderMapa(){
     card.append(el('h4','Professor de redação por turma'));
     const ts=turmas.filter(t=>t.unidade===u&&t.segmento===seg);
     if(!ts.length)card.append(el('p','Nenhuma turma neste segmento.','vazio'));
-    else{const tb=el('table');for(const t of ts){const tr=el('tr');const nomes=ativos.filter(p=>p.redacao?.professor&&p.redacao.turmas.includes(t.id)).map(p=>p.nome);tr.append(el('td',t.codigo+' · '+t.serie,'turma'),nomes.length?el('td',nomes.join(', ')):el('td','sem professor','falta'));tb.append(tr)}card.append(tb)}
+    else{const tb=el('table');for(const t of ts){const tr=el('tr');const nomes=ativos.filter(p=>p.redacao?.professor&&p.redacao.turmas.includes(t.id)).map(p=>p.nome);tr.append(el('td',t.codigo,'turma'),nomes.length?el('td',nomes.join(', ')):el('td','sem professor','falta'));tb.append(tr)}card.append(tb)}
     box.append(card);
   }
 }

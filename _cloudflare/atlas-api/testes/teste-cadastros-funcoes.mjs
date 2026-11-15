@@ -198,7 +198,7 @@ await page.goto(base + '/redacao-admin.html#equipe');
 await page.locator('#mapa-equipe .mapa-un').first().waitFor({ timeout: 10000 });
 const cardBC = page.locator('#mapa-equipe .mapa-un', { hasText: 'Batista Campos' }), cardCN = page.locator('#mapa-equipe .mapa-un', { hasText: 'Cidade Nova' });
 ok('Mapa da equipe: três unidades', await page.locator('#mapa-equipe .mapa-un').count() === 3);
-ok('Mapa mostra o professor de redação de cada turma e as turmas sem professor', /3EMA · 3ª Série\s*Bia Redação/.test(await cardBC.textContent()) && /sem professor/.test(await cardBC.textContent()), (await cardBC.textContent()).slice(0, 300));
+ok('Mapa mostra o professor de redação de cada turma e as turmas sem professor', /3EMA\s*Bia Redação/.test(await cardBC.textContent()) && /sem professor/.test(await cardBC.textContent()), (await cardBC.textContent()).slice(0, 300));
 ok('Mapa mostra coordenadores por série', /3ª Série: Bia Redação/.test(await cardBC.textContent()) && /1ª Série: Coord Só/.test(await cardCN.textContent()));
 ok('Mapa mostra digitalizadores por unidade (e avisa quando falta)', /Bia Redação/.test(await page.locator('#mapa-equipe .mapa-un', { hasText: 'Augusto Montenegro' }).textContent()) && /Nenhum digitalizador/.test(await cardBC.textContent()));
 ok('Mapa tem atalho para Cadastros e funções', (await page.locator('#link-cadastros').getAttribute('href')) === 'admin.html');
