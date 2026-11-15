@@ -147,6 +147,9 @@ ok('Lista mostra quem é só coordenador, com etiqueta', /Coord Só[\s\S]*Coorde
 await page.locator('#f-funcao').selectOption('coord');
 ok('Filtro de função: só coordenadores', await page.locator('#list tbody tr').count() === 1);
 await page.locator('#f-funcao').selectOption('');
+await page.locator('#search').fill('dig.antigo@grupoideal');
+ok('Busca é só por nome (e-mail não filtra)', await page.locator('#list tbody tr').count() === 0 || /Nenhuma pessoa/.test(await page.locator('#list').textContent()));
+ok('Botão "Novo cadastro" alinhado com a busca e os filtros', (await page.locator('#add').textContent()) === 'Novo cadastro' && await page.evaluate(() => { const a = document.querySelector('#search').getBoundingClientRect(), b = document.querySelector('#add').getBoundingClientRect(); return Math.abs(a.top - b.top) < 3 && Math.abs(a.height - b.height) < 3; }));
 await page.locator('#search').fill('dig antigo');
 ok('Filtro de nome', await page.locator('#list tbody tr').count() === 1 && /Dig Antigo/.test(await page.locator('#list tbody').textContent()));
 await page.locator('#search').fill('');
@@ -190,6 +193,15 @@ await page.evaluate(() => sessionStorage.setItem('atlas_user_auth', JSON.stringi
 await page.goto(base + '/redacao.html');
 await page.locator('#upload-area').waitFor({ state: 'visible', timeout: 10000 }).catch(() => {});
 ok('Redação mostra turmas (professora) e envio de lotes (digitalizadora)', await page.locator('#upload-area').isVisible() && await page.locator('#list .turma').count() === 2 && (await page.locator('#title').textContent()) === 'Redação');
+/* Mapa da equipe na aba Equipe da Redação */
+await page.goto(base + '/redacao-admin.html#equipe');
+await page.locator('#mapa-equipe .mapa-un').first().waitFor({ timeout: 10000 });
+const cardBC = page.locator('#mapa-equipe .mapa-un', { hasText: 'Batista Campos' }), cardCN = page.locator('#mapa-equipe .mapa-un', { hasText: 'Cidade Nova' });
+ok('Mapa da equipe: três unidades', await page.locator('#mapa-equipe .mapa-un').count() === 3);
+ok('Mapa mostra o professor de redação de cada turma e as turmas sem professor', /3EMA · 3ª Série\s*Bia Redação/.test(await cardBC.textContent()) && /sem professor/.test(await cardBC.textContent()), (await cardBC.textContent()).slice(0, 300));
+ok('Mapa mostra coordenadores por série', /3ª Série: Bia Redação/.test(await cardBC.textContent()) && /1ª Série: Coord Só/.test(await cardCN.textContent()));
+ok('Mapa mostra digitalizadores por unidade (e avisa quando falta)', /Bia Redação/.test(await page.locator('#mapa-equipe .mapa-un', { hasText: 'Augusto Montenegro' }).textContent()) && /Nenhum digitalizador/.test(await cardBC.textContent()));
+ok('Mapa tem atalho para Cadastros e funções', (await page.locator('#link-cadastros').getAttribute('href')) === 'admin.html');
 ok('Tela sem erro JavaScript', errors.length === 0, errors.join(' | '));
 await browser.close();
 await new Promise(resolve => server.close(resolve));
