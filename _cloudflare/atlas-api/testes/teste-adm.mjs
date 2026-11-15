@@ -72,7 +72,7 @@ async function call(path, { method = 'GET', body, token, origin = ORIGIN, ctype 
 
 // ---- testes do servidor ----
 let r = await call('/api/saude');
-ok('Saúde: banco conectado, schema 11', r.status === 200 && r.data.schema === "11", JSON.stringify(r.data));
+ok('Saúde: banco conectado, schema 12', r.status === 200 && r.data.schema === "12", JSON.stringify(r.data));
 r = await call('/api/adm/professores');
 ok('Sem login: lista de professores recusada (401)', r.status === 401, r.data?.error);
 r = await call('/api/adm/login', { method: 'POST', body: { credential: await jwt({ email: 'outra.pessoa@gmail.com' }) } });
