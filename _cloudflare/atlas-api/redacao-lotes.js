@@ -39,16 +39,20 @@ async function lotes(env, ano, unidades = null) {
   return (await env.DB.prepare(
     'SELECT l.id, l.ano, l.bimestre, l.turma_id, l.digitalizador_id, l.nome_arquivo, l.bytes, ' +
     'l.enviado_em, l.cancelavel_ate, l.cancelado_em, l.cancelado_por, l.arquivo_excluido_em, ' +
-    't.unidade, t.segmento, t.serie, t.codigo, u.nome AS digitalizador ' +
+    't.unidade, t.segmento, t.serie, t.codigo, u.nome AS digitalizador, ' +
+    'p.total AS paginas, p.aluno AS paginas_aluno, p.avulsa AS paginas_avulsa, p.duvida AS paginas_duvida, p.descartada AS paginas_descartada ' +
     'FROM redacao_lotes l JOIN redacao_turmas t ON t.id = l.turma_id ' +
-    'JOIN usuarios u ON u.id = l.digitalizador_id WHERE l.ano = ?' + filtro +
+    'JOIN usuarios u ON u.id = l.digitalizador_id ' +
+    "LEFT JOIN (SELECT lote_id, COUNT(*) AS total, SUM(situacao = 'aluno') AS aluno, SUM(situacao = 'avulsa') AS avulsa, " +
+    "SUM(situacao = 'duvida') AS duvida, SUM(situacao = 'descartada') AS descartada FROM redacao_paginas GROUP BY lote_id) p ON p.lote_id = l.id " +
+    'WHERE l.ano = ?' + filtro +
     ' ORDER BY l.enviado_em DESC, l.id DESC'
   ).bind(ano, ...(unidades || [])).all()).results;
 }
 
 async function lotePorId(env, id) {
   return await env.DB.prepare(
-    'SELECT l.*, t.unidade, t.codigo FROM redacao_lotes l JOIN redacao_turmas t ON t.id = l.turma_id WHERE l.id = ?'
+    'SELECT l.*, t.unidade, t.codigo, t.ano AS turma_ano FROM redacao_lotes l JOIN redacao_turmas t ON t.id = l.turma_id WHERE l.id = ?'
   ).bind(id).first();
 }
 
@@ -153,6 +157,98 @@ async function enviar(request, env, url, pessoa, hojeSP, registrar) {
   return { ok: true, lote_id: resultado.meta.last_row_id, cancelavel_ate: cancelaAte };
 }
 
+/* ---------- índice por página (uma folha por aluno, só frente) ---------- */
+/* Situação de cada RA em relação à turma do lote (consulta só leitura). */
+async function situacaoRas(env, ras, ano) {
+  const achados = new Map();
+  for (let i = 0; i < ras.length; i += 80) {
+    const parte = ras.slice(i, i + 80);
+    if (!parte.length) continue;
+    const linhas = (await env.DB.prepare(
+      `SELECT a.ra, a.nome, a.turma_id, t.unidade, t.codigo FROM redacao_alunos a JOIN redacao_turmas t ON t.id = a.turma_id WHERE a.ano = ? AND a.ra IN (${parte.map(() => '?').join(',')})`
+    ).bind(ano, ...parte).all()).results;
+    for (const l of linhas) achados.set(l.ra, l);
+  }
+  return achados;
+}
+
+/* Recebe a leitura feita no navegador e decide no servidor a situação de cada página:
+   sem código → avulsa (a professora escolhe o aluno); RA da turma → aluno;
+   outra turma/unidade, fora do cadastro ou RA repetido → dúvida para o ADM. */
+async function gravarPaginas(env, lote, body, quem, registrar, usuarioId) {
+  if (lote.cancelado_em) erro(409, 'Este lote foi cancelado.');
+  const lista = Array.isArray(body?.paginas) ? body.paginas : null;
+  if (!lista || !lista.length || lista.length > 400) erro(400, 'Leitura das páginas inválida.');
+  const paginas = lista.map((p, i) => {
+    const ra = p?.ra === null || p?.ra === undefined || p?.ra === '' ? null : String(p.ra).trim();
+    const angulo = Number(p?.angulo ?? 0), marcadores = Number(p?.marcadores ?? 0);
+    if (Number(p?.pagina) !== i + 1 || (ra !== null && !/^\d{1,15}$/.test(ra)) || !Number.isFinite(angulo) || Math.abs(angulo) > 45 ||
+        !Number.isInteger(marcadores) || marcadores < 0 || marcadores > 4) erro(400, `Leitura da página ${i + 1} inválida.`);
+    return { pagina: i + 1, ra, angulo: Math.round(angulo * 100) / 100, invertida: p?.invertida ? 1 : 0, marcadores };
+  });
+  const achados = await situacaoRas(env, [...new Set(paginas.map(p => p.ra).filter(Boolean))], lote.turma_ano);
+  const vezes = {};
+  for (const p of paginas) if (p.ra) vezes[p.ra] = (vezes[p.ra] || 0) + 1;
+  for (const p of paginas) {
+    const a = p.ra ? achados.get(p.ra) : null;
+    p.aluno_ra = null; p.motivo = null;
+    if (!p.ra) p.situacao = 'avulsa';
+    else if (!a) { p.situacao = 'duvida'; p.motivo = 'fora_cadastro'; }
+    else if (a.unidade !== lote.unidade) { p.situacao = 'duvida'; p.motivo = 'outra_unidade'; }
+    else if (a.turma_id !== lote.turma_id) { p.situacao = 'duvida'; p.motivo = 'outra_turma'; }
+    else if (vezes[p.ra] > 1) { p.situacao = 'duvida'; p.motivo = 'repetido'; }
+    else { p.situacao = 'aluno'; p.aluno_ra = p.ra; }
+  }
+  const ops = [env.DB.prepare('DELETE FROM redacao_paginas WHERE lote_id = ?').bind(lote.id)];
+  for (const p of paginas) ops.push(env.DB.prepare(
+    'INSERT INTO redacao_paginas (lote_id, pagina, ra_lido, angulo, invertida, marcadores, situacao, motivo, aluno_ra) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
+  ).bind(lote.id, p.pagina, p.ra, p.angulo, p.invertida, p.marcadores, p.situacao, p.motivo, p.aluno_ra));
+  await env.DB.batch(ops);
+  const resumo = resumoPaginas(paginas);
+  await registrar(env, 'redacao_paginas_gravadas', { lote_id: lote.id, por: quem, ...resumo }, usuarioId);
+  return { ok: true, resumo };
+}
+function resumoPaginas(paginas) {
+  const r = { paginas: paginas.length, aluno: 0, avulsa: 0, duvida: 0, descartada: 0 };
+  for (const p of paginas) r[p.situacao]++;
+  return r;
+}
+async function paginasDoLote(env, lote) {
+  const paginas = (await env.DB.prepare(
+    'SELECT p.pagina, p.ra_lido, p.angulo, p.invertida, p.marcadores, p.situacao, p.motivo, p.aluno_ra, p.resolvido_por, p.resolvido_em, a.nome AS aluno_nome, ' +
+    'l.nome AS lido_nome, tl.codigo AS lido_turma, tl.unidade AS lido_unidade ' +
+    'FROM redacao_paginas p LEFT JOIN redacao_alunos a ON a.ra = p.aluno_ra ' +
+    'LEFT JOIN redacao_alunos l ON l.ra = p.ra_lido LEFT JOIN redacao_turmas tl ON tl.id = l.turma_id ' +
+    'WHERE p.lote_id = ? ORDER BY p.pagina'
+  ).bind(lote.id).all()).results;
+  const alunos = (await env.DB.prepare(
+    'SELECT ra, nome FROM redacao_alunos WHERE turma_id = ? ORDER BY nome COLLATE NOCASE'
+  ).bind(lote.turma_id).all()).results;
+  return { ok: true, lote: { id: lote.id, codigo: lote.codigo, unidade: lote.unidade, bimestre: lote.bimestre, nome_arquivo: lote.nome_arquivo, cancelado: !!lote.cancelado_em }, paginas, alunos, resumo: resumoPaginas(paginas) };
+}
+/* Decisão do ADM numa página: atribuir a um aluno do cadastro ou descartar. */
+async function resolverPagina(env, lote, n, body, sessao, registrar) {
+  if (lote.cancelado_em) erro(409, 'Este lote foi cancelado.');
+  const p = await env.DB.prepare('SELECT * FROM redacao_paginas WHERE lote_id = ? AND pagina = ?').bind(lote.id, n).first();
+  if (!p) erro(404, 'Página não encontrada.');
+  const horario = agora(), quem = sessao.email || 'adm';
+  if (body?.acao === 'descartar') {
+    await env.DB.prepare("UPDATE redacao_paginas SET situacao = 'descartada', aluno_ra = NULL, resolvido_por = ?, resolvido_em = ? WHERE lote_id = ? AND pagina = ?")
+      .bind(quem, horario, lote.id, n).run();
+  } else if (body?.acao === 'atribuir') {
+    const ra = String(body.ra ?? '').trim();
+    if (!/^\d{1,15}$/.test(ra)) erro(400, 'Informe o RA do aluno.');
+    const aluno = await env.DB.prepare('SELECT ra, nome FROM redacao_alunos WHERE ra = ? AND ano = ?').bind(ra, lote.turma_ano).first();
+    if (!aluno) erro(404, 'RA não encontrado no cadastro de alunos.');
+    const ocupada = await env.DB.prepare("SELECT pagina FROM redacao_paginas WHERE lote_id = ? AND aluno_ra = ? AND situacao = 'aluno' AND pagina <> ?").bind(lote.id, ra, n).first();
+    if (ocupada) erro(409, `Este aluno já está na página ${ocupada.pagina} deste lote. Descarte ou corrija aquela página antes.`);
+    await env.DB.prepare("UPDATE redacao_paginas SET situacao = 'aluno', aluno_ra = ?, resolvido_por = ?, resolvido_em = ? WHERE lote_id = ? AND pagina = ?")
+      .bind(ra, quem, horario, lote.id, n).run();
+  } else erro(400, 'Ação inválida.');
+  await registrar(env, 'redacao_pagina_resolvida', { lote_id: lote.id, pagina: n, acao: body.acao, ra: body.ra ?? null, adm: quem });
+  return await paginasDoLote(env, lote);
+}
+
 /* Antes do envio: de que turma é cada RA lido nas folhas? Só leitura, nada é gravado.
    Nome e turma só aparecem para alunos das unidades do digitalizador. */
 async function conferirRas(env, body, pessoa, ano) {
@@ -217,6 +313,13 @@ export async function rotaLotesUsuario(request, env, path, { sessaoAtual, hojeSP
   }
   if (path === '/api/redacao/lotes' && request.method === 'POST') return await enviar(request, env, new URL(request.url), pessoa, hojeSP, registrar);
   if (path === '/api/redacao/lotes/conferir' && request.method === 'POST') return await conferirRas(env, await readJson(request), pessoa, ano);
+  const mp = path.match(/^\/api\/redacao\/lotes\/(\d+)\/paginas$/);
+  if (mp && request.method === 'POST') {
+    const lote = await lotePorId(env, numero(mp[1], 1, 1000000000));
+    if (!lote || !pessoa.unidades.includes(lote.unidade) || lote.digitalizador_id !== pessoa.id) erro(404, 'Lote não encontrado.');
+    if (agora() > lote.cancelavel_ate) erro(403, 'O prazo de 2 horas terminou. Peça ao ADM para refazer a leitura.');
+    return await gravarPaginas(env, lote, await readJson(request), pessoa.email || pessoa.nome, registrar, pessoa.id);
+  }
   const m = path.match(/^\/api\/redacao\/lotes\/(\d+)(\/pdf)?$/);
   if (m) {
     const lote = await lotePorId(env, numero(m[1], 1, 1000000000));
@@ -227,10 +330,18 @@ export async function rotaLotesUsuario(request, env, path, { sessaoAtual, hojeSP
   erro(404, 'Rota indisponível.');
 }
 
-export async function rotaLotesAdm(request, env, path, { hojeSP, registrar, sessao }) {
+export async function rotaLotesAdm(request, env, path, { hojeSP, registrar, sessao, readJson }) {
   if (!path.startsWith('/api/adm/redacao/lotes')) return null;
   const ano = anoAtual(hojeSP, env);
   if (path === '/api/adm/redacao/lotes' && request.method === 'GET') return { ok: true, ano, lotes: await lotes(env, ano) };
+  const mp = path.match(/^\/api\/adm\/redacao\/lotes\/(\d+)\/paginas(?:\/(\d+))?$/);
+  if (mp) {
+    const lote = await lotePorId(env, numero(mp[1], 1, 1000000000));
+    if (!lote) erro(404, 'Lote não encontrado.');
+    if (!mp[2] && request.method === 'GET') return await paginasDoLote(env, lote);
+    if (!mp[2] && request.method === 'POST') { await gravarPaginas(env, lote, await readJson(request), sessao.email || 'adm', registrar, null); return await paginasDoLote(env, lote); }
+    if (mp[2] && request.method === 'POST') return await resolverPagina(env, lote, numero(mp[2], 1, 400), await readJson(request), sessao, registrar);
+  }
   const m = path.match(/^\/api\/adm\/redacao\/lotes\/(\d+)(\/pdf)?$/);
   if (m) {
     const lote = await lotePorId(env, numero(m[1], 1, 1000000000));

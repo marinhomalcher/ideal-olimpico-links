@@ -1851,7 +1851,7 @@ async function rotasSelecoesAdm(request, env, path, url, sessao) {
 // Guarda as tabelas de conteúdo e cadastro; não guarda sessões nem códigos de login.
 // As imagens já ficam no R2 e não são copiadas de novo.
 const TABELAS_BACKUP = ['meta', 'usuarios', 'retiradas', 'grupos', 'grupo_versoes', 'itens', 'item_versoes', 'revisoes', 'consertos', 'selecoes', 'selecao_itens', 'eventos',
-  'redacao_turmas', 'redacao_alunos', 'redacao_equipe', 'redacao_professor_turmas', 'redacao_digitalizador_unidades', 'redacao_importacoes', 'redacao_lotes'];
+  'redacao_turmas', 'redacao_alunos', 'redacao_equipe', 'redacao_professor_turmas', 'redacao_digitalizador_unidades', 'redacao_importacoes', 'redacao_lotes', 'redacao_paginas'];
 const MANTER_BACKUPS = 60;
 
 async function fazerBackup(env, origem) {
@@ -2133,7 +2133,7 @@ async function rotasAdm(request, env, path) {
   }
 
   const sessao = await sessaoAtual(request, env, 'adm');
-  const redacaoLotes = await rotaLotesAdm(request, env, path, { hojeSP, registrar, sessao });
+  const redacaoLotes = await rotaLotesAdm(request, env, path, { hojeSP, registrar, sessao, readJson });
   if (redacaoLotes) return redacaoLotes;
   const redacaoAdm = await rotaRedacaoAdm(request, env, path, { readJson, hojeSP, registrar, emailEmUso, sessao });
   if (redacaoAdm) return redacaoAdm;

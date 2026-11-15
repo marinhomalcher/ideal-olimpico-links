@@ -351,8 +351,67 @@ await page.waitForFunction(() => document.querySelector('#upload-status').textCo
 ok('Envio conferido é recebido e o relatório some', /Lote recebido/.test(await page.locator('#upload-status').textContent()) && await page.locator('#ra-report').isHidden());
 await page.setViewportSize({ width: 390, height: 840 });
 ok('Tela do digitalizador cabe no celular', await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+ok('Envio grava o índice das folhas e informa o resultado', /2 alunos identificados, 0 folhas avulsas e 1 dúvida para o ADM/.test(await page.locator('#upload-status').textContent()), await page.locator('#upload-status').textContent());
+const loteT2 = db.prepare('SELECT id FROM redacao_lotes WHERE turma_id = ? AND cancelado_em IS NULL').get(t2.id).id;
+const pags = db.prepare('SELECT pagina, ra_lido, situacao, motivo, aluno_ra, invertida FROM redacao_paginas WHERE lote_id = ? ORDER BY pagina').all(loteT2);
+ok('Índice: páginas da turma viram aluno; outra unidade vira dúvida', pags.length === 3 && pags[0].situacao === 'aluno' && pags[0].aluno_ra === '33333' && pags[1].situacao === 'aluno' && pags[2].situacao === 'duvida' && pags[2].motivo === 'outra_unidade', JSON.stringify(pags));
+
+/* API do índice: o servidor decide a situação; só o dono do lote grava; RA repetido vira dúvida. */
+r = await api('/api/redacao/lotes/' + loteT2 + '/paginas', 'POST', { paginas: [{ pagina: 1, ra: '33333', situacao: 'aluno' }, { pagina: 2, ra: '33333' }, { pagina: 3, ra: null }, { pagina: 4, ra: '99999' }] }, 'bc-token');
+ok('RA repetido, sem código e fora do cadastro são classificados no servidor', r.status === 200 && r.data.resumo.aluno === 0 && r.data.resumo.duvida === 3 && r.data.resumo.avulsa === 1 &&
+  db.prepare("SELECT COUNT(*) AS n FROM redacao_paginas WHERE lote_id = ? AND motivo = 'repetido'").get(loteT2).n === 2, JSON.stringify(r.data));
+r = await api('/api/redacao/lotes/' + loteT2 + '/paginas', 'POST', { paginas: [{ pagina: 2, ra: '33333' }] }, 'bc-token');
+ok('Numeração de páginas fora de ordem é recusada', r.status === 400, r.status);
+sessao('bc2-token', 'usuario', 'bc2@grupoideal.com.br', (await api('/api/adm/redacao/equipe', 'POST', { nome: 'Outro Digitalizador BC', email: 'bc2@grupoideal.com.br', funcao: 'digitalizador', unidades: ['BC'] })).data.equipe.find(x => x.email === 'bc2@grupoideal.com.br')?.id);
+r = await api('/api/redacao/lotes/' + loteT2 + '/paginas', 'POST', { paginas: [{ pagina: 1, ra: '33333' }] }, 'bc2-token');
+ok('Outro digitalizador não grava o índice de um lote que não é dele', r.status === 404, r.status);
+db.prepare('UPDATE redacao_lotes SET cancelavel_ate = ? WHERE id = ?').run('2000-01-01T00:00:00Z', loteT2);
+r = await api('/api/redacao/lotes/' + loteT2 + '/paginas', 'POST', { paginas: [{ pagina: 1, ra: '33333' }] }, 'bc-token');
+ok('Depois de 2 horas só o ADM refaz a leitura', r.status === 403, r.status);
+r = await api('/api/adm/redacao/lotes/' + loteT2 + '/paginas', 'POST', { paginas: [{ pagina: 1, ra: '33333' }, { pagina: 2, ra: '44444' }, { pagina: 3, ra: '55555' }] });
+ok('ADM refaz a leitura pela API', r.status === 200 && r.data.resumo.aluno === 2 && r.data.resumo.duvida === 1 && r.data.paginas[2].lido_unidade === 'CN', JSON.stringify(r.data.resumo));
+
 await page.setViewportSize({ width: 1280, height: 900 });
 await page.evaluate(() => sessionStorage.setItem('atlas_adm_token', 'adm-token'));
+await page.goto(base + '/redacao-lotes-admin.html');
+await page.locator('#app').waitFor({ state: 'visible' });
+const linhaT2 = page.locator('#rows tr', { hasText: '2EMA' });
+ok('Lista de lotes mostra o resumo das folhas', /2 alunos · 0 avulsas · 1 dúvidas/.test(await linhaT2.textContent()), await linhaT2.textContent());
+ok('Lote sem leitura aparece como "leitura pendente"', /leitura pendente/.test(await page.locator('#rows tr', { hasText: '3EMA' }).first().textContent()));
+await linhaT2.getByRole('button', { name: 'Folhas e dúvidas (1)' }).click();
+await page.locator('#fl-linhas tr').first().waitFor();
+ok('Dúvidas aparecem primeiro, com o motivo', /Dúvida: aluno de outra unidade/.test(await page.locator('#fl-linhas tr').first().textContent()) && await page.locator('#fl-linhas tr').count() === 3);
+await page.locator('#fl-linhas tr').first().locator('select').selectOption('55555');
+await page.locator('#fl-linhas tr').first().getByRole('button', { name: 'Atribuir' }).click();
+await page.waitForFunction(() => /atribuída/.test(document.querySelector('#fl-status').textContent));
+ok('ADM atribui a dúvida a um aluno (exceção de outra unidade)', db.prepare('SELECT situacao, aluno_ra, resolvido_por FROM redacao_paginas WHERE lote_id = ? AND pagina = 3').get(loteT2).aluno_ra === '55555' && /Atribuída pelo ADM/.test(await page.locator('#fl-linhas').textContent()));
+await page.locator('#fl-linhas tr[data-pagina="1"] select').selectOption('__outro');
+await page.locator('#fl-linhas tr[data-pagina="1"] input').fill('55555');
+await page.locator('#fl-linhas tr[data-pagina="1"]').getByRole('button', { name: 'Atribuir' }).click();
+await page.waitForFunction(() => /já está na página 3/.test(document.querySelector('#fl-status').textContent)).catch(() => {});
+ok('O mesmo aluno não fica em duas páginas do lote', /já está na página 3/.test(await page.locator('#fl-status').textContent()), await page.locator('#fl-status').textContent());
+await page.locator('#fl-linhas tr[data-pagina="2"]').getByRole('button', { name: 'Descartar' }).click();
+await page.waitForFunction(() => /descartada/.test(document.querySelector('#fl-status').textContent));
+ok('ADM descarta uma página', db.prepare('SELECT situacao FROM redacao_paginas WHERE lote_id = ? AND pagina = 2').get(loteT2).situacao === 'descartada');
+await page.locator('#fl-fechar').click();
+await page.waitForFunction(() => /descartadas/.test(document.querySelector('#rows').textContent));
+ok('Lista atualiza o resumo depois das decisões', /2 alunos · 0 avulsas · 0 dúvidas · 1 descartadas/.test(await linhaT2.textContent()), await linhaT2.textContent());
+/* Refazer a leitura de um lote que chegou sem leitura (o da prévia, 3EMA / 4º bimestre). */
+await page.locator('#rows tr', { hasText: '3EMA' }).first().getByRole('button', { name: 'Folhas e dúvidas' }).click();
+await page.waitForFunction(() => /ainda não tem leitura/.test(document.querySelector('#fl-status').textContent));
+await page.locator('#fl-refazer').click();
+await page.locator('#fl-confirma').getByRole('button', { name: 'Refazer leitura' }).click();
+await page.waitForFunction(() => /Leitura refeita/.test(document.querySelector('#fl-status').textContent), null, { timeout: 30000 }).catch(() => {});
+ok('"Refazer leitura" lê as folhas no navegador e grava o índice', /3 páginas · 0 alunos identificados · 1 avulsas .* · 2 dúvidas/.test(await page.locator('#fl-resumo').textContent()), (await page.locator('#fl-status').textContent()) + ' / ' + await page.locator('#fl-resumo').textContent());
+await page.locator('#fl-linhas tr').first().getByRole('button', { name: 'Ver folha' }).click();
+await page.waitForFunction(() => /Página \d de 3/.test(document.querySelector('#align-pos').textContent) && !document.querySelector('#align-controls').hidden, null, { timeout: 30000 }).catch(() => {});
+ok('"Ver folha" abre a página certa na prévia alinhada', /Página 1 de 3/.test(await page.locator('#align-pos').textContent()), await page.locator('#align-pos').textContent());
+await page.locator('#align-close').click();
+ok('Fechar a prévia volta para as folhas do lote', await page.locator('#pages-viewer').isVisible());
+await page.setViewportSize({ width: 390, height: 840 });
+ok('Folhas do lote cabem no celular', await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+await page.setViewportSize({ width: 1280, height: 900 });
+await page.locator('#fl-fechar').click();
 
 // Biblioteca de PDF alterada no caminho: a tela recusa e explica.
 pdfjsAdulterado = true;
