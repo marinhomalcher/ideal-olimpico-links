@@ -233,10 +233,13 @@ const membrosT=db.prepare('SELECT i.codigo c FROM itens i JOIN grupos g ON g.id=
 for(const c of membrosT)await decidir(c,'aprovar');
 await page.goto('https://idealolimpico.com.br/atlas/supervisor-selecoes.html');await page.waitForSelector('#lista');
 await page.click('#nova');await page.check('input[name=serie][value="3"]');await page.check('input[name=tipo][value="REG"]');await page.click('#nova-form button[type=submit]');
-await page.waitForSelector('#sel-view:not([hidden])');await page.fill('#f-q','poema');await page.waitForFunction(()=>document.querySelectorAll('#banco .grupo-bloco').length>0);
-ok('Tela Sel: grupo aparece como bloco no banco', (await page.locator('#banco .grupo-bloco',{hasText:GT}).textContent()).includes('2 questões com o mesmo texto-base'));
-await page.locator('#banco .grupo-bloco',{hasText:GT}).getByText('Adicionar o grupo').click();await page.waitForFunction(()=>document.querySelector('#savestate').textContent==='Salvo');
+await page.waitForSelector('#sel-view:not([hidden])');await page.fill('#f-q',membrosT[0]);
+await page.waitForFunction(c=>document.querySelector('#q-corpo .cod')?.textContent===c&&!!document.querySelector('#q-corpo .q-grupo')&&document.querySelector('#nav-total').textContent==='2',membrosT[0]);
+ok('Tela Sel: questão de grupo mostra o grupo e oferece adicionar o grupo', (await page.textContent('#q-corpo .q-grupo')).includes('questão 1 de 2') && (await page.textContent('#add')).includes('Adicionar o grupo (2 questões)'));
+await page.click('#add');await page.waitForFunction(()=>document.querySelector('#savestate').textContent==='Salvo');
+await page.click('#ver-escolhidas');await page.waitForSelector('#escolhidas-dialog[open]');
 ok('Tela Sel: Adicionar o grupo coloca as 2 questões juntas', (await page.textContent('#qtd'))==='2' && (await page.textContent('#escolhidas')).includes('texto compartilhado pelas questões 1 a 2'));
+await page.click('#escolhidas-dialog .modal-actions button');
 const idSel=Number(new URL(page.url()).searchParams.get('id'));
 const naSel=db.prepare('SELECT i.codigo c FROM selecao_itens si JOIN itens i ON i.id=si.item_id WHERE selecao_id=? ORDER BY ordem').all(idSel).map(x=>x.c);
 ok('Tela Sel: salvo na ordem do grupo', JSON.stringify(naSel)===JSON.stringify(membrosT), JSON.stringify(naSel));
