@@ -1442,6 +1442,60 @@ async function rotasAdmItens(request, env, path, sessao) {
     return { ok: true };
   }
 
+  // Navegar pelo banco inteiro (aba Questões → Navegar): qualquer disciplina, professor e situação.
+  if (path === '/api/adm/banco' && request.method === 'GET') {
+    const sp = new URL(request.url).searchParams;
+    const filtros = [], args = [];
+    const sit = sp.get('situacao') || 'aprovado';
+    if (sit !== 'todas') {
+      if (!['aprovado', 'analise', 'ajustes', 'descartado'].includes(sit)) throw new HttpError(400, 'Situação inválida.');
+      filtros.push('i.situacao = ?'); args.push(sit);
+    }
+    const disc = (sp.get('disciplina') || '').trim().slice(0, 60);
+    if (disc) { filtros.push('i.disciplina = ?'); args.push(disc); }
+    const prof = Number(sp.get('professor') || 0);
+    if (Number.isInteger(prof) && prof > 0) { filtros.push('i.autor_id = ?'); args.push(prof); }
+    const etapa = sp.get('etapa');
+    if (etapa === 'em' || etapa === 'ef2') { filtros.push("json_extract(v.dados, '$.etapa') = ?"); args.push(etapa); }
+    for (const campo of ['assunto', 'dificuldade', 'origem', 'bloom']) {
+      const v = (sp.get(campo) || '').trim();
+      if (v) { filtros.push("json_extract(v.dados, '$." + campo + "') = ?"); args.push(v.slice(0, 200)); }
+    }
+    const q = (sp.get('q') || '').trim().slice(0, 100);
+    if (q) {
+      const like = '%' + q.replace(/[%_]/g, '') + '%';
+      filtros.push("(i.codigo = ? OR json_extract(v.dados, '$.comando') LIKE ? OR json_extract(v.dados, '$.texto-base') LIKE ? OR json_extract(v.dados, '$.subtema') LIKE ? OR EXISTS (SELECT 1 FROM json_each(v.dados, '$.tags') jt WHERE jt.value LIKE ?))");
+      args.push(q.toUpperCase(), like, like, like, like.toLocaleLowerCase('pt-BR'));
+    }
+    const LIMITE = 2000;
+    const { results } = await env.DB.prepare(
+      "SELECT i.id, i.codigo, i.situacao, i.disciplina, i.versao_atual, u.nome AS autor, " +
+      "json_extract(v.dados, '$.assunto') AS assunto, json_extract(v.dados, '$.subtema') AS subtema, json_extract(v.dados, '$.dificuldade') AS dificuldade, " +
+      "json_extract(v.dados, '$.bloom') AS bloom, json_extract(v.dados, '$.origem') AS origem, json_extract(v.dados, '$.fonte') AS fonte, json_extract(v.dados, '$.etapa') AS etapa, " +
+      "(SELECT g.codigo FROM grupos g WHERE g.id = i.grupo_id) AS grupo " +
+      "FROM itens i JOIN usuarios u ON u.id = i.autor_id JOIN item_versoes v ON v.item_id = i.id AND v.versao = i.versao_atual " +
+      (filtros.length ? 'WHERE ' + filtros.join(' AND ') + ' ' : '') +
+      "ORDER BY i.disciplina COLLATE NOCASE, assunto COLLATE NOCASE, i.codigo LIMIT " + (LIMITE + 1)
+    ).bind(...args).all();
+    const { results: usosR } = await env.DB.prepare(
+      "SELECT si.item_id, s.id, s.serie, s.tipo, s.ano, s.situacao FROM selecao_itens si JOIN selecoes s ON s.id = si.selecao_id WHERE s.situacao IN ('enviada','aplicada')"
+    ).all();
+    const usos = new Map();
+    for (const u of usosR) { if (!usos.has(u.item_id)) usos.set(u.item_id, []); usos.get(u.item_id).push({ selecao: u.id, serie: u.serie, tipo: u.tipo, ano: u.ano, situacao: u.situacao }); }
+    const { results: professores } = await env.DB.prepare(
+      "SELECT DISTINCT u.id, u.nome FROM itens i JOIN usuarios u ON u.id = i.autor_id ORDER BY u.nome COLLATE NOCASE"
+    ).all();
+    const { results: assuntos } = await env.DB.prepare(
+      "SELECT DISTINCT json_extract(v.dados, '$.assunto') AS a FROM itens i JOIN item_versoes v ON v.item_id = i.id AND v.versao = i.versao_atual " +
+      (disc ? 'WHERE i.disciplina = ? ' : '') + "ORDER BY a COLLATE NOCASE"
+    ).bind(...(disc ? [disc] : [])).all();
+    return {
+      ok: true, mais: results.length > LIMITE,
+      itens: results.slice(0, LIMITE).map(({ id, ...r }) => ({ ...r, usos: usos.get(id) || [] })),
+      disciplinas: [...DISCIPLINAS, SEM_DISCIPLINA], professores, assuntos: assuntos.map(x => x.a).filter(Boolean)
+    };
+  }
+
   // Questões sem disciplina (digitador escolheu "Não sei" ou o supervisor devolveu): o ADM define.
   if (path === '/api/adm/sem-disciplina' && request.method === 'GET') {
     const { results } = await env.DB.prepare(
