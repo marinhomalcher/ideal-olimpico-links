@@ -123,12 +123,13 @@ await page.waitForURL(/professor\.html/, {timeout:6000}).catch(()=>{});
 ok('Tela: professor que digita supervisor.html é levado à sua área', page.url().endsWith('professor.html'), page.url());
 await page.waitForFunction(()=>document.querySelector('#professor-nome')?.textContent==='Telma Paes',null,{timeout:6000}).catch(()=>{});
 ok('Tela: continua logado e vê o próprio nome', (await page.textContent('#professor-nome'))==='Telma Paes');
-await page.evaluate(()=>{sessionStorage.clear();localStorage.clear()});
+/* Sai da página atual antes de limpar a sessão: senão ela mesma redireciona para index.html?perfil=…, que abre o login. */
+await page.goto('https://idealolimpico.com.br/atlas/');await page.evaluate(()=>{sessionStorage.clear();localStorage.clear()});
 db.exec('DELETE FROM login_rate_limits');
 await loginVia('Supervisor','marcio.alex');
 await page.waitForURL(/supervisor\.html/, {timeout:6000}).catch(()=>{});
 ok('Tela: supervisor entra na área do Supervisor', page.url().endsWith('supervisor.html'), page.url());
-db.exec('DELETE FROM login_rate_limits');await page.evaluate(()=>{sessionStorage.clear();localStorage.removeItem('atlas_user_auth')});await page.goto('https://idealolimpico.com.br/atlas/');await page.click('[data-role="Professor"]');
+db.exec('DELETE FROM login_rate_limits');await page.goto('https://idealolimpico.com.br/atlas/');await page.evaluate(()=>{sessionStorage.clear();localStorage.removeItem('atlas_user_auth')});await page.goto('https://idealolimpico.com.br/atlas/');await page.click('[data-role="Professor"]');
 await page.type('#email','edi.franco@');
 ok('Tela: o @ não entra no campo', (await page.inputValue('#email'))==='edi.franco' && (await page.textContent('#login-status')).includes('já está preenchido'), await page.inputValue('#email'));
 await page.fill('#email','');await page.type('#email','edigmail.com');await page.click('#loginButton');
@@ -140,7 +141,7 @@ const st=await page.textContent('#sent-to');
 ok('Tela: mensagem diz que o código foi enviado ao e-mail institucional', st.includes('Enviamos um código') && st.includes('edi.franco@grupoideal.com.br') && !st.includes('Se o e-mail estiver cadastrado'), st);
 
 // sessão de 7 dias: voltar à página inicial não pede código de novo
-db.exec('DELETE FROM login_rate_limits');await page.evaluate(()=>{sessionStorage.clear();localStorage.removeItem('atlas_user_auth')});await page.goto('https://idealolimpico.com.br/atlas/');
+db.exec('DELETE FROM login_rate_limits');await page.goto('https://idealolimpico.com.br/atlas/');await page.evaluate(()=>{sessionStorage.clear();localStorage.removeItem('atlas_user_auth')});await page.goto('https://idealolimpico.com.br/atlas/');
 await page.click('[data-role="Supervisor"]');await page.fill('#email','marcio.alex');await page.click('#loginButton');await page.waitForSelector('#code-step:not([hidden])');
 await page.fill('#code',mails.at(-1).codigo);await page.check('#remember');await page.click('#verifyButton');await page.waitForURL(/supervisor\.html/);
 const nMails=mails.length;await page.goto('https://idealolimpico.com.br/atlas/');await page.waitForSelector('.sessao-ativa');
