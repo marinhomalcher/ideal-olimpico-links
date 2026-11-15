@@ -289,6 +289,11 @@ dialog[open] > .modal-actions {
   .cadastro-cols .dados-grid{grid-template-columns:repeat(2,minmax(0,1fr));margin-bottom:0}
   .cadastro-cols .dados-grid .dado-readonly:first-child{grid-column:1/-1}
   .cadastro-cols .contatos-box{border-top:0;padding-top:0;border-left:1px solid var(--borda);padding-left:32px}
+  .cadastro-cols label.field{display:block}
+  .cadastro-cols label.field>input,.cadastro-cols label.field>select{display:block;margin-top:6px}
+  .cadastro-cols label.field>small{display:block;margin-top:6px}
+  .cadastro-cols .contatos-grid{grid-template-columns:1fr}
+  .cadastro-cols .email-pessoal-field{margin-top:14px}
 }
 @media (min-width:1600px){
   .cards{grid-template-columns:repeat(4,minmax(0,1fr))}
