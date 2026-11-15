@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta name="atlas-versao" content="20261115d"><script src="atlas-versao.js?v=20261115d" defer></script><script src="atlas-alinhamento.js?v=20261115d"></script>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow"><title>ATLAS | Correção de redações</title>
+<style>
+:root{--navy:#10283e;--red:#d92738;--line:#dbe3e9;--ink:#233544;--muted:#5f7484;--soft:#eef3f6;--teal:#1d7f8c}*{box-sizing:border-box}
+body{margin:0;background:#f3f7f9;color:var(--ink);font:15px/1.45 Arial,Helvetica,sans-serif}button,select,textarea{font:inherit}button{cursor:pointer}
+header{height:70px;background:var(--navy);color:#fff;display:flex;align-items:center;justify-content:space-between;padding:0 clamp(14px,3vw,36px);gap:14px;position:relative}
+.brand{display:flex;align-items:center;gap:12px;white-space:nowrap}.mark{background:#e7434a;color:#fff;border-radius:10px;width:36px;height:36px;display:grid;place-items:center;font-weight:900;font-size:18px}.brand b{font-size:22px;letter-spacing:.06em}.brand span{border-left:1px solid #668196;padding-left:12px;font-size:16px}
+.school-logo{position:absolute;left:50%;top:6px;transform:translateX(-50%);width:205px;height:58px;background:#fff;border-radius:10px;display:grid;place-items:center}.school-logo img{width:175px;height:auto}
+.user{color:#d7e4eb;font-size:14px;display:flex;gap:12px;align-items:center}.user a{color:#fff}
+.crumbs{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;padding:12px clamp(14px,3vw,36px);background:#fff;border-bottom:1px solid var(--line)}.crumbs nav{font-size:14px;color:var(--muted)}.crumbs nav a{color:var(--muted);text-decoration:none}.crumbs nav b{color:var(--ink)}
+.chips{display:flex;gap:6px;flex-wrap:wrap}.chip{background:var(--soft);border:1px solid var(--line);border-radius:7px;padding:5px 10px;font-size:13px}.chip.red{background:#fff0f0;border-color:#f3c9cc;color:#a01e2a}
+main{display:grid;grid-template-columns:minmax(0,1fr) 420px;gap:18px;padding:18px clamp(10px,2vw,24px)}
+.card{background:#fff;border:1px solid var(--line);border-radius:12px;box-shadow:0 5px 18px #1f3b4f0c}
+.folha-card{min-width:0;display:flex;flex-direction:column;min-height:calc(100vh - 170px)}
+.folha-bar{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:12px 16px;border-bottom:1px solid var(--line)}.folha-bar small{color:var(--muted)}
+.tools{display:flex;gap:6px;flex-wrap:wrap;align-items:center}.tool{border:1px solid #c8d4dc;background:#fff;border-radius:7px;padding:6px 10px;font-weight:700;color:var(--ink);min-width:38px}.tool.on{background:#e7f2f4;border-color:#9fc7cd}.tool-val{min-width:58px;text-align:center;font-weight:700;font-size:14px;font-variant-numeric:tabular-nums}
+.folha-area{flex:1;overflow:auto;background:#e3e9ee;padding:12px;display:flex;justify-content:center;align-items:flex-start;min-height:420px;max-height:calc(100vh - 150px)}
+#folha{background:#fff;box-shadow:0 2px 10px #0003;display:block;max-width:none}
+.painel{min-width:0;padding:16px 18px;display:flex;flex-direction:column;gap:12px;align-self:start;position:sticky;top:12px}
+.topo{display:flex;justify-content:space-between;gap:10px}.topo small{color:var(--muted);letter-spacing:.06em;font-size:12px;font-weight:700}.topo h2{margin:2px 0;font-size:22px}.topo .sub{color:var(--muted);font-size:13px}
+.timer{border:1px solid #bfdde1;background:#eef8f9;border-radius:9px;padding:6px 12px;text-align:center;min-width:120px}.timer small{display:block;font-size:11px;color:var(--teal);letter-spacing:.04em;font-weight:700}.timer b{font-size:22px;color:var(--navy);font-variant-numeric:tabular-nums}
+.prog{font-size:13px;color:var(--muted);display:flex;justify-content:space-between}.prog b{color:var(--navy)}.barra{height:6px;border-radius:4px;background:#e5ecf0;overflow:hidden}.barra span{display:block;height:100%;background:var(--teal);width:0}
+.comp{display:grid;grid-template-columns:42px 1fr 96px;align-items:center;gap:10px;border:1px solid var(--line);border-radius:10px;padding:8px 10px}.comp .tag{background:var(--soft);border-radius:7px;text-align:center;font-weight:800;padding:6px 0;color:var(--navy)}.comp strong{display:block;font-size:14px}.comp small{color:var(--muted);font-size:12px}
+.comp select,.motivo select,.zero select,.cond select{width:100%;padding:7px;border:1px solid #c3d0d8;border-radius:7px;background:#fff;font-weight:700}
+.motivo{margin:-4px 0 0 52px}.motivo select{font-weight:400;border-color:#e3a6ab;background:#fff8f8}
+.total{display:flex;justify-content:space-between;align-items:center;background:#eaf5f6;border-radius:10px;padding:10px 14px}.total b{font-size:26px;color:var(--navy)}.total small{color:var(--muted)}
+.zero select{border-color:#e3a6ab;background:#fff8f8;color:#a01e2a}
+textarea{width:100%;min-height:56px;border:1px solid #c3d0d8;border-radius:8px;padding:8px;resize:vertical}
+label.rot{font-size:13px;font-weight:700}
+.acoes{display:flex;gap:8px}.acoes button{flex:1;border-radius:9px;padding:11px 6px;font-weight:800;font-size:13px;white-space:nowrap}.acoes .concluir{flex:1.5}.condenar{background:#fff;border:1px solid #e3a6ab;color:#a01e2a}.concluir{background:var(--red);border:1px solid var(--red);color:#fff}button:disabled{opacity:.55;cursor:not-allowed}
+.cond{border:1px solid #edc5c8;background:#fff6f6;border-radius:9px;padding:10px;display:grid;gap:8px}.cond div{display:flex;gap:8px}.cond button{flex:1;border-radius:8px;padding:8px;font-weight:700}
+.status{min-height:20px;font-size:14px;margin:0}.status.error{color:#a51c2c}.status.ok{color:#1f7a3f}
+.aviso{background:#fff7e6;border:1px solid #f0d49b;color:#7a4b00;border-radius:9px;padding:8px 10px;font-size:14px}
+.lista-btn{background:none;border:none;color:var(--navy);text-decoration:underline;font-weight:700;padding:0}
+.lista{position:fixed;inset:0;background:#071725aa;display:grid;place-items:center;z-index:10;padding:14px}.lista[hidden]{display:none}.lista-box{background:#fff;border-radius:12px;width:min(640px,100%);max-height:88vh;display:flex;flex-direction:column}.lista-box header{all:unset;display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-bottom:1px solid var(--line)}.lista-box ol{list-style:none;margin:0;padding:8px;overflow:auto}.lista-box li button{width:100%;display:flex;justify-content:space-between;gap:10px;text-align:left;background:#fff;border:1px solid var(--line);border-radius:8px;padding:9px 12px;margin-bottom:6px}.lista-box li button.atual{border-color:var(--teal);background:#eef8f9}
+.est-pendente{color:#8a4b00}.est-corrigida{color:#1f7a3f}.est-condenada{color:#a01e2a}
+.fim{padding:30px;text-align:center}
+[hidden]{display:none!important}
+@media(max-width:1000px){main{grid-template-columns:minmax(0,1fr)}.painel{position:static}.folha-card{min-height:0}.school-logo{display:none}}
+@media(max-width:650px){header{padding:0 12px}.brand span{display:none}.comp{grid-template-columns:38px 1fr 84px}.motivo{margin-left:0}}
+</style>
+</head>
+<body>
+<header><div class="brand"><div class="mark">A</div><b>ATLAS</b><span>Redação</span></div><div class="school-logo"><img src="ideal-logo.png" alt="Colégio Ideal 50 anos"></div><div class="user"><span id="prof-nome"></span><a href="redacao.html">Minhas turmas</a></div></header>
+<div class="crumbs"><nav aria-label="Caminho"><a href="redacao.html">Minhas turmas</a> › <span id="c-unidade"></span> › <span id="c-turma"></span> › <b>Correção</b></nav><div class="chips" id="chips"></div></div>
+<p id="erro-geral" class="status error" style="padding:10px 24px" role="alert"></p>
+<main id="app" hidden>
+<section class="card folha-card"><div class="folha-bar"><div><strong>Folha digitalizada</strong> <small id="folha-info">1 página · alinhamento automático</small></div>
+<div class="tools"><button type="button" class="tool on" id="z-pagina">Página inteira</button><button type="button" class="tool" id="z-menos" aria-label="Diminuir zoom">−</button><span class="tool-val" id="z-val">100%</span><button type="button" class="tool" id="z-mais" aria-label="Aumentar zoom">+</button>
+<button type="button" class="tool" id="a-menos" title="Girar 0,25° no sentido anti-horário">↶ −0,25°</button><span class="tool-val" id="a-val">0,00°</span><button type="button" class="tool" id="a-mais" title="Girar 0,25° no sentido horário">+0,25° ↷</button><button type="button" class="tool" id="a-auto" title="Volta ao alinhamento automático">Auto</button></div></div>
+<div class="folha-area" id="area"><canvas id="folha" width="10" height="14" aria-label="Folha da redação"></canvas></div></section>
+<section class="card painel" id="painel">
+<div class="topo"><div><small id="pos">REDAÇÃO</small><h2 id="aluno"></h2><div class="sub" id="sub"></div></div><div class="timer" id="timer-box"><small id="timer-rot">TEMPO DE CORREÇÃO</small><b id="timer">00:00</b></div></div>
+<div><div class="prog"><span>Progresso da turma · <button type="button" class="lista-btn" id="abrir-lista">ver lista</button></span><b id="prog-txt"></b></div><div class="barra"><span id="prog-barra"></span></div></div>
+<p class="aviso" id="aviso-estado" hidden></p>
+<div id="comps"></div>
+<div class="total"><span>Nota total desta redação</span><span><b id="total">—</b> <small>/ 1000</small></span></div>
+<div class="zero"><select id="zero" aria-label="Zerar a redação inteira por critério"></select></div>
+<div><label class="rot" for="obs">Observações para a correção (opcional)</label><textarea id="obs" maxlength="1000"></textarea></div>
+<div class="cond" id="cond" hidden><label class="rot" for="cond-motivo">Motivo para condenar esta página (ela vai para o ADM)</label><select id="cond-motivo"></select><div><button type="button" class="condenar" id="cond-ok">Condenar página</button><button type="button" class="tool" id="cond-nao">Voltar</button></div></div>
+<div class="acoes"><button type="button" class="condenar" id="btn-condenar">⚠ Condenar página</button><button type="button" class="concluir" id="btn-concluir">Concluir e ir para a próxima →</button></div>
+<p id="status" class="status" role="status"></p>
+</section>
+</main>
+<section class="card fim" id="fim" hidden><h2>Todas as redações deste lote foram corrigidas.</h2><p>Você pode revisar qualquer uma pela lista. <button type="button" class="lista-btn" id="fim-lista">Abrir a lista</button> · <a href="redacao.html">Voltar às minhas turmas</a></p></section>
+<div class="lista" id="lista" hidden role="dialog" aria-modal="true" aria-label="Redações do lote"><div class="lista-box"><header><strong>Redações do lote</strong><button type="button" class="tool" id="fechar-lista">Fechar</button></header><ol id="lista-itens"></ol></div></div>
+<script>
+const API='https://atlas-api.marinhomalcher.workers.dev';
+const saved=(()=>{try{return JSON.parse(sessionStorage.getItem('atlas_user_auth')||localStorage.getItem('atlas_user_auth')||'null')}catch{return null}})();
+const $=s=>document.querySelector(s),A=window.AtlasAlinhamento;
+const UN={BC:'Batista Campos',AM:'Augusto Montenegro',CN:'Cidade Nova'};
+const COMPS=[['c1','Norma padrão','Domínio da escrita formal'],['c2','Tema e tipo textual','Compreensão da proposta'],['c3','Argumentação','Organização das ideias'],['c4','Coesão textual','Ligação entre as partes'],['c5','Proposta de intervenção','Se a nota for 0, informar o motivo']];
+const ESCALA=[0,40,80,120,160,200],ESCALA_C2=[40,80,120,160,200];
+let L=null,doc=null,atual=null,origem=null,anal=null,ajuste=0,zoom='pagina',inicio=0,relogio=null,enviando=false;
+const loteId=Number(new URLSearchParams(location.search).get('lote'));
+function msg(t,tipo=''){const e=$('#status');e.textContent=t||'';e.className='status '+tipo}
+function graus(g){return (g>0?'+':g<0?'−':'')+Math.abs(g).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})+'°'}
+async function api(path,opt={}){let r,d;try{r=await fetch(API+path,{...opt,headers:{Authorization:'Bearer '+saved.token,...(opt.headers||{})},cache:'no-store'});d=await r.json()}catch{throw Error('Sem conexão com o ATLAS.')}if(r.status===401){location.replace('index.html?perfil=Redação');throw Error('Sessão expirada.')}if(!r.ok||!d.ok)throw Error(d.error||'Não foi possível concluir.');return d}
+
+/* ---------- painel de notas ---------- */
+function montarPainel(){
+  const box=$('#comps');box.replaceChildren();
+  for(const [k,t,s] of COMPS){
+    const row=document.createElement('div');row.className='comp';row.innerHTML='<span class="tag"></span><span><strong></strong><small></small></span>';
+    row.querySelector('.tag').textContent=k.toUpperCase();row.querySelector('strong').textContent=t;row.querySelector('small').textContent=s;
+    const sel=document.createElement('select');sel.id='sel-'+k;sel.setAttribute('aria-label','Nota da '+k.toUpperCase());sel.append(new Option('—',''));for(const v of (k==='c2'?ESCALA_C2:ESCALA))sel.append(new Option(String(v),String(v)));
+    sel.addEventListener('change',recalcular);row.append(sel);box.append(row);
+    if(k==='c5'){const m=document.createElement('div');m.className='motivo';m.id='c5-motivo-box';m.hidden=true;const ms=document.createElement('select');ms.id='c5-motivo';ms.setAttribute('aria-label','Motivo da nota zero na C5');ms.append(new Option('Motivo da nota zero na C5…',''));for(const x of L.motivos.c5)ms.append(new Option(x,x));m.append(ms);box.append(m)}
+  }
+  $('#zero').replaceChildren(new Option('Zerar a redação inteira por critério…',''),...L.motivos.zero.map(x=>new Option(x,x)));
+  $('#zero').addEventListener('change',recalcular);
+  $('#cond-motivo').replaceChildren(new Option('Escolha o motivo…',''),...L.motivos.condenar.map(x=>new Option(x,x)));
+}
+function valores(){const v={};for(const [k] of COMPS)v[k]=$('#sel-'+k).value;return v}
+function recalcular(){
+  const zero=$('#zero').value;for(const [k] of COMPS)$('#sel-'+k).disabled=!!zero||travada();
+  const v=valores();$('#c5-motivo-box').hidden=!!zero||v.c5!=='0';
+  if(zero){$('#total').textContent='0';return}
+  const ok=COMPS.every(([k])=>v[k]!=='');$('#total').textContent=ok?String(COMPS.reduce((s,[k])=>s+Number(v[k]),0)):'—';
+}
+const travada=()=>atual?.estado==='condenada';
+function preencher(f){
+  $('#zero').value=f.zero_motivo||'';for(const [k] of COMPS)$('#sel-'+k).value=f[k]==null?'':String(f[k]);
+  $('#c5-motivo').value=f.c5_motivo||'';$('#obs').value=f.observacao||'';$('#cond').hidden=true;recalcular();
+  const trava=travada();for(const id of ['#zero','#obs','#c5-motivo','#btn-concluir','#btn-condenar'])$(id).disabled=trava;
+  $('#btn-concluir').textContent=f.estado==='pendente'?'Concluir e ir para a próxima →':'Salvar revisão →';
+  const av=$('#aviso-estado');av.hidden=f.estado==='pendente';
+  av.textContent=f.estado==='condenada'?'Página condenada ('+(f.condenada_motivo||'')+'). Ela está com o ADM.':f.estado==='corrigida'?'Redação já corrigida. Você pode revisar as notas; o tempo da primeira correção fica guardado.':'';
+}
+/* ---------- cronômetro: começa ao abrir, sem pausa; fechar a página zera ---------- */
+function cronometro(liga){clearInterval(relogio);if(!liga){$('#timer-rot').textContent='REVISÃO';$('#timer').textContent='—';return}
+  $('#timer-rot').textContent='TEMPO DE CORREÇÃO';inicio=Date.now();const tick=()=>{const s=Math.floor((Date.now()-inicio)/1000);$('#timer').textContent=String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0')};tick();relogio=setInterval(tick,1000)}
+/* ---------- folha ---------- */
+function desenhar(){
+  if(!origem)return;A.desenhar($('#folha'),origem,anal,{ajuste});$('#a-val').textContent=graus(Math.round((anal.inclinacao+ajuste)*100)/100);
+  const c=$('#folha'),area=$('#area');
+  if(zoom==='pagina'){const h=Math.max(300,Math.min(area.clientHeight,innerHeight-Math.max(0,area.getBoundingClientRect().top))-24),w=area.clientWidth-24;const esc=Math.min(h/c.height,w/c.width);c.style.width=Math.round(c.width*esc)+'px';c.style.height='auto';$('#z-val').textContent=Math.round(esc*c.width/(area.clientWidth-24)*100)+'%'}
+  else{c.style.width=Math.round((area.clientWidth-24)*zoom/100)+'px';c.style.height='auto';$('#z-val').textContent=zoom+'%'}
+  $('#z-pagina').classList.toggle('on',zoom==='pagina');
+}
+function zoomAtual(){const area=$('#area'),c=$('#folha');return Math.round(parseFloat(c.style.width)/(area.clientWidth-24)*100/25)*25||100}
+$('#z-pagina').addEventListener('click',()=>{zoom='pagina';desenhar()});
+$('#z-mais').addEventListener('click',()=>{zoom=Math.min(300,(zoom==='pagina'?zoomAtual():zoom)+25);desenhar()});
+$('#z-menos').addEventListener('click',()=>{zoom=Math.max(25,(zoom==='pagina'?zoomAtual():zoom)-25);desenhar()});
+$('#a-mais').addEventListener('click',()=>{ajuste=Math.round((ajuste+0.25)*100)/100;desenhar()});
+$('#a-menos').addEventListener('click',()=>{ajuste=Math.round((ajuste-0.25)*100)/100;desenhar()});
+$('#a-auto').addEventListener('click',()=>{ajuste=0;desenhar()});
+addEventListener('resize',()=>{if(zoom==='pagina')desenhar()});
+
+function progresso(){const p=L.progresso,feitas=p.corrigidas+p.condenadas;$('#prog-txt').textContent=`${p.corrigidas} corrigidas / ${p.folhas} folhas`+(p.condenadas?` · ${p.condenadas} condenadas`:'');$('#prog-barra').style.width=(p.folhas?feitas/p.folhas*100:0)+'%'}
+async function abrir(f){
+  atual=f;$('#fim').hidden=true;$('#app').hidden=false;msg('Abrindo a folha…');
+  const idx=L.folhas.indexOf(f)+1;$('#pos').textContent=`REDAÇÃO ${idx} DE ${L.folhas.length}`;$('#aluno').textContent=f.nome||('RA '+f.ra);
+  $('#sub').textContent=`Matrícula ${f.ra} · ${UN[L.lote.unidade]} · ${L.lote.codigo}`;
+  preencher(f);progresso();cronometro(false);
+  try{origem=await A.desenharPagina(doc,f.pagina,150);if(atual!==f)return;anal=A.analisar(origem);ajuste=0;zoom='pagina';desenhar();
+    $('#folha-info').textContent='página '+f.pagina+' do lote · alinhamento automático'+(anal.invertida?' (estava de cabeça para baixo)':'');
+    cronometro(f.estado==='pendente');msg('')}catch(e){msg('Não foi possível mostrar a folha: '+e.message,'error')}
+}
+function proxima(){const n=atual?atual.pagina:0;return L.folhas.find(f=>f.estado==='pendente'&&f.pagina>n)||L.folhas.find(f=>f.estado==='pendente')}
+function irProxima(){const p=proxima();if(p)abrir(p);else{clearInterval(relogio);$('#app').hidden=true;$('#fim').hidden=false}}
+function atualizar(d){const i=L.folhas.findIndex(f=>f.pagina===d.folha.pagina);L.folhas[i]=d.folha;L.progresso=d.progresso}
+async function enviar(body,texto){
+  if(enviando)return;enviando=true;$('#btn-concluir').disabled=$('#btn-condenar').disabled=true;msg('Salvando…');
+  try{const d=await api(`/api/redacao/correcao/lotes/${loteId}/paginas/${atual.pagina}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    const eraPendente=atual.estado==='pendente';atualizar(d);msg(texto,'ok');
+    if(eraPendente||body.condenar)irProxima();else{atual=L.folhas.find(f=>f.pagina===d.folha.pagina);preencher(atual);progresso()}}
+  catch(e){msg(e.message,'error')}finally{enviando=false;if(!travada()){$('#btn-concluir').disabled=$('#btn-condenar').disabled=false}}
+}
+$('#btn-concluir').addEventListener('click',()=>{
+  const zero=$('#zero').value,v=valores(),obs=$('#obs').value;
+  const segundos=atual.estado==='pendente'?Math.round((Date.now()-inicio)/1000):0;
+  if(zero)return enviar({zero_motivo:zero,observacao:obs,segundos},'Nota zero registrada ('+zero+').');
+  const falta=COMPS.filter(([k])=>v[k]==='').map(([k])=>k.toUpperCase());if(falta.length)return msg('Falta a nota de: '+falta.join(', ')+'.','error');
+  if(v.c5==='0'&&!$('#c5-motivo').value)return msg('Escolha o motivo da nota zero na C5.','error');
+  const body={observacao:obs,segundos};for(const [k] of COMPS)body[k]=Number(v[k]);if(v.c5==='0')body.c5_motivo=$('#c5-motivo').value;
+  enviar(body,atual.estado==='pendente'?'Correção enviada: '+$('#total').textContent+' pontos.':'Revisão salva.');
+});
+$('#btn-condenar').addEventListener('click',()=>{$('#cond').hidden=false;$('#cond-motivo').focus()});
+$('#cond-nao').addEventListener('click',()=>{$('#cond').hidden=true});
+$('#cond-ok').addEventListener('click',()=>{const m=$('#cond-motivo').value;if(!m)return msg('Escolha o motivo para condenar a página.','error');enviar({condenar:true,motivo:m,observacao:$('#obs').value},'Página condenada e enviada ao ADM.')});
+/* ---------- lista do lote ---------- */
+function abrirLista(){const ol=$('#lista-itens');ol.replaceChildren();for(const [i,f] of L.folhas.entries()){const li=document.createElement('li'),b=document.createElement('button');b.type='button';if(f===atual)b.className='atual';
+  const a=document.createElement('span');a.textContent=(i+1)+'. '+(f.nome||'RA '+f.ra);const e=document.createElement('span');e.className='est-'+f.estado;e.textContent=f.estado==='corrigida'?f.total+' pontos':f.estado==='condenada'?'condenada':'pendente';
+  b.append(a,e);b.addEventListener('click',()=>{$('#lista').hidden=true;abrir(f)});li.append(b);ol.append(li)}$('#lista').hidden=false}
+$('#abrir-lista').addEventListener('click',abrirLista);$('#fim-lista').addEventListener('click',abrirLista);$('#fechar-lista').addEventListener('click',()=>{$('#lista').hidden=true});
+document.addEventListener('keydown',e=>{if(e.key==='Escape')$('#lista').hidden=true});
+
+(async()=>{
+  if(!saved?.token){location.replace('index.html?perfil=Redação');return}
+  if(!loteId){$('#erro-geral').textContent='Lote não informado. Volte às suas turmas.';return}
+  try{
+    L=await api('/api/redacao/correcao/lotes/'+loteId);
+    $('#prof-nome').textContent=L.professora;$('#c-unidade').textContent=UN[L.lote.unidade];$('#c-turma').textContent=L.lote.codigo;
+    $('#chips').replaceChildren(...[UN[L.lote.unidade],L.lote.serie,'Turma '+L.lote.codigo,L.lote.bimestre+'º bimestre · '+L.lote.ano].map((t,i)=>{const s=document.createElement('span');s.className='chip'+(i===3?' red':'');s.textContent=t;return s}));
+    if(!L.folhas.length){$('#erro-geral').textContent='Este lote ainda não tem folhas identificadas para corrigir.';return}
+    montarPainel();
+    const r=await fetch(API+'/api/redacao/correcao/lotes/'+loteId+'/pdf',{headers:{Authorization:'Bearer '+saved.token},cache:'no-store'});
+    if(!r.ok)throw Error('Não foi possível abrir o PDF do lote.');
+    doc=await A.abrirPdf(new Uint8Array(await r.arrayBuffer()));
+    $('#app').hidden=false;
+    const primeira=proxima();if(primeira)abrir(primeira);else{$('#app').hidden=true;$('#fim').hidden=false}
+  }catch(e){$('#erro-geral').textContent=e.message}
+})();
+</script>
+</body>
+</html>

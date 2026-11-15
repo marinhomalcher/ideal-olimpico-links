@@ -27,7 +27,7 @@ async function api(path, method = 'GET', body, token = 'adm-token') {
   const r = await worker.fetch(new Request('https://atlas-api.example' + path, { method, headers: { Origin: origin, Authorization: 'Bearer ' + token, ...(body === undefined ? {} : { 'Content-Type': 'application/json' }) }, body: body === undefined ? undefined : JSON.stringify(body) }), env, { waitUntil() {} });
   return { status: r.status, data: await r.json() };
 }
-ok('Schema 12', db.prepare("SELECT valor FROM meta WHERE chave='schema_versao'").get().valor === '12');
+ok('Schema 13', db.prepare("SELECT valor FROM meta WHERE chave='schema_versao'").get().valor === '13');
 let r = await api('/api/adm/redacao/turmas');
 ok('15 turmas iniciais', r.status === 200 && r.data.turmas.length === 15, r.data.turmas?.length);
 const primeira = r.data.turmas.find(x => x.unidade === 'BC' && x.codigo === '1EMA');
