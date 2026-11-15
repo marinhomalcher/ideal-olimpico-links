@@ -153,6 +153,7 @@ await page.evaluate(() => sessionStorage.setItem('atlas_user_auth', JSON.stringi
 await page.goto(base + '/redacao.html');
 await page.locator('.lote-prof').first().waitFor({ timeout: 10000 });
 ok('Área da professora mostra o lote com o progresso', /2º bimestre · 2 corrigidas \/ 4 folhas/.test(await page.locator('.lote-prof').first().textContent()) && /Continuar correção/.test(await page.locator('.lote-prof a').first().textContent()), await page.locator('.lote-prof').first().textContent());
+ok('Área da professora tem o botão "Voltar ao início"', await page.locator('a.voltar').isVisible() && (await page.locator('a.voltar').getAttribute('href')) === 'index.html');
 await page.locator('.lote-prof a').first().click();
 await page.waitForURL(/redacao-corrigir\.html\?lote=/);
 await page.waitForFunction(() => document.querySelector('#aluno')?.textContent && document.querySelector('#folha').width > 1000, null, { timeout: 30000 });
