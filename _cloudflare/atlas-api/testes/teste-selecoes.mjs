@@ -102,7 +102,7 @@ const qAn=await aprovada({comando:'Ainda em análise'},tEdi,null);
 const qQ=await aprovada({assunto:'Estequiometria',comando:'Mols'},tProfQ,tSupQ);
 env.ATLAS_AVISOS_ATIVOS='1';
 let r=await call('/api/saude');
-ok('Schema 13', r.data.schema==='13', r.data.schema);
+ok('Schema 14', r.data.schema==='14', r.data.schema);
 r=await call('/api/supervisor/selecoes',{token:tEdi});
 ok('Professor não usa seleções', r.status===403);
 r=await call('/api/supervisor/selecoes',{method:'POST',token:tMarcio,body:{serie:4,tipo:'REG'}});

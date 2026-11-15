@@ -45,7 +45,7 @@ async function api(path, method = 'GET', body, token = 'adm-token', contentType 
   const response = await worker.fetch(request, env, { waitUntil() {} });
   return { status: response.status, data: response.headers.get('Content-Type')?.includes('json') ? await response.json() : Buffer.from(await response.arrayBuffer()), headers: response.headers };
 }
-ok('Schema 13', db.prepare("SELECT valor FROM meta WHERE chave='schema_versao'").get().valor === '13');
+ok('Schema 14', db.prepare("SELECT valor FROM meta WHERE chave='schema_versao'").get().valor === '14');
 let r = await api('/api/adm/redacao/turmas');
 const bc = r.data.turmas.find(t => t.unidade === 'BC' && t.codigo === '1EMA');
 const cn = r.data.turmas.find(t => t.unidade === 'CN' && t.codigo === '1EMA');
