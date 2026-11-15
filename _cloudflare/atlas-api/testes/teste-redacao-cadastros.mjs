@@ -136,6 +136,9 @@ await page.locator('#app').waitFor({ state: 'visible' });
 ok('A escolha do filtro é lembrada', await page.locator('#f-unidade').inputValue() === 'BC' && await page.locator('#turmas-lista tr').count() === nBcEm);
 ok('Abas da Redação: Lotes, Turmas e Equipe', (await page.locator('.tabs').textContent()).replace(/\s+/g, '') === 'LotesTurmasEquipe' && await page.locator('.tabs a[href="redacao-lotes-admin.html"]').count() === 1);
 await page.locator('[data-tab="equipe"]').click();
+ok('Aba Equipe abre na lista; formulário escondido atrás de "+ Vincular pessoa"', await page.locator('#equipe-form-panel').isHidden() && await page.locator('#equipe-novo').isVisible() && await page.locator('#equipe-lista tr').count() > 0);
+await page.locator('#equipe-novo').click();
+ok('"+ Vincular pessoa" abre o formulário vazio', await page.locator('#equipe-form-panel').isVisible() && (await page.locator('#equipe-form-title').textContent()) === 'Vincular pessoa à Redação' && await page.locator('#equipe-novo').isHidden());
 ok('ADM escolhe turmas para professor (filtro mostra só a unidade/segmento)', await page.locator('[name="prof-turma"]').count() === 16 && await page.locator('#turmas-choices label:visible').count() === nBcEm);
 await page.locator('#e-unidade').selectOption('CN');
 ok('Filtro da equipe troca para Cidade Nova', await page.locator('#turmas-choices label:visible').count() === db.prepare("SELECT COUNT(*) AS n FROM redacao_turmas WHERE unidade = 'CN' AND segmento = 'EM'").get().n);
@@ -143,7 +146,22 @@ await page.locator('#turmas-choices label:visible input').first().check();
 await page.locator('#e-unidade').selectOption('BC');
 await page.locator('#turmas-choices label:visible input').first().check();
 ok('Resumo mostra as turmas marcadas em filtros diferentes', /2 turmas marcadas: .*CN.*BC|2 turmas marcadas: .*BC.*CN/.test(await page.locator('#turmas-resumo').textContent()), await page.locator('#turmas-resumo').textContent());
-await page.locator('#equipe-funcao').selectOption('digitalizador');
+/* Botão "Editar" da equipe abre o cadastro para edição (digitalizador, professora e supervisor do BQI que é digitalizador). */
+db.prepare("INSERT INTO usuarios (nome, email, papel, disciplina, ativo) VALUES ('Supervisor Mat Exemplo', 'supmat@grupoideal.com.br', 'supervisor', 'Matemática', 1)").run();
+await api('/api/adm/redacao/equipe', 'POST', { nome: 'ignorado', email: 'supmat@grupoideal.com.br', funcao: 'digitalizador', unidades: ['BC'] });
+await page.reload();
+await page.locator('#app').waitFor({ state: 'visible' });
+await page.locator('[data-tab="equipe"]').click();
+for (const quem of ['Digitalizador Exemplo', 'Professora Exemplo', 'Supervisor Mat Exemplo']) {
+  const linha = page.locator('#equipe-lista tr', { hasText: quem });
+  if (!(await linha.count())) { ok('Editar: pessoa ' + quem + ' na lista', false, await page.locator('#equipe-lista').textContent()); continue; }
+  await linha.getByRole('button', { name: 'Editar' }).click();
+  await page.waitForTimeout(300);
+  ok('Editar abre o cadastro de ' + quem, (await page.locator('#equipe-form-title').textContent()).includes('Editar vínculos de ' + quem) && await page.locator('#equipe-cancel').isVisible(), (await page.locator('#equipe-form-title').textContent()) + ' | erros: ' + errors.join(' | '));
+  await page.locator('#equipe-cancel').click();
+  ok('Cancelar edição esconde o formulário de novo (' + quem + ')', await page.locator('#equipe-form-panel').isHidden() && await page.locator('#equipe-novo').isVisible());
+}
+await page.locator('#equipe-novo').click();await page.locator('#equipe-funcao').selectOption('digitalizador');
 ok('ADM escolhe unidades para digitalizador', await page.locator('[name="dig-unidade"]').count() === 3 && await page.locator('#digitalizador-choices').isVisible());
 /* Alunos saiu de Redação: cadastros e virou página própria no menu do ADM. */
 ok('Link "Lotes recebidos" saiu do canto de Redação: cadastros (agora fica no menu do ADM)', await page.locator('header a[href="redacao-lotes-admin.html"]').count() === 0);
@@ -159,6 +177,15 @@ const turmaAluno = db.prepare("SELECT turma_id FROM redacao_alunos WHERE ra = '1
 await page.goto(base + '/alunos-admin.html?turma=' + turmaAluno);
 await page.waitForFunction(() => /aluno\(s\) nesta turma/.test(document.querySelector('#consultar-status').textContent), null, { timeout: 10000 }).catch(() => {});
 ok('Página Alunos abre já mostrando a turma pedida', await page.locator('#consultar-turma').inputValue() === String(turmaAluno) && await page.locator('#alunos-lista tr').count() === db.prepare('SELECT COUNT(*) AS n FROM redacao_alunos WHERE turma_id = ?').get(turmaAluno).n, await page.locator('#consultar-status').textContent());
+ok('Página Alunos: filtros Unidade → Segmento → Série → Turma preenchidos pela turma pedida', await page.locator('#c-unidade').inputValue() !== '' && await page.locator('#c-segmento').inputValue() !== '' && await page.locator('#c-serie').inputValue() !== '');
+await page.locator('#c-unidade').selectOption('CN');
+ok('Trocar a unidade limpa a turma até escolher de novo', await page.locator('#consultar-turma').inputValue() === '' || await page.locator('#consultar-turma option').count() >= 1);
+await page.locator('#c-unidade').selectOption('BC');await page.locator('#c-segmento').selectOption('EM');await page.locator('#c-serie').selectOption('1ª Série');
+const optsBc1 = await page.locator('#consultar-turma option').allTextContents();
+ok('Turma só lista as turmas de BC · EM · 1ª Série', optsBc1.includes('1EMA') && optsBc1.includes('1MED') && !optsBc1.some(x => /2EMA|3EMA/.test(x)), optsBc1.join(','));
+await page.locator('#consultar-turma').selectOption({ label: '1EMA' });
+await page.waitForFunction(() => /aluno\(s\) nesta turma/.test(document.querySelector('#consultar-status').textContent));
+ok('Escolher a turma já mostra os alunos (sem botão)', await page.locator('#consultar-button').count() === 0 && /aluno\(s\) nesta turma/.test(await page.locator('#consultar-status').textContent()));
 {
   const E = require(CDN), wb = new E.Workbook(), ws = wb.addWorksheet('ALUNOS');
   ws.addRow(['NOME COMPLETO', 'RA', 'FILIAL', 'SÉRIE', 'CODTURMA', 'SEGMENTO']);
