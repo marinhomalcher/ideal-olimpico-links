@@ -143,6 +143,20 @@ await page.locator('#turmas-choices label:visible input').first().check();
 await page.locator('#e-unidade').selectOption('BC');
 await page.locator('#turmas-choices label:visible input').first().check();
 ok('Resumo mostra as turmas marcadas em filtros diferentes', /2 turmas marcadas: .*CN.*BC|2 turmas marcadas: .*BC.*CN/.test(await page.locator('#turmas-resumo').textContent()), await page.locator('#turmas-resumo').textContent());
+/* Botão "Editar" da equipe abre o cadastro para edição (digitalizador, professora e supervisor do BQI que é digitalizador). */
+db.prepare("INSERT INTO usuarios (nome, email, papel, disciplina, ativo) VALUES ('Supervisor Mat Exemplo', 'supmat@grupoideal.com.br', 'supervisor', 'Matemática', 1)").run();
+await api('/api/adm/redacao/equipe', 'POST', { nome: 'ignorado', email: 'supmat@grupoideal.com.br', funcao: 'digitalizador', unidades: ['BC'] });
+await page.reload();
+await page.locator('#app').waitFor({ state: 'visible' });
+await page.locator('[data-tab="equipe"]').click();
+for (const quem of ['Digitalizador Exemplo', 'Professora Exemplo', 'Supervisor Mat Exemplo']) {
+  const linha = page.locator('#equipe-lista tr', { hasText: quem });
+  if (!(await linha.count())) { ok('Editar: pessoa ' + quem + ' na lista', false, await page.locator('#equipe-lista').textContent()); continue; }
+  await linha.getByRole('button', { name: 'Editar' }).click();
+  await page.waitForTimeout(300);
+  ok('Editar abre o cadastro de ' + quem, (await page.locator('#equipe-form-title').textContent()).includes('Editar vínculos de ' + quem) && await page.locator('#equipe-cancel').isVisible(), (await page.locator('#equipe-form-title').textContent()) + ' | erros: ' + errors.join(' | '));
+  await page.locator('#equipe-cancel').click();
+}
 await page.locator('#equipe-funcao').selectOption('digitalizador');
 ok('ADM escolhe unidades para digitalizador', await page.locator('[name="dig-unidade"]').count() === 3 && await page.locator('#digitalizador-choices').isVisible());
 /* Alunos saiu de Redação: cadastros e virou página própria no menu do ADM. */
