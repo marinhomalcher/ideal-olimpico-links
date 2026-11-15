@@ -385,11 +385,14 @@ await page.locator('#fl-linhas tr').first().locator('select').selectOption('5555
 await page.locator('#fl-linhas tr').first().getByRole('button', { name: 'Atribuir' }).click();
 await page.waitForFunction(() => /atribuída/.test(document.querySelector('#fl-status').textContent));
 ok('ADM atribui a dúvida a um aluno (exceção de outra unidade)', db.prepare('SELECT situacao, aluno_ra, resolvido_por FROM redacao_paginas WHERE lote_id = ? AND pagina = 3').get(loteT2).aluno_ra === '55555' && /Atribuída pelo ADM/.test(await page.locator('#fl-linhas').textContent()));
+ok('Página identificada mostra só "Ver folha" e "Corrigir"', await page.locator('#fl-linhas tr[data-pagina="1"] select').isHidden() && await page.locator('#fl-linhas tr[data-pagina="1"]').getByRole('button', { name: 'Corrigir' }).isVisible());
+await page.locator('#fl-linhas tr[data-pagina="1"]').getByRole('button', { name: 'Corrigir' }).click();
 await page.locator('#fl-linhas tr[data-pagina="1"] select').selectOption('__outro');
 await page.locator('#fl-linhas tr[data-pagina="1"] input').fill('55555');
 await page.locator('#fl-linhas tr[data-pagina="1"]').getByRole('button', { name: 'Atribuir' }).click();
 await page.waitForFunction(() => /já está na página 3/.test(document.querySelector('#fl-status').textContent)).catch(() => {});
 ok('O mesmo aluno não fica em duas páginas do lote', /já está na página 3/.test(await page.locator('#fl-status').textContent()), await page.locator('#fl-status').textContent());
+await page.locator('#fl-linhas tr[data-pagina="2"]').getByRole('button', { name: 'Corrigir' }).click();
 await page.locator('#fl-linhas tr[data-pagina="2"]').getByRole('button', { name: 'Descartar' }).click();
 await page.waitForFunction(() => /descartada/.test(document.querySelector('#fl-status').textContent));
 ok('ADM descarta uma página', db.prepare('SELECT situacao FROM redacao_paginas WHERE lote_id = ? AND pagina = 2').get(loteT2).situacao === 'descartada');

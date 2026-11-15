@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="pt-BR">
 <head>
-<meta name="atlas-versao" content="20261115b"><script src="atlas-versao.js?v=20261115b" defer></script><script src="atlas-alinhamento.js?v=20261115b"></script>
+<meta name="atlas-versao" content="20261115c"><script src="atlas-versao.js?v=20261115c" defer></script><script src="atlas-alinhamento.js?v=20261115c"></script>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow">
 <title>ATLAS | Lotes de Redação</title>
 <style>
@@ -104,6 +104,9 @@ function renderFolhas(){
     const box=document.createElement('div');box.className='fl-acoes';
     const ver=document.createElement('button');ver.type='button';ver.className='secondary';ver.textContent='Ver folha';ver.addEventListener('click',()=>{const l=fl.lote;$('#pages-viewer').hidden=true;alinhar(l,p.pagina);$('#align-close').addEventListener('click',()=>{if(fl)$('#pages-viewer').hidden=false},{once:true})});box.append(ver);
     if(p.situacao!=='descartada'){
+      /* Página já identificada: só "Corrigir" abre as opções (tela mais limpa). */
+      const extra=document.createElement('span');extra.className='fl-acoes';
+      if(p.situacao==='aluno'){extra.hidden=true;const cor=document.createElement('button');cor.type='button';cor.className='secondary';cor.textContent='Corrigir';cor.addEventListener('click',()=>{extra.hidden=false;cor.remove()});box.append(cor)}
       const sel=document.createElement('select');sel.setAttribute('aria-label','Aluno para a página '+p.pagina);sel.append(new Option(p.situacao==='aluno'?'Trocar aluno…':'Escolha o aluno…',''));
       for(const a of d.alunos)if(!usados.has(a.ra)||a.ra===p.aluno_ra)sel.append(new Option(a.nome+' · '+a.ra,a.ra));
       if(p.ra_lido&&p.situacao==='duvida'&&p.motivo!=='fora_cadastro'&&!d.alunos.some(a=>a.ra===p.ra_lido))sel.append(new Option('RA lido: '+p.ra_lido+(p.lido_nome?' · '+p.lido_nome:'')+' (outra turma)',p.ra_lido));
@@ -112,7 +115,7 @@ function renderFolhas(){
       sel.addEventListener('change',()=>{outro.hidden=sel.value!=='__outro';if(!outro.hidden)outro.focus()});
       const atr=document.createElement('button');atr.type='button';atr.className='secondary';atr.textContent='Atribuir';atr.addEventListener('click',()=>{const ra=sel.value==='__outro'?outro.value.trim():sel.value;if(!ra){flStatus('Escolha o aluno da página '+p.pagina+'.',true);return}resolver(p.pagina,{acao:'atribuir',ra})});
       const des=document.createElement('button');des.type='button';des.className='danger';des.textContent='Descartar';des.addEventListener('click',()=>resolver(p.pagina,{acao:'descartar'}));
-      box.append(sel,outro,atr,des);
+      extra.append(sel,outro,atr,des);box.append(extra);
     }
     td(box);body.append(tr);
   }
