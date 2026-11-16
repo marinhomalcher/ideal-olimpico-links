@@ -136,6 +136,30 @@ env.PORTAL_ATLAS_SECRET = SEGREDO;
 s = await worker.fetch(new Request('https://atlas-api.test/api/saude'), env);
 ok('Saúde mostra portal_aluno = true com o segredo', (await s.json()).portal_aluno === true);
 
+// ---- RA de teste (PORTAL_TESTE_ALUNO) ----
+const destino = async ra => { limpar(); const r = await call({ ra, codigo: '111111' }); return [r.status, ms.envios.at(-1).message.toRecipients[0].emailAddress.address]; };
+env.PORTAL_TESTE_ALUNO = ' 99999=Digitacao@GrupoIdeal.com.br ';
+let d = await destino('99999');
+ok('RA de teste vai para a caixa da equipe', d[0] === 200 && d[1] === 'digitacao@grupoideal.com.br', d.join(' '));
+d = await destino('12345');
+ok('Outros RAs continuam no @aluno com a variável ligada', d[1] === '12345@aluno.grupoideal.com.br', d[1]);
+d = await destino('999990');
+ok('RA parecido (prefixo) não é desviado', d[1] === '999990@aluno.grupoideal.com.br', d[1]);
+for (const [nome, valor] of [
+  ['domínio de fora', '99999=alguem@gmail.com'],
+  ['subdomínio enganoso', '99999=x@grupoideal.com.br.evil.com'],
+  ['domínio do aluno', '99999=x@aluno.grupoideal.com.br'],
+  ['dois destinos', '99999=a@grupoideal.com.br,b@gmail.com'],
+  ['sem RA', '=digitacao@grupoideal.com.br'],
+]) {
+  env.PORTAL_TESTE_ALUNO = valor;
+  d = await destino('99999');
+  ok('Variável inválida (' + nome + ') é ignorada', d[1] === '99999@aluno.grupoideal.com.br', d[1]);
+}
+delete env.PORTAL_TESTE_ALUNO;
+d = await destino('99999');
+ok('Sem a variável, o RA de teste vai para o @aluno', d[1] === '99999@aluno.grupoideal.com.br', d[1]);
+
 // ---- login dos professores continua igual ----
 limpar();
 r = await worker.fetch(new Request('https://atlas-api.test/api/login/codigo', { method: 'POST', headers: { Origin: 'https://idealolimpico.com.br', 'Content-Type': 'application/json' }, body: JSON.stringify({ email: 'ninguem@grupoideal.com.br' }) }), env);
