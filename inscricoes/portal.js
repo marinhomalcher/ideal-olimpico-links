@@ -7,10 +7,11 @@ const esc=s=>String(s??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&
 
 window.addEventListener('load',()=>{
   const mat=document.getElementById('matriculaInput');
-  const nasc=document.getElementById('nascimentoInput');
+  const cod=document.getElementById('codigoInput');
   mat.addEventListener('input',()=>{mat.value=mat.value.replace(/\D/g,'').slice(0,5);limparMensagemLogin();});
-  nasc.addEventListener('change',limparMensagemLogin);
-  [mat,nasc].forEach(el=>el.addEventListener('keydown',e=>{if(e.key==='Enter')entrarPortal();}));
+  cod.addEventListener('input',()=>{cod.value=cod.value.replace(/\D/g,'').slice(0,6);limparMensagemLogin();});
+  mat.addEventListener('keydown',e=>{if(e.key==='Enter')pedirCodigo();});
+  cod.addEventListener('keydown',e=>{if(e.key==='Enter')entrarComCodigo();});
   ['cadWhatsappAluno','cadRespWhatsapp'].forEach(id=>{
     const el=document.getElementById(id);
     el.addEventListener('input',()=>{el.value=mascaraWhatsapp(el.value);limparMensagemCadastro();});
@@ -18,33 +19,84 @@ window.addEventListener('load',()=>{
   mat.focus();
 });
 
-function entrarPortal(){
-  const matricula=document.getElementById('matriculaInput').value.replace(/\D/g,'').slice(0,5);
-  const nascimento=document.getElementById('nascimentoInput').value;
-  const msg=document.getElementById('matriculaMsg');
+// Login em duas etapas: matrícula → código de 6 dígitos no e-mail institucional.
+let matriculaLogin='',reenvioTimer=null,loginOcupado=false;
+function msgLogin(tipo,html){document.getElementById('matriculaMsg').innerHTML=`<div class="message ${tipo}">${html}</div>`;}
 
-  if(!/^\d{5}$/.test(matricula)){msg.innerHTML=`<div class="message bad">Digite exatamente os 5 algarismos da matrícula.</div>`;return;}
-  if(!nascimento){msg.innerHTML=`<div class="message bad">Informe a data de nascimento.</div>`;return;}
-
+function pedirCodigo(reenvio){
+  if(loginOcupado)return;
+  const matricula=reenvio?matriculaLogin:document.getElementById('matriculaInput').value.replace(/\D/g,'').slice(0,5);
+  if(!/^\d{5}$/.test(matricula)){msgLogin('bad','Digite exatamente os 5 algarismos da matrícula.');return;}
   bloquearLogin(true);
-  msg.innerHTML=`<div class="message warn">Validando seus dados com segurança...</div>`;
+  msgLogin('warn','Enviando o código para o seu e-mail institucional...');
   google.script.run.withSuccessHandler(r=>{
     bloquearLogin(false);
+    matriculaLogin=matricula;
+    mostrarEtapaCodigo(r&&r.email?r.email:matricula+'@aluno.grupoideal.com.br');
+    msgLogin('ok',reenvio?'Enviamos um novo código. Use sempre o código mais recente.':'Código enviado. Confira sua caixa de entrada.');
+    iniciarEsperaReenvio(60);
+  }).withFailureHandler(e=>{
+    bloquearLogin(false);
+    msgLogin('bad',esc(e&&e.message?e.message:e));
+  }).solicitarCodigoAluno(matricula);
+}
+
+function mostrarEtapaCodigo(email){
+  document.getElementById('etapaMatricula').classList.add('hidden');
+  document.getElementById('etapaCodigo').classList.remove('hidden');
+  document.getElementById('codigoDestino').innerHTML=`Se a matrícula <b>${esc(matriculaLogin)}</b> estiver cadastrada, enviamos um código para <b>${esc(email)}</b>. Ele vale 10 minutos.`;
+  const cod=document.getElementById('codigoInput');cod.value='';cod.focus();
+}
+
+function voltarParaMatricula(){
+  if(loginOcupado)return;
+  pararEsperaReenvio();
+  matriculaLogin='';
+  document.getElementById('etapaCodigo').classList.add('hidden');
+  document.getElementById('etapaMatricula').classList.remove('hidden');
+  document.getElementById('codigoInput').value='';
+  limparMensagemLogin();
+  document.getElementById('matriculaInput').focus();
+}
+
+function iniciarEsperaReenvio(segundos){
+  pararEsperaReenvio();
+  const btn=document.getElementById('reenviarBtn');
+  let resta=segundos;
+  const tick=()=>{
+    if(resta<=0){pararEsperaReenvio();return;}
+    btn.disabled=true;btn.textContent=`PEDIR NOVO CÓDIGO (${resta}s)`;resta--;
+  };
+  tick();reenvioTimer=setInterval(tick,1000);
+}
+function pararEsperaReenvio(){
+  if(reenvioTimer){clearInterval(reenvioTimer);reenvioTimer=null;}
+  const btn=document.getElementById('reenviarBtn');
+  if(btn){btn.disabled=false;btn.textContent='PEDIR NOVO CÓDIGO';}
+}
+
+function entrarComCodigo(){
+  if(loginOcupado)return;
+  const codigo=document.getElementById('codigoInput').value.replace(/\D/g,'').slice(0,6);
+  if(!/^\d{5}$/.test(matriculaLogin)){voltarParaMatricula();return;}
+  if(!/^\d{6}$/.test(codigo)){msgLogin('bad','Digite os 6 algarismos do código que chegou no seu e-mail.');return;}
+  bloquearLogin(true);
+  msgLogin('warn','Conferindo o código com segurança...');
+  google.script.run.withSuccessHandler(r=>{
+    bloquearLogin(false);
+    if(r&&r.status==='OK'){pararEsperaReenvio();}
     processarAutenticacao(r);
   }).withFailureHandler(e=>{
     bloquearLogin(false);
-    msg.innerHTML=`<div class="message bad">${esc(e&&e.message?e.message:e)}</div>`;
-  }).autenticarAluno(matricula,nascimento);
+    msgLogin('bad',esc(e&&e.message?e.message:e));
+    const cod=document.getElementById('codigoInput');cod.select();
+  }).autenticarAlunoCodigo(matriculaLogin,codigo);
 }
 
 function processarAutenticacao(r){
   const msg=document.getElementById('matriculaMsg');
   if(!r){msg.innerHTML=`<div class="message bad">Não foi possível validar o acesso.</div>`;return;}
   if(r.status==='OK'){entrarComSessao(r);return;}
-  if(r.status==='NASCIMENTO_DIVERGENTE'){
-    msg.innerHTML=`<div class="message bad"><b>Data de nascimento divergente</b><br>${esc(r.mensagem||'Confira a data informada.')}</div>`;
-    return;
-  }
   if(r.status==='CADASTRO_PENDENTE'){
     msg.innerHTML=`<div class="message warn"><b>Cadastro aguardando revisão</b><br>${esc(r.mensagem||'Aguarde a conferência da equipe.')}</div>`;
     return;
@@ -181,7 +233,7 @@ function enviarSolicitacaoAlteracao(){
 
 function mascaraWhatsapp(valor){const d=String(valor||'').replace(/\D/g,'').slice(0,11);if(d.length<=2)return d;if(d.length<=7)return `(${d.slice(0,2)}) ${d.slice(2)}`;return `(${d.slice(0,2)}) ${d.slice(2,7)}-${d.slice(7)}`;}
 function whatsappValidoLocal(valor){const d=String(valor||'').replace(/\D/g,'');return /^\d{2}9\d{8}$/.test(d);}
-function bloquearLogin(on){const b=document.getElementById('loginBtn');if(b)b.disabled=!!on;}
+function bloquearLogin(on){loginOcupado=!!on;['loginBtn','codigoBtn'].forEach(id=>{const b=document.getElementById(id);if(b)b.disabled=!!on;});const r=document.getElementById('reenviarBtn');if(r&&on)r.disabled=true;else if(r&&!reenvioTimer)r.disabled=false;}
 function limparMensagemLogin(){document.getElementById('matriculaMsg').innerHTML='';}
 function limparMensagemCadastro(){document.getElementById('cadastroMsg').innerHTML='';}
 
@@ -200,8 +252,7 @@ function trocarAluno(){
   document.getElementById('catalogo').innerHTML='';
   document.getElementById('matriculaSec').classList.remove('hidden');
   document.getElementById('matriculaInput').value='';
-  document.getElementById('nascimentoInput').value='';
-  document.getElementById('matriculaMsg').innerHTML='';
+  voltarParaMatricula();
   document.getElementById('matriculaInput').focus();
   window.scrollTo({top:0,behavior:'smooth'});
 }

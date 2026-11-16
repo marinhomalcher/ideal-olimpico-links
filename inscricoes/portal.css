@@ -298,3 +298,6 @@ dialog[open] > .modal-actions {
 @media (min-width:1600px){
   .cards{grid-template-columns:repeat(4,minmax(0,1fr))}
 }
+/* Login por código (RA → código no e-mail institucional) */
+.auth-grid.auth-grid-2{grid-template-columns:1fr auto}.codigo-destino{margin:0 0 14px;padding:12px 14px;border-radius:12px;background:var(--creme);color:var(--texto);line-height:1.45;overflow-wrap:anywhere}#codigoInput{letter-spacing:.3em;font-weight:800}
+@media (max-width:760px){.auth-grid.auth-grid-2{grid-template-columns:1fr}}
