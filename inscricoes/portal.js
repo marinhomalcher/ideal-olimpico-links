@@ -12,6 +12,8 @@ window.addEventListener('load',()=>{
   cod.addEventListener('input',()=>{cod.value=cod.value.replace(/\D/g,'').slice(0,6);limparMensagemLogin();});
   mat.addEventListener('keydown',e=>{if(e.key==='Enter')pedirCodigo();});
   cod.addEventListener('keydown',e=>{if(e.key==='Enter')entrarComCodigo();});
+  const cpfEl=document.getElementById('cadCpfNovo');
+  cpfEl.addEventListener('input',()=>{cpfEl.value=mascaraCpf(cpfEl.value);limparMensagemCadastro();});
   ['cadWhatsappAluno','cadRespWhatsapp'].forEach(id=>{
     const el=document.getElementById(id);
     el.addEventListener('input',()=>{el.value=mascaraWhatsapp(el.value);limparMensagemCadastro();});
@@ -106,7 +108,7 @@ function processarAutenticacao(r){
 
 function entrarComSessao(r){
   const a=r.aluno||{};
-  alunoAtual={sessao:r.sessao,matricula:a.matricula,nome:a.nome,email:a.email,emailPessoal:a.emailPessoal||'',dataNascimento:a.dataNascimento,unidade:a.unidade,serie:a.serie,segmento:a.segmento,cpfMascarado:a.cpfMascarado,whatsappAluno:a.whatsappAluno||'',responsavelNome:a.responsavelNome||'',responsavelVinculo:a.responsavelVinculo||'',responsavelWhatsapp:a.responsavelWhatsapp||'',contatosConfirmadosAno:a.contatosConfirmadosAno||0,contatosConfirmadosNesteAno:!!a.contatosConfirmadosNesteAno,anoAtual:a.anoAtual||''};
+  alunoAtual={sessao:r.sessao,matricula:a.matricula,nome:a.nome,email:a.email,emailPessoal:a.emailPessoal||'',dataNascimento:a.dataNascimento,unidade:a.unidade,serie:a.serie,segmento:a.segmento,cpfMascarado:a.cpfMascarado,cpfPendente:!!a.cpfPendente,whatsappAluno:a.whatsappAluno||'',responsavelNome:a.responsavelNome||'',responsavelVinculo:a.responsavelVinculo||'',responsavelWhatsapp:a.responsavelWhatsapp||'',contatosConfirmadosAno:a.contatosConfirmadosAno||0,contatosConfirmadosNesteAno:!!a.contatosConfirmadosNesteAno,anoAtual:a.anoAtual||''};
   grupos={};grupoAtual=null;catalogoAtual=[];carrinho={};pedidoPendenteIds=[];atualizarCarrinho();
   document.getElementById('badgeNome').textContent=a.nome||'Aluno';
   document.getElementById('badgeEmail').textContent=a.email||'';
@@ -133,6 +135,9 @@ function renderCadastroAluno(){
   document.getElementById('cadEmail').textContent=a.email||'—';
   document.getElementById('cadWhatsappAluno').value=a.whatsappAluno||'';
   document.getElementById('cadEmailPessoal').value=a.emailPessoal||'';
+  document.getElementById('cadEmailPessoal2').value='';
+  document.getElementById('cpfBox').classList.toggle('hidden',!a.cpfPendente);
+  document.getElementById('cadCpfNovo').value='';
   document.getElementById('cadRespNome').value=a.responsavelNome||'';
   document.getElementById('cadRespVinculo').value=a.responsavelVinculo||'';
   document.getElementById('cadRespWhatsapp').value=a.responsavelWhatsapp||'';
@@ -179,6 +184,10 @@ function confirmarCadastro(){
   const respWa=document.getElementById('cadRespWhatsapp').value;
   const msg=document.getElementById('cadastroMsg');
   if(!emailPessoal||emailPessoal.length>254||!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailPessoal)){msg.innerHTML='<div class="message bad">Informe um e-mail pessoal válido. Ele pode ser do aluno ou do responsável.</div>';return;}
+  const emailPessoal2=document.getElementById('cadEmailPessoal2').value.trim();
+  if(emailPessoal.toLowerCase()!==emailPessoal2.toLowerCase()){msg.innerHTML='<div class="message bad">Os dois e-mails pessoais não são iguais. Digite o mesmo e-mail nos dois campos.</div>';document.getElementById('cadEmailPessoal2').focus();return;}
+  const cpf=alunoAtual.cpfPendente?document.getElementById('cadCpfNovo').value.replace(/\D/g,''):'';
+  if(alunoAtual.cpfPendente&&!cpfValidoLocal(cpf)){msg.innerHTML='<div class="message bad">Informe um CPF válido do aluno (11 números).</div>';document.getElementById('cadCpfNovo').focus();return;}
 
   if(seg==='EF1'){
     if(!respNome||!respVinculo||!whatsappValidoLocal(respWa)){msg.innerHTML='<div class="message bad">Preencha corretamente nome, vínculo e WhatsApp do responsável.</div>';return;}
@@ -202,7 +211,7 @@ function confirmarCadastro(){
     window.scrollTo({top:0,behavior:'smooth'});
   }).withFailureHandler(e=>{
     btn.disabled=false;msg.innerHTML=`<div class="message bad">${esc(e&&e.message?e.message:e)}</div>`;
-  }).confirmarCadastroAluno(alunoAtual.sessao,{whatsappAluno:waAluno,responsavelNome:respNome,responsavelVinculo:respVinculo,responsavelWhatsapp:respWa,emailPessoal});
+  }).confirmarCadastroAluno(alunoAtual.sessao,{whatsappAluno:waAluno,responsavelNome:respNome,responsavelVinculo:respVinculo,responsavelWhatsapp:respWa,emailPessoal,cpf});
 }
 
 function abrirSolicitacaoAlteracao(){
@@ -232,6 +241,8 @@ function enviarSolicitacaoAlteracao(){
 }
 
 function mascaraWhatsapp(valor){const d=String(valor||'').replace(/\D/g,'').slice(0,11);if(d.length<=2)return d;if(d.length<=7)return `(${d.slice(0,2)}) ${d.slice(2)}`;return `(${d.slice(0,2)}) ${d.slice(2,7)}-${d.slice(7)}`;}
+function mascaraCpf(valor){const d=String(valor||'').replace(/\D/g,'').slice(0,11);return d.replace(/^(\d{3})(\d)/,'$1.$2').replace(/^(\d{3})\.(\d{3})(\d)/,'$1.$2.$3').replace(/\.(\d{3})(\d{1,2})$/,'.$1-$2');}
+function cpfValidoLocal(d){if(!/^\d{11}$/.test(d)||/^(\d)\1{10}$/.test(d))return false;const dv=n=>{let s=0;for(let i=0;i<n;i++)s+=Number(d[i])*(n+1-i);const r=11-(s%11);return r>=10?0:r;};return dv(9)===Number(d[9])&&dv(10)===Number(d[10]);}
 function whatsappValidoLocal(valor){const d=String(valor||'').replace(/\D/g,'');return /^\d{2}9\d{8}$/.test(d);}
 function bloquearLogin(on){loginOcupado=!!on;['loginBtn','codigoBtn'].forEach(id=>{const b=document.getElementById(id);if(b)b.disabled=!!on;});const r=document.getElementById('reenviarBtn');if(r&&on)r.disabled=true;else if(r&&!reenvioTimer)r.disabled=false;}
 function limparMensagemLogin(){document.getElementById('matriculaMsg').innerHTML='';}

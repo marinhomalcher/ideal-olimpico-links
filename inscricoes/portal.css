@@ -301,3 +301,5 @@ dialog[open] > .modal-actions {
 /* Login por código (RA → código no e-mail institucional) */
 .auth-grid.auth-grid-2{grid-template-columns:1fr auto}.codigo-destino{margin:0 0 14px;padding:12px 14px;border-radius:12px;background:var(--creme);color:var(--texto);line-height:1.45;overflow-wrap:anywhere}#codigoInput{letter-spacing:.3em;font-weight:800}
 @media (max-width:760px){.auth-grid.auth-grid-2{grid-template-columns:1fr}}
+/* Cadastro: CPF (quando falta na base) e e-mail repetido */
+#cpfBox{margin-bottom:16px}.email-pessoal-field+.email-pessoal-field{margin-top:14px}
