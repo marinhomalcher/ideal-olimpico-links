@@ -17,6 +17,7 @@
     <section id="app" class="hidden" aria-live="polite">
       <div id="msg"></div>
       <div class="toolbar"><button class="button" id="refresh">Atualizar comprovantes</button><label for="competition">Baixar inscritos:</label><select id="competition"><option value="">Selecione uma competição</option></select><button class="button download" id="download">Baixar CSV</button><span id="stamp" class="status"></span></div>
+      <div class="toolbar"><button class="button download" id="backup" type="button">Baixar backup completo (Excel)</button><button class="button" id="modeloAlunos" type="button">Baixar modelo da base de alunos (Excel)</button></div>
       <h2 class="section-title">Valores por grupo</h2>
       <p class="status">Literatura e SELETA usam um valor único por grupo. Outras competições continuam com valor individual. A alteração vale para novos pedidos; pedidos já criados mantêm o total original.</p>
       <section id="prices" aria-label="Valores por grupo de competição"></section>
@@ -31,6 +32,6 @@
   </main>
   <iframe id="backendBridge" title="Conexão segura com o backend" aria-hidden="true" tabindex="-1"></iframe>
   <script src="config.js?v=literature-csv-20261018"></script>
-  <script src="coordenador.js?v=csv-completo-20261104"></script>
+  <script src="coordenador.js?v=backup-modelo-20261116"></script>
 </body>
 </html>
