@@ -1,0 +1,2 @@
+# Cache local do wrangler (conta, temporários): nunca vai para o Git
+.wrangler/
