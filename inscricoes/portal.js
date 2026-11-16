@@ -108,7 +108,7 @@ function processarAutenticacao(r){
 
 function entrarComSessao(r){
   const a=r.aluno||{};
-  alunoAtual={sessao:r.sessao,matricula:a.matricula,nome:a.nome,email:a.email,emailPessoal:a.emailPessoal||'',dataNascimento:a.dataNascimento,unidade:a.unidade,serie:a.serie,segmento:a.segmento,cpfMascarado:a.cpfMascarado,cpfPendente:!!a.cpfPendente,whatsappAluno:a.whatsappAluno||'',responsavelNome:a.responsavelNome||'',responsavelVinculo:a.responsavelVinculo||'',responsavelWhatsapp:a.responsavelWhatsapp||'',contatosConfirmadosAno:a.contatosConfirmadosAno||0,contatosConfirmadosNesteAno:!!a.contatosConfirmadosNesteAno,anoAtual:a.anoAtual||''};
+  alunoAtual={sessao:r.sessao,matricula:a.matricula,nome:a.nome,email:a.email,emailPessoal:a.emailPessoal||'',dataNascimento:a.dataNascimento,unidade:a.unidade,serie:a.serie,segmento:a.segmento,cpfMascarado:a.cpfMascarado,cpfPendente:!!a.cpfPendente,cpf:a.cpf||'',whatsappAluno:a.whatsappAluno||'',responsavelNome:a.responsavelNome||'',responsavelVinculo:a.responsavelVinculo||'',responsavelWhatsapp:a.responsavelWhatsapp||'',contatosConfirmadosAno:a.contatosConfirmadosAno||0,contatosConfirmadosNesteAno:!!a.contatosConfirmadosNesteAno,anoAtual:a.anoAtual||''};
   grupos={};grupoAtual=null;catalogoAtual=[];carrinho={};pedidoPendenteIds=[];atualizarCarrinho();
   document.getElementById('badgeNome').textContent=a.nome||'Aluno';
   document.getElementById('badgeEmail').textContent=a.email||'';
@@ -128,7 +128,6 @@ function renderCadastroAluno(){
   const a=alunoAtual||{};
   document.getElementById('cadNome').textContent=a.nome||'—';
   document.getElementById('cadMatricula').textContent=a.matricula||'—';
-  document.getElementById('cadCpf').textContent=a.cpfMascarado||'Não informado';
   document.getElementById('cadUnidade').textContent=a.unidade||'—';
   document.getElementById('cadSerie').textContent=a.serie||'—';
   document.getElementById('cadNascimento').textContent=a.dataNascimento||'—';
@@ -136,8 +135,8 @@ function renderCadastroAluno(){
   document.getElementById('cadWhatsappAluno').value=a.whatsappAluno||'';
   document.getElementById('cadEmailPessoal').value=a.emailPessoal||'';
   document.getElementById('cadEmailPessoal2').value='';
-  document.getElementById('cpfBox').classList.toggle('hidden',!a.cpfPendente);
-  document.getElementById('cadCpfNovo').value='';
+  document.getElementById('cadCpfNovo').value=mascaraCpf(a.cpf||'');
+  document.getElementById('cpfAjuda').textContent=a.cpf?'Confira se este é o CPF do próprio aluno (e não do pai ou da mãe). Se estiver errado, corrija aqui.':'Não encontramos o CPF do aluno no cadastro. Informe o CPF do próprio aluno.';
   document.getElementById('cadRespNome').value=a.responsavelNome||'';
   document.getElementById('cadRespVinculo').value=a.responsavelVinculo||'';
   document.getElementById('cadRespWhatsapp').value=a.responsavelWhatsapp||'';
@@ -186,8 +185,8 @@ function confirmarCadastro(){
   if(!emailPessoal||emailPessoal.length>254||!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailPessoal)){msg.innerHTML='<div class="message bad">Informe um e-mail pessoal válido. Ele pode ser do aluno ou do responsável.</div>';return;}
   const emailPessoal2=document.getElementById('cadEmailPessoal2').value.trim();
   if(emailPessoal.toLowerCase()!==emailPessoal2.toLowerCase()){msg.innerHTML='<div class="message bad">Os dois e-mails pessoais não são iguais. Digite o mesmo e-mail nos dois campos.</div>';document.getElementById('cadEmailPessoal2').focus();return;}
-  const cpf=alunoAtual.cpfPendente?document.getElementById('cadCpfNovo').value.replace(/\D/g,''):'';
-  if(alunoAtual.cpfPendente&&!cpfValidoLocal(cpf)){msg.innerHTML='<div class="message bad">Informe um CPF válido do aluno (11 números).</div>';document.getElementById('cadCpfNovo').focus();return;}
+  const cpf=document.getElementById('cadCpfNovo').value.replace(/\D/g,'');
+  if(!cpfValidoLocal(cpf)){msg.innerHTML='<div class="message bad">Informe um CPF válido do aluno (11 números).</div>';document.getElementById('cadCpfNovo').focus();return;}
 
   if(seg==='EF1'){
     if(!respNome||!respVinculo||!whatsappValidoLocal(respWa)){msg.innerHTML='<div class="message bad">Preencha corretamente nome, vínculo e WhatsApp do responsável.</div>';return;}

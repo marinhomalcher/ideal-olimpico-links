@@ -67,13 +67,12 @@
       <div class="cadastro-card">
         <div class="eyebrow">CONFIRMAÇÃO CADASTRAL</div>
         <h2>Confira seus dados</h2>
-        <p>Revise as informações abaixo. Dados acadêmicos e documentos são somente leitura; se algo estiver incorreto, solicite a alteração para nossa equipe.</p>
+        <p>Revise as informações abaixo. Dados acadêmicos são somente leitura; se algo estiver incorreto, solicite a alteração para nossa equipe.</p>
         <div id="annualOk" class="annual-ok hidden"></div>
         <div class="cadastro-cols">
         <div class="dados-grid">
           <div class="dado-readonly"><b>Nome completo</b><span id="cadNome"></span></div>
           <div class="dado-readonly"><b>Matrícula</b><span id="cadMatricula"></span></div>
-          <div class="dado-readonly"><b>CPF cadastrado</b><span id="cadCpf"></span></div>
           <div class="dado-readonly"><b>Unidade</b><span id="cadUnidade"></span></div>
           <div class="dado-readonly"><b>Série</b><span id="cadSerie"></span></div>
           <div class="dado-readonly"><b>Data de nascimento</b><span id="cadNascimento"></span></div>
@@ -83,9 +82,9 @@
         <div class="contatos-box">
           <h3>Contatos</h3>
           <p id="contatoOrientacao">Confirme ou atualize os contatos abaixo. Utilizamos apenas números de celular/WhatsApp com DDD.</p>
-          <label id="cpfBox" class="field hidden">CPF do aluno <span aria-hidden="true">(obrigatório)</span>
+          <label id="cpfBox" class="field">CPF do aluno <span aria-hidden="true">(obrigatório)</span>
             <input id="cadCpfNovo" type="text" inputmode="numeric" maxlength="14" autocomplete="off" placeholder="000.000.000-00">
-            <small>Não encontramos o CPF do aluno no cadastro. Informe o CPF do próprio aluno.</small>
+            <small id="cpfAjuda">Confira se este é o CPF do próprio aluno (e não do pai ou da mãe). Se estiver errado, corrija aqui.</small>
           </label>
           <div id="alunoWhatsappBox" class="contatos-grid">
             <label class="field">WhatsApp do aluno <span id="waAlunoObrigatorio"></span>
@@ -94,7 +93,7 @@
           </div>
           <label class="field email-pessoal-field">E-mail pessoal <span aria-hidden="true">(obrigatório)</span>
             <input id="cadEmailPessoal" type="email" maxlength="254" autocomplete="email" inputmode="email" placeholder="voce@exemplo.com" required>
-            <small>Informe o e-mail do aluno ou do responsável. Todos os avisos e links de prova serão enviados para ele. Use um e-mail diferente para cada aluno.</small>
+            <small>Informe o e-mail do aluno ou do responsável para emergências.</small>
           </label>
           <label class="field email-pessoal-field">Repita o e-mail pessoal <span aria-hidden="true">(obrigatório)</span>
             <input id="cadEmailPessoal2" type="email" maxlength="254" autocomplete="off" inputmode="email" placeholder="digite de novo o mesmo e-mail" required>
@@ -152,6 +151,6 @@
 <dialog id="modal"><div class="modal-head"><h3 id="modalTitle">Detalhes</h3><button class="close" onclick="fecharModal()">×</button></div><div id="modalBody" class="modal-body"></div><div id="modalActions" class="modal-actions"></div></dialog>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-<script src="./config.js?v=worker-prod-20261105"></script><script src="./worker-client.js?v=login-codigo-20261116b"></script><script src="./portal.js?v=cadastro-cpf-20261116" defer></script>
+<script src="./config.js?v=worker-prod-20261105"></script><script src="./worker-client.js?v=login-codigo-20261116b"></script><script src="./portal.js?v=cadastro-cpf-20261116b" defer></script>
 </body>
 </html>
