@@ -2,7 +2,7 @@
 (() => {
   'use strict';
   const methods=Object.freeze({
-    autenticarAluno:2,solicitarCodigoAluno:1,autenticarAlunoCodigo:2,confirmarCadastroAluno:2,solicitarAlteracaoCadastral:2,
+    solicitarCodigoAluno:1,autenticarAlunoCodigo:2,confirmarCadastroAluno:2,solicitarAlteracaoCadastral:2,
     encerrarSessaoAluno:1,getCatalogoGrupo:1,getOpcoesLiteratura:1,
     validarCompeticaoSerie:2,verificarInscricaoExistente:2,verificarCarrinhoAluno:2,
     criarPedido:2,listarPedidosAluno:1,cancelarPedidoAluno:2,obterPixPedido:2,
@@ -29,7 +29,7 @@
     }
     if(configurationError){failure(new Error(configurationError));return;}
     const controller=new AbortController();
-    const timeout=setTimeout(()=>controller.abort(),method==='enviarComprovantePedido'?120000:/^(autenticarAluno|solicitarCodigoAluno|autenticarAlunoCodigo)$/.test(method)?30000:45000);
+    const timeout=setTimeout(()=>controller.abort(),method==='enviarComprovantePedido'?120000:/^(solicitarCodigoAluno|autenticarAlunoCodigo)$/.test(method)?30000:45000);
     fetch(url.href,{method:'POST',mode:'cors',cache:'no-store',credentials:'omit',
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify({method,args}),signal:controller.signal})

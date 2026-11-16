@@ -2,7 +2,6 @@
 const ALLOWED_ORIGINS = Object.freeze(['https://idealolimpico.com.br', 'https://www.idealolimpico.com.br']);
 const MAX_BODY_BYTES = 8 * 1024 * 1024;
 const METHODS = Object.freeze({
-  autenticarAluno: 2,
   solicitarCodigoAluno: 1,
   autenticarAlunoCodigo: 2,
   confirmarCadastroAluno: 2,
@@ -19,9 +18,9 @@ const METHODS = Object.freeze({
   obterPixPedido: 2,
   enviarComprovantePedido: 3
 });
-// Login (antigo por data de nascimento e novo por código no e-mail): limite por IP e por matrícula,
-// com a mesma chave por matrícula para os três (pedir código e tentar código somam no mesmo teto).
-const LOGIN_METHODS = Object.freeze(['autenticarAluno', 'solicitarCodigoAluno', 'autenticarAlunoCodigo']);
+// Login por código no e-mail: limite por IP e por matrícula, com a mesma chave por matrícula
+// para os dois (pedir código e tentar código somam no mesmo teto).
+const LOGIN_METHODS = Object.freeze(['solicitarCodigoAluno', 'autenticarAlunoCodigo']);
 const SESSION_ARGUMENT_INDEX = Object.freeze({
   confirmarCadastroAluno: 0,
   solicitarAlteracaoCadastral: 0,

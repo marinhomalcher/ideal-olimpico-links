@@ -38,7 +38,7 @@ ok('solicitarCodigoAluno é repassado ao Apps Script', r.status === 200 && r.dat
 r = await call('autenticarAlunoCodigo', ['00000', '123456']);
 ok('autenticarAlunoCodigo é repassado ao Apps Script', r.status === 200 && r.data.data.eco === 'autenticarAlunoCodigo');
 r = await call('autenticarAluno', ['00000', '2010-01-01']);
-ok('Login antigo continua liberado (transição)', r.status === 200);
+ok('Login antigo (data de nascimento) foi desligado', r.status === 400 && /não permitida/.test(r.data.error));
 r = await call('solicitarCodigoAluno', ['00000', 'extra']);
 ok('Número errado de argumentos: recusado', r.status === 400 && /não permitida/.test(r.data.error));
 r = await call('autenticarAlunoCodigo', ['00000']);
@@ -48,8 +48,8 @@ ok('Código sem a matrícula: recusado', r.status === 400);
 let n = enviados.length;
 const status = [];
 for (let i = 0; i < 12; i++) status.push((await call(i % 2 ? 'solicitarCodigoAluno' : 'autenticarAlunoCodigo', i % 2 ? ['11111'] : ['11111', '000000'])).status);
-r = await call('autenticarAluno', ['11111', '2010-01-01']);
-ok('Teto por matrícula compartilhado entre pedir código, tentar código e login antigo', status.every(s => s === 200) && r.status === 429 && enviados.length === n + 12, status.join(',') + ' / ' + r.status);
+r = await call('solicitarCodigoAluno', ['11111']);
+ok('Teto por matrícula compartilhado entre pedir código e tentar código', status.every(s => s === 200) && r.status === 429 && enviados.length === n + 12, status.join(',') + ' / ' + r.status);
 r = await call('solicitarCodigoAluno', ['22222']);
 ok('Outra matrícula não é afetada', r.status === 200);
 
