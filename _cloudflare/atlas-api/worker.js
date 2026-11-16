@@ -443,10 +443,18 @@ async function verificarCodigoAcesso(request, env) {
 // Só o Apps Script do portal chama esta rota, com o segredo PORTAL_ATLAS_SECRET (painel da Cloudflare).
 // O Apps Script gera e confere o código; o ATLAS só entrega o e-mail e não guarda o código nem o RA.
 // O destino é sempre RA@aluno.grupoideal.com.br: quem chama não escolhe o endereço.
+// Exceção para testes: a variável PORTAL_TESTE_ALUNO ("RA=e-mail@grupoideal.com.br", só no painel)
+// desvia um único RA fictício para uma caixa da equipe. Valor inválido é ignorado.
 // Sai só pela Microsoft (sem a reserva do Apps Script, cujo texto e cota são do ATLAS).
 const PORTAL_SEGREDO_MINIMO = 32;
 const PORTAL_DOMINIO_ALUNO = '@aluno.grupoideal.com.br';
 const LINK_PORTAL = 'https://idealolimpico.com.br/inscricoes/';
+function destinoCodigoPortal(env, ra) {
+  const teste = typeof env.PORTAL_TESTE_ALUNO === 'string' ? env.PORTAL_TESTE_ALUNO.trim() : '';
+  const m = /^(\d{1,15})=([a-z0-9._-]{1,64}@grupoideal\.com\.br)$/i.exec(teste);
+  if (m && m[1] === ra) return m[2].toLowerCase();
+  return ra + PORTAL_DOMINIO_ALUNO;
+}
 function portalConfigurado(env) {
   return typeof env.PORTAL_ATLAS_SECRET === 'string' && env.PORTAL_ATLAS_SECRET.length >= PORTAL_SEGREDO_MINIMO;
 }
@@ -478,7 +486,7 @@ async function enviarCodigoPortalAluno(request, env) {
   const texto = 'Seu código para entrar no Portal IDEAL OLÍMPICO é: ' + codigo +
     '\n\nEle expira em 10 minutos. Não envie este código a ninguém.' +
     '\nSe você não pediu este código, ignore esta mensagem.\n\n' + LINK_PORTAL;
-  const ok = await enviarEmail(env, ra + PORTAL_DOMINIO_ALUNO, assunto, texto, null);
+  const ok = await enviarEmail(env, destinoCodigoPortal(env, ra), assunto, texto, null);
   if (!ok) throw new HttpError(502, 'Não foi possível enviar o código.');
   return { ok: true };
 }
