@@ -3,6 +3,8 @@ const ALLOWED_ORIGINS = Object.freeze(['https://idealolimpico.com.br', 'https://
 const MAX_BODY_BYTES = 8 * 1024 * 1024;
 const METHODS = Object.freeze({
   autenticarAluno: 2,
+  solicitarCodigoAluno: 1,
+  autenticarAlunoCodigo: 2,
   confirmarCadastroAluno: 2,
   solicitarAlteracaoCadastral: 2,
   encerrarSessaoAluno: 1,
@@ -17,6 +19,9 @@ const METHODS = Object.freeze({
   obterPixPedido: 2,
   enviarComprovantePedido: 3
 });
+// Login (antigo por data de nascimento e novo por código no e-mail): limite por IP e por matrícula,
+// com a mesma chave por matrícula para os três (pedir código e tentar código somam no mesmo teto).
+const LOGIN_METHODS = Object.freeze(['autenticarAluno', 'solicitarCodigoAluno', 'autenticarAlunoCodigo']);
 const SESSION_ARGUMENT_INDEX = Object.freeze({
   confirmarCadastroAluno: 0,
   solicitarAlteracaoCadastral: 0,
@@ -148,7 +153,7 @@ export default {
     }
 
     try {
-      if (parsed.method === 'autenticarAluno') {
+      if (LOGIN_METHODS.includes(parsed.method)) {
         // A generous network-level ceiling slows matrícula enumeration while
         // leaving the per-matrícula limiter as the primary login control.
         // Cloudflare supplies this header for direct client requests. If it is
@@ -167,7 +172,7 @@ export default {
       let limiter;
       let scope;
       let value;
-      if (parsed.method === 'autenticarAluno') {
+      if (LOGIN_METHODS.includes(parsed.method)) {
         limiter = env.PORTAL_LOGIN_LIMITER;
         scope = 'login-matricula';
         value = parsed.args[0];

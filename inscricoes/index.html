@@ -20,7 +20,7 @@
   <meta name="twitter:title" content="Portal de Inscrições — IDEAL OLÍMPICO">
   <meta name="twitter:description" content="Inscrições em competições acadêmicas. Consulte as competições e acompanhe seus pedidos.">
   <meta name="twitter:image" content="https://idealolimpico.com.br/logo-ideal-olimpico.png?v=20261018">
-  <link rel="stylesheet" href="./portal.css?v=pc-1920b-20261115">
+  <link rel="stylesheet" href="./portal.css?v=login-codigo-20261116">
 </head>
 
 <body>
@@ -37,17 +37,27 @@
       <div class="login-card">
         <div class="eyebrow">IDEAL OLÍMPICO</div>
         <h2>Identifique-se para começar</h2>
-        <p>Informe sua matrícula e sua data de nascimento. Depois da identificação, você poderá conferir seus dados cadastrais antes de acessar as competições.</p>
-        <div class="auth-grid">
+        <p>Informe sua matrícula. Vamos enviar um código de acesso para o seu e-mail institucional. Depois da identificação, você poderá conferir seus dados cadastrais antes de acessar as competições.</p>
+        <div id="etapaMatricula" class="auth-grid auth-grid-2">
           <label class="field">Matrícula
             <input id="matriculaInput" type="text" inputmode="numeric" autocomplete="off" maxlength="5" pattern="[0-9]{5}" placeholder="12345" aria-label="Matrícula de 5 algarismos">
           </label>
-          <label class="field">Data de nascimento
-            <input id="nascimentoInput" type="date" autocomplete="off">
-          </label>
-          <button id="loginBtn" class="primary" onclick="entrarPortal()">CONTINUAR</button>
+          <button id="loginBtn" class="primary" onclick="pedirCodigo()">RECEBER CÓDIGO</button>
         </div>
-        <div class="login-hint">A matrícula deve conter exatamente 5 algarismos. Após a identificação, confira seus dados cadastrais e contatos antes de continuar.</div>
+        <div id="etapaCodigo" class="hidden">
+          <div id="codigoDestino" class="codigo-destino"></div>
+          <div class="auth-grid auth-grid-2">
+            <label class="field">Código de 6 dígitos
+              <input id="codigoInput" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" pattern="[0-9]{6}" placeholder="000000" aria-label="Código de 6 dígitos recebido por e-mail">
+            </label>
+            <button id="codigoBtn" class="primary" onclick="entrarComCodigo()">ENTRAR</button>
+          </div>
+          <div class="login-actions">
+            <button id="reenviarBtn" class="secondary" onclick="pedirCodigo(true)">PEDIR NOVO CÓDIGO</button>
+            <button class="secondary" onclick="voltarParaMatricula()">TROCAR MATRÍCULA</button>
+          </div>
+        </div>
+        <div class="login-hint">O código chega em <b>matrícula@aluno.grupoideal.com.br</b> e vale 10 minutos. Confira também a pasta de lixo eletrônico.</div>
         <div id="matriculaMsg" class="login-message"></div>
       </div>
     </div>
@@ -135,6 +145,6 @@
 <dialog id="modal"><div class="modal-head"><h3 id="modalTitle">Detalhes</h3><button class="close" onclick="fecharModal()">×</button></div><div id="modalBody" class="modal-body"></div><div id="modalActions" class="modal-actions"></div></dialog>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-<script src="./config.js?v=worker-prod-20261105"></script><script src="./worker-client.js?v=worker-prod-20261105"></script><script src="./portal.js" defer></script>
+<script src="./config.js?v=worker-prod-20261105"></script><script src="./worker-client.js?v=login-codigo-20261116"></script><script src="./portal.js?v=login-codigo-20261116" defer></script>
 </body>
 </html>
