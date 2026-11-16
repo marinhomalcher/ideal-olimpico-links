@@ -14,7 +14,8 @@
   const approveSelectedEl=document.getElementById('approveSelected');
   let bridgeSource=null,bridgeOrigin='',connected=false,sequence=0,busy=false;
   const LITERATURE_ALL_ID='__literatura_todas_as_obras__';
-  const allowedMethods=new Set(['coordenadorDados','coordenadorAprovarPagamentoEInscricao','coordenadorRejeitarComprovante','coordenadorCsvInscritos','coordenadorSalvarValorCompeticao']);
+  const allowedMethods=new Set(['coordenadorDados','coordenadorAprovarPagamentoEInscricao','coordenadorRejeitarComprovante','coordenadorCsvInscritos','coordenadorSalvarValorCompeticao','coordenadorBackupPortal','coordenadorModeloAlunos']);
+  const slowMethods=new Set(['coordenadorBackupPortal','coordenadorModeloAlunos']);
   function trustedBridgeOrigin(origin){
     try{const u=new URL(origin);return u.protocol==='https:'&&(u.hostname==='script.google.com'||u.hostname==='script.googleusercontent.com'||u.hostname.endsWith('-script.googleusercontent.com'));}catch{return false;}
   }
@@ -37,7 +38,7 @@
     if(!connected||!allowedMethods.has(method))return Promise.reject(new Error('A conexão segura ainda não está pronta.'));
     const id='coord-'+(++sequence)+'-'+Date.now();
     return new Promise((resolve,reject)=>{
-      const timer=setTimeout(()=>{pending.delete(id);const error=new Error('O Google não respondeu a tempo. Recarregue a página antes de tentar novamente.');error.code='COORD_CALL_TIMEOUT';reject(error);},30000);
+      const timer=setTimeout(()=>{pending.delete(id);const error=new Error('O Google não respondeu a tempo. Recarregue a página antes de tentar novamente.');error.code='COORD_CALL_TIMEOUT';reject(error);},slowMethods.has(method)?180000:30000);
       pending.set(id,{resolve,reject,timer});
       bridgeSource.postMessage({type:'ideal-coord-call',id,method,args},bridgeOrigin);
     });
@@ -204,6 +205,19 @@
   approveSelectedEl.addEventListener('click',aprovarSelecionadas);
   document.getElementById('refresh').addEventListener('click',carregar);
   document.getElementById('download').addEventListener('click',baixar);
+  function salvarXlsx(r){
+    const bin=atob(r.base64),bytes=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)bytes[i]=bin.charCodeAt(i);
+    const url=URL.createObjectURL(new Blob([bytes],{type:r.mimeType})),anchor=document.createElement('a');
+    anchor.href=url;anchor.download=r.nomeArquivo;anchor.click();setTimeout(()=>URL.revokeObjectURL(url),1500);
+  }
+  async function baixarXlsx(method,aguarde,pronto){
+    if(busy)return;setBusy(true);showMessage(aguarde);
+    try{const r=await call(method);salvarXlsx(r);showMessage(pronto(r));}
+    catch(error){showMessage(error.message,'error');}
+    finally{setBusy(false);}
+  }
+  document.getElementById('backup').addEventListener('click',()=>baixarXlsx('coordenadorBackupPortal','Gerando o backup completo. Pode levar até 1 minuto...',r=>'Backup baixado. Uma cópia também foi guardada no Google Drive: '+r.copiaDrive+'.'));
+  document.getElementById('modeloAlunos').addEventListener('click',()=>baixarXlsx('coordenadorModeloAlunos','Gerando o modelo da base de alunos...',()=>'Modelo baixado. Veja a aba INSTRUÇÕES antes de preencher.'));
   document.getElementById('prices').addEventListener('click',event=>{const button=event.target.closest('.save-price');if(button)salvarValor(button);});
   enterButton.addEventListener('click',()=>{
     if(!window.COORD_CONFIG.bridgeUrl){gateEl.classList.add('hidden');setStatus('A conexão privada ainda não foi configurada.');statusEl.classList.remove('hidden');return;}
