@@ -6,10 +6,12 @@
   'use strict';
 
   /* Medidas da folha (A4), em fração da página: canto externo de cada marcador em "L".
-     se = superior esquerdo, sd = superior direito, ie = inferior esquerdo, id = inferior direito. */
+     se = superior esquerdo, sd = superior direito, ie = inferior esquerdo, id = inferior direito.
+     Calibrado com 35 folhas reais escaneadas (16/11/2026, Simulado ENEM 2026): o retângulo entre os
+     cantos tem altura/largura = 1,2255 (de 1,2226 a 1,2337), por isso os de baixo ficam em 0,9297. */
   const MODELO = {
     proporcao: 841.92 / 595.32,
-    cantos: { se: [0.0707, 0.1826], sd: [0.9329, 0.1826], ie: [0.0707, 0.9401], id: [0.9329, 0.9401] },
+    cantos: { se: [0.0707, 0.1826], sd: [0.9329, 0.1826], ie: [0.0707, 0.9297], id: [0.9329, 0.9297] },
     cabecalho: [0.02, 0.17]   /* faixa acima dos marcadores de cima: título, nome, código de barras */
   };
   const TIPOS = ['se', 'sd', 'ie', 'id'];
