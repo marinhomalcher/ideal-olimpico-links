@@ -1,78 +1,81 @@
 <!doctype html>
 <html lang="pt-BR">
 <head>
-<meta name="atlas-versao" content="20261116a"><script src="atlas-versao.js?v=20261116a" defer></script><script src="atlas-alinhamento.js?v=20261116a"></script>
+<meta name="atlas-versao" content="20261117a"><script src="atlas-versao.js?v=20261117a" defer></script><script src="atlas-alinhamento.js?v=20261117a"></script>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="robots" content="noindex,nofollow"><title>ATLAS | Correção de redações</title>
 <style>
 :root{--navy:#10283e;--red:#d92738;--line:#dbe3e9;--ink:#233544;--muted:#5f7484;--soft:#eef3f6;--teal:#1d7f8c}*{box-sizing:border-box}
 body{margin:0;background:#f3f7f9;color:var(--ink);font:15px/1.45 Arial,Helvetica,sans-serif}button,select,textarea{font:inherit}button{cursor:pointer}
-header{height:70px;background:var(--navy);color:#fff;display:flex;align-items:center;justify-content:space-between;padding:0 clamp(14px,3vw,36px);gap:14px;position:relative}
-.brand{display:flex;align-items:center;gap:12px;white-space:nowrap}.mark{background:#e7434a;color:#fff;border-radius:10px;width:36px;height:36px;display:grid;place-items:center;font-weight:900;font-size:18px}.brand b{font-size:22px;letter-spacing:.06em}.brand span{border-left:1px solid #668196;padding-left:12px;font-size:16px}
-.school-logo{position:absolute;left:50%;top:6px;transform:translateX(-50%);width:205px;height:58px;background:#fff;border-radius:10px;display:grid;place-items:center}.school-logo img{width:175px;height:auto}
+.page-width{max-width:1920px;margin-inline:auto}
+header{height:54px;background:var(--navy);color:#fff;display:flex;align-items:center;justify-content:space-between;padding:0 clamp(14px,2vw,28px);gap:14px;position:relative}
+.brand{display:flex;align-items:center;gap:10px;white-space:nowrap}.mark{background:#e7434a;color:#fff;border-radius:8px;width:31px;height:31px;display:grid;place-items:center;font-weight:900;font-size:18px}.brand b{font-size:22px;letter-spacing:.06em}.brand span{border-left:1px solid #668196;padding-left:11px;font-size:15px}
+.school-logo{position:absolute;left:50%;top:4px;transform:translateX(-50%);width:168px;height:46px;background:#fff;border-radius:8px;display:grid;place-items:center}.school-logo img{width:147px;height:auto}
 .user{color:#d7e4eb;font-size:14px;display:flex;gap:12px;align-items:center}.user a{color:#fff}
-.crumbs{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;padding:12px clamp(14px,3vw,36px);background:#fff;border-bottom:1px solid var(--line)}.crumbs nav{font-size:14px;color:var(--muted)}.crumbs nav a{color:var(--muted);text-decoration:none}.crumbs nav b{color:var(--ink)}
+.crumbs{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;padding:7px clamp(14px,2vw,28px);background:#fff;border-bottom:1px solid var(--line)}.crumbs nav{font-size:13px;color:var(--muted)}.crumbs nav a{color:var(--muted);text-decoration:none}.crumbs nav b{color:var(--ink)}
 .chips{display:flex;gap:6px;flex-wrap:wrap}.chip{background:var(--soft);border:1px solid var(--line);border-radius:7px;padding:5px 10px;font-size:13px}.chip.red{background:#fff0f0;border-color:#f3c9cc;color:#a01e2a}
-main{display:grid;grid-template-columns:minmax(0,1fr) 420px;gap:18px;padding:18px clamp(10px,2vw,24px)}
+main{display:grid;grid-template-columns:minmax(0,1fr);gap:0;padding:14px clamp(10px,1.2vw,22px) 28px}
 .card{background:#fff;border:1px solid var(--line);border-radius:12px;box-shadow:0 5px 18px #1f3b4f0c}
-.folha-card{min-width:0;display:flex;flex-direction:column;min-height:calc(100vh - 170px)}
-.folha-bar{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:12px 16px;border-bottom:1px solid var(--line)}.folha-bar small{color:var(--muted)}
-.tools{display:flex;gap:6px;flex-wrap:wrap;align-items:center}.tool{border:1px solid #c8d4dc;background:#fff;border-radius:7px;padding:6px 10px;font-weight:700;color:var(--ink);min-width:38px}.tool.on{background:#e7f2f4;border-color:#9fc7cd}.tool-val{min-width:58px;text-align:center;font-weight:700;font-size:14px;font-variant-numeric:tabular-nums}
-.folha-area{flex:1;overflow:auto;background:#e3e9ee;padding:12px;display:flex;justify-content:center;align-items:flex-start;min-height:420px;max-height:calc(100vh - 150px)}
-#folha{background:#fff;box-shadow:0 2px 10px #0003;display:block;max-width:none}
-.painel{min-width:0;padding:16px 18px;display:flex;flex-direction:column;gap:12px;align-self:start;position:sticky;top:12px}
-.topo{display:flex;justify-content:space-between;gap:10px}.topo small{color:var(--muted);letter-spacing:.06em;font-size:12px;font-weight:700}.topo h2{margin:2px 0;font-size:22px}.topo .sub{color:var(--muted);font-size:13px}
-.timer{border:1px solid #bfdde1;background:#eef8f9;border-radius:9px;padding:6px 12px;text-align:center;min-width:120px}.timer small{display:block;font-size:11px;color:var(--teal);letter-spacing:.04em;font-weight:700}.timer b{font-size:22px;color:var(--navy);font-variant-numeric:tabular-nums}
-.prog{font-size:13px;color:var(--muted);display:flex;justify-content:space-between}.prog b{color:var(--navy)}.barra{height:6px;border-radius:4px;background:#e5ecf0;overflow:hidden}.barra span{display:block;height:100%;background:var(--teal);width:0}
-.comp{display:grid;grid-template-columns:42px 1fr 96px;align-items:center;gap:10px;border:1px solid var(--line);border-radius:10px;padding:8px 10px}.comp .tag{background:var(--soft);border-radius:7px;text-align:center;font-weight:800;padding:6px 0;color:var(--navy)}.comp strong{display:block;font-size:14px}.comp small{color:var(--muted);font-size:12px}
+.folha-card{min-width:0;border-radius:12px 12px 0 0;border-bottom:0}
+.folha-bar{display:flex;align-items:center;justify-content:space-between;gap:18px;flex-wrap:wrap;padding:7px 16px;border-bottom:1px solid var(--line)}
+.tools{display:flex;gap:6px;flex-wrap:wrap;align-items:center}.tool-group{display:flex;align-items:center;gap:5px}.tool-group label{font-size:12px;font-weight:800;color:var(--muted);margin-right:5px}.tool-divider{width:1px;height:24px;background:var(--line);margin-inline:12px}.tool{border:1px solid #c8d4dc;background:#fff;border-radius:7px;padding:5px 9px;font-weight:700;color:var(--ink);min-width:34px}.tool.on{background:#e7f2f4;border-color:#9fc7cd}.tool-val{min-width:50px;text-align:center;font-weight:700;font-size:14px;font-variant-numeric:tabular-nums}
+.folha-area{overflow:auto;background:#e3e9ee;padding:18px;min-height:420px}
+#folha{background:#fff;box-shadow:0 2px 10px #0003;display:block;max-width:none;margin-inline:auto}
+.painel{min-width:0;padding:17px 22px 21px;display:flex;flex-direction:column;gap:12px;border-radius:0 0 12px 12px;border-top:0}
+.topo{display:flex;align-items:center;gap:14px}.topo small{color:var(--muted);letter-spacing:.06em;font-size:11px;font-weight:700}.topo h2{margin:0;font-size:18px;line-height:1.25}.topo .sub{color:var(--muted);font-size:12px}
+.timer{border:1px solid #bfdde1;background:#eef8f9;border-radius:8px;padding:5px 10px;display:flex;align-items:center;gap:8px;white-space:nowrap}.timer small{font-size:10px;color:var(--teal);letter-spacing:.04em;font-weight:700;width:68px;line-height:1.15;white-space:normal}.timer b{font-size:18px;color:var(--navy);font-variant-numeric:tabular-nums;flex:none}
+.prog{font-size:12px;color:var(--muted);display:flex;gap:12px;margin-left:auto}.prog b{color:var(--navy)}.barra{display:none}
+#comps{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:9px}.comp{min-width:0;display:grid;grid-template-columns:42px minmax(0,1fr);align-items:center;gap:8px;border:1px solid var(--line);border-radius:10px;padding:8px 9px}.comp .tag{background:var(--soft);border-radius:7px;text-align:center;font-weight:800;padding:6px 0;color:var(--navy)}.comp strong{display:block;font-size:13px}.comp small{color:var(--muted);font-size:11px}
 .comp select,.motivo select,.zero select,.cond select{width:100%;padding:7px;border:1px solid #c3d0d8;border-radius:7px;background:#fff;font-weight:700}
-.motivo{margin:-4px 0 0 52px}.motivo select{font-weight:400;border-color:#e3a6ab;background:#fff8f8}
-.total{display:flex;justify-content:space-between;align-items:center;background:#eaf5f6;border-radius:10px;padding:10px 14px}.total b{font-size:26px;color:var(--navy)}.total small{color:var(--muted)}
+.motivo{grid-column:1/-1}.motivo select{font-weight:400;border-color:#e3a6ab;background:#fff8f8}
+.grade-head{display:flex;justify-content:space-between;align-items:end;gap:12px}.grade-head h2{margin:0;font-size:21px;color:var(--navy)}.grade-head p{margin:4px 0 0;color:var(--muted);font-size:12px}.total{display:flex;gap:10px;align-items:center;background:#eaf5f6;border-radius:8px;padding:8px 14px;font-size:13px;white-space:nowrap}.total b{font-size:21px;color:var(--navy)}.total small{color:var(--muted)}
 .zero select{border-color:#e3a6ab;background:#fff8f8;color:#a01e2a}
 textarea{width:100%;min-height:56px;border:1px solid #c3d0d8;border-radius:8px;padding:8px;resize:vertical}
 label.rot{font-size:13px;font-weight:700}
-.acoes{display:flex;gap:8px}.acoes button{flex:1;border-radius:9px;padding:11px 6px;font-weight:800;font-size:13px;white-space:nowrap}.acoes .concluir{flex:1.5}.condenar{background:#fff;border:1px solid #e3a6ab;color:#a01e2a}.concluir{background:var(--red);border:1px solid var(--red);color:#fff}button:disabled{opacity:.55;cursor:not-allowed}
+.bottom{display:grid;grid-template-columns:1.15fr 1.2fr 1fr;gap:10px;align-items:stretch}.bottom .zero{align-self:start}.bottom .zero select{min-height:56px}.bottom .obs{display:flex;flex-direction:column}.bottom .obs label{font-size:12px}.bottom .obs textarea{flex:1}.acoes{display:flex;gap:8px}.acoes button{flex:1;border-radius:9px;padding:10px 6px;font-weight:800;font-size:13px;white-space:nowrap}.acoes .concluir{flex:1.5}.condenar{background:#fff;border:1px solid #e3a6ab;color:#a01e2a}.concluir{background:var(--red);border:1px solid var(--red);color:#fff}button:disabled{opacity:.55;cursor:not-allowed}
 .cond{border:1px solid #edc5c8;background:#fff6f6;border-radius:9px;padding:10px;display:grid;gap:8px}.cond div{display:flex;gap:8px}.cond button{flex:1;border-radius:8px;padding:8px;font-weight:700}
 .status{min-height:20px;font-size:14px;margin:0}.status.error{color:#a51c2c}.status.ok{color:#1f7a3f}
+#erro-geral:empty{display:none}
 .aviso{background:#fff7e6;border:1px solid #f0d49b;color:#7a4b00;border-radius:9px;padding:8px 10px;font-size:14px}
 .lista-btn{background:none;border:none;color:var(--navy);text-decoration:underline;font-weight:700;padding:0}
 .lista{position:fixed;inset:0;background:#071725aa;display:grid;place-items:center;z-index:10;padding:14px}.lista[hidden]{display:none}.lista-box{background:#fff;border-radius:12px;width:min(640px,100%);max-height:88vh;display:flex;flex-direction:column}.lista-box header{all:unset;display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-bottom:1px solid var(--line)}.lista-box ol{list-style:none;margin:0;padding:8px;overflow:auto}.lista-box li button{width:100%;display:flex;justify-content:space-between;gap:10px;text-align:left;background:#fff;border:1px solid var(--line);border-radius:8px;padding:9px 12px;margin-bottom:6px}.lista-box li button.atual{border-color:var(--teal);background:#eef8f9}
 .est-pendente{color:#8a4b00}.est-corrigida{color:#1f7a3f}.est-condenada{color:#a01e2a}
 .fim{padding:30px;text-align:center}
 [hidden]{display:none!important}
-.comp{grid-template-columns:42px 1fr!important;row-gap:8px}.comp.feita{border-color:#9cc6cc;background:#f5fbfb}
+.comp{row-gap:8px}.comp.feita{border-color:#9cc6cc;background:#f5fbfb}
 .notas{grid-column:1/-1;display:grid;grid-template-columns:repeat(6,1fr);gap:6px}
-.notas button{border:1px solid #c9d5de;background:#fff;color:var(--ink);border-radius:8px;height:36px;font:700 15px Arial,sans-serif;padding:0}
+.notas button{border:1px solid #c9d5de;background:#fff;color:var(--ink);border-radius:8px;height:36px;font:700 13px Arial,sans-serif;padding:0;min-width:0}
 .notas button:hover:not(:disabled){border-color:var(--navy)}.notas button.on{background:var(--navy);border-color:var(--navy);color:#fff;box-shadow:0 2px 6px #10283e44}
 .notas button:disabled{opacity:.45;cursor:not-allowed}.notas .vaga{visibility:hidden}
-.mt-bar{display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:8px 16px;border-bottom:1px solid var(--line);background:#fbfcfd}
+.mt-bar{display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:4px 16px;border-bottom:1px solid var(--line);background:#fbfcfd}
 .mt-bar .tool.on{background:#fff3c4;border-color:#e0b100}.mt-bar small{color:var(--muted);font-size:12px;margin-left:6px}
 #folha.marcando{cursor:crosshair;touch-action:none}#folha.apagando{cursor:pointer}
 #mt-previa{position:fixed;z-index:20;background:#ffd54a;opacity:.5;pointer-events:none;border-radius:2px}
-@media(max-width:1000px){main{grid-template-columns:minmax(0,1fr)}.painel{position:static}.folha-card{min-height:0}.school-logo{display:none}}
-@media(max-width:650px){header{padding:0 12px}.brand span{display:none}.comp{grid-template-columns:38px 1fr 84px}.motivo{margin-left:0}}
+@media(max-width:1450px){#comps{grid-template-columns:repeat(3,minmax(0,1fr))}.bottom{grid-template-columns:1fr 1fr}.bottom .acoes{grid-column:1/-1}}
+@media(max-width:1000px){.school-logo{display:none}.folha-bar{align-items:flex-start}.tools{width:100%}.mt-bar small{display:none}}
+@media(max-width:750px){#comps{grid-template-columns:repeat(2,minmax(0,1fr))}.bottom{grid-template-columns:1fr}.bottom .acoes{grid-column:auto}.prog{width:100%;margin-left:0}.grade-head{align-items:flex-start;flex-wrap:wrap}}
+@media(max-width:520px){header{padding:0 12px}.brand span{display:none}#comps{grid-template-columns:1fr}.tool-divider{display:none}.tool-group{flex-wrap:wrap}.acoes{flex-wrap:wrap}.acoes button{min-height:42px}.folha-area{padding:8px}}
 </style>
 </head>
 <body>
 <header><div class="brand"><div class="mark">A</div><b>ATLAS</b><span>Redação</span></div><div class="school-logo"><img src="ideal-logo.png" alt="Colégio Ideal 50 anos"></div><div class="user"><span id="prof-nome"></span><a href="redacao.html">Minhas turmas</a></div></header>
 <div class="crumbs"><nav aria-label="Caminho"><a href="redacao.html">Minhas turmas</a> › <span id="c-unidade"></span> › <span id="c-turma"></span> › <b>Correção</b></nav><div class="chips" id="chips"></div></div>
 <p id="erro-geral" class="status error" style="padding:10px 24px" role="alert"></p>
-<main id="app" hidden>
-<section class="card folha-card"><div class="folha-bar"><div><strong>Folha digitalizada</strong> <small id="folha-info">1 página · alinhamento automático</small></div>
-<div class="tools"><button type="button" class="tool on" id="z-pagina">Página inteira</button><button type="button" class="tool" id="z-menos" aria-label="Diminuir zoom">−</button><span class="tool-val" id="z-val">100%</span><button type="button" class="tool" id="z-mais" aria-label="Aumentar zoom">+</button>
-<button type="button" class="tool" id="a-menos" title="Girar 0,25° no sentido anti-horário">↶ −0,25°</button><span class="tool-val" id="a-val">0,00°</span><button type="button" class="tool" id="a-mais" title="Girar 0,25° no sentido horário">+0,25° ↷</button><button type="button" class="tool" id="a-auto" title="Volta ao alinhamento automático">Auto</button></div></div>
-<div class="mt-bar" id="mt-bar"><button type="button" class="tool" id="mt-on" aria-pressed="false">🖍 Marca-texto</button><button type="button" class="tool" id="mt-apagar" aria-pressed="false">Borracha</button><button type="button" class="tool" id="mt-desfazer">↺ Desfazer</button><small id="mt-info">Ligue o marca-texto e arraste sobre a linha. O aluno verá os destaques no espelho.</small></div>
+<main id="app" class="page-width" hidden>
+<section class="card folha-card"><div class="folha-bar">
+<div class="topo"><div><small id="pos">REDAÇÃO</small><h2 id="aluno"></h2><div class="sub"><span id="sub"></span> · <span id="folha-info"></span></div></div><div class="timer" id="timer-box"><small id="timer-rot">TEMPO DE CORREÇÃO</small><b id="timer">00:00</b></div></div>
+<div class="tools"><div class="tool-group"><label>ZOOM</label><button type="button" class="tool on" id="z-pagina">Página inteira</button><button type="button" class="tool" id="z-menos" aria-label="Diminuir zoom">−</button><span class="tool-val" id="z-val">100%</span><button type="button" class="tool" id="z-mais" aria-label="Aumentar zoom">+</button></div>
+<span class="tool-divider" aria-hidden="true"></span><div class="tool-group"><label>ROTAÇÃO</label><button type="button" class="tool" id="a-menos" title="Girar 0,25° no sentido anti-horário">↶ −0,25°</button><span class="tool-val" id="a-val">0,00°</span><button type="button" class="tool" id="a-mais" title="Girar 0,25° no sentido horário">+0,25° ↷</button><button type="button" class="tool" id="a-auto" title="Volta ao alinhamento automático">Auto</button></div></div></div>
+<div class="mt-bar" id="mt-bar"><button type="button" class="tool" id="mt-on" aria-pressed="false">🖍 Marca-texto</button><button type="button" class="tool" id="mt-apagar" aria-pressed="false">Borracha</button><button type="button" class="tool" id="mt-desfazer">↺ Desfazer</button><small id="mt-info">Ligue o marca-texto e arraste sobre a linha. O aluno verá os destaques no espelho.</small><div class="prog"><span>Progresso da turma · <button type="button" class="lista-btn" id="abrir-lista">ver lista</button></span><b id="prog-txt"></b></div><div class="barra"><span id="prog-barra"></span></div></div>
 <div class="folha-area" id="area"><canvas id="folha" width="10" height="14" aria-label="Folha da redação"></canvas></div></section>
 <section class="card painel" id="painel">
-<div class="topo"><div><small id="pos">REDAÇÃO</small><h2 id="aluno"></h2><div class="sub" id="sub"></div></div><div class="timer" id="timer-box"><small id="timer-rot">TEMPO DE CORREÇÃO</small><b id="timer">00:00</b></div></div>
-<div><div class="prog"><span>Progresso da turma · <button type="button" class="lista-btn" id="abrir-lista">ver lista</button></span><b id="prog-txt"></b></div><div class="barra"><span id="prog-barra"></span></div></div>
+<div class="grade-head"><div><h2>Avaliação desta redação</h2><p>Após ler a folha, registre as cinco competências e conclua a correção.</p></div><div class="total"><span>Nota total</span><span><b id="total">—</b> <small>/ 1000</small></span></div></div>
 <p class="aviso" id="aviso-estado" hidden></p>
 <div id="comps"></div>
-<div class="total"><span>Nota total desta redação</span><span><b id="total">—</b> <small>/ 1000</small></span></div>
-<div class="zero"><select id="zero" aria-label="Zerar a redação inteira por critério"></select></div>
-<div><label class="rot" for="obs">Observações para a correção (opcional)</label><textarea id="obs" maxlength="1000"></textarea></div>
+<div class="bottom"><div class="zero"><select id="zero" aria-label="Zerar a redação inteira por critério"></select></div>
+<div class="obs"><label class="rot" for="obs">Observações para a correção (opcional)</label><textarea id="obs" maxlength="1000"></textarea></div>
+<div class="acoes"><button type="button" class="condenar" id="btn-condenar">⚠ Condenar página</button><button type="button" class="concluir" id="btn-concluir">Concluir e ir para a próxima →</button></div></div>
 <div class="cond" id="cond" hidden><label class="rot" for="cond-motivo">Motivo para condenar esta página (ela vai para o ADM)</label><select id="cond-motivo"></select><div><button type="button" class="condenar" id="cond-ok">Condenar página</button><button type="button" class="tool" id="cond-nao">Voltar</button></div></div>
-<div class="acoes"><button type="button" class="condenar" id="btn-condenar">⚠ Condenar página</button><button type="button" class="concluir" id="btn-concluir">Concluir e ir para a próxima →</button></div>
 <p id="status" class="status" role="status"></p>
 </section>
 </main>
@@ -116,17 +119,21 @@ function recalcular(){
   const zero=$('#zero').value;for(const [k] of COMPS)for(const b of $('#sel-'+k).querySelectorAll('button:not(.vaga)'))b.disabled=!!zero||travada();
   const v=valores();$('#c5-motivo-box').hidden=!!zero||v.c5!=='0';
   if(zero){$('#total').textContent='0';return}
+  if($('#zero').dataset.motivoAntigo&&COMPS.every(([k])=>v[k]==='')){$('#total').textContent='0';return}
   const ok=COMPS.every(([k])=>v[k]!=='');$('#total').textContent=ok?String(COMPS.reduce((s,[k])=>s+Number(v[k]),0)):'—';
 }
 const travada=()=>atual?.estado==='condenada';
 function preencher(f){
-  $('#zero').value=f.zero_motivo||'';for(const [k] of COMPS)marcarNota(k,f[k]==null?'':String(f[k]));
+  const motivoAntigo=f.zero_motivo&&!L.motivos.zero.includes(f.zero_motivo)?f.zero_motivo:'';
+  $('#zero').dataset.motivoAntigo=motivoAntigo;$('#zero').value=motivoAntigo?'':f.zero_motivo||'';
+  for(const [k] of COMPS)marcarNota(k,f[k]==null?'':String(f[k]));
   marcas=(f.marcacoes||[]).map(m=>({...m}));modoMT('');
   $('#c5-motivo').value=f.c5_motivo||'';$('#obs').value=f.observacao||'';$('#cond').hidden=true;recalcular();
   const trava=travada();for(const id of ['#zero','#obs','#c5-motivo','#btn-concluir','#btn-condenar','#mt-on','#mt-apagar','#mt-desfazer'])$(id).disabled=trava;
   $('#btn-concluir').textContent=f.estado==='pendente'?'Concluir e ir para a próxima →':'Salvar revisão →';
   const av=$('#aviso-estado');av.hidden=f.estado==='pendente';
   av.textContent=f.estado==='condenada'?'Página condenada ('+(f.condenada_motivo||'')+'). Ela está com o ADM.':f.estado==='corrigida'?'Redação já corrigida. Você pode revisar as notas; o tempo da primeira correção fica guardado.':'';
+  if(motivoAntigo)av.textContent+=' Motivo anterior: '+motivoAntigo+'. Para salvar uma revisão, escolha um dos motivos atuais.';
 }
 /* ---------- cronômetro: começa ao abrir, sem pausa; fechar a página zera ---------- */
 function cronometro(liga){clearInterval(relogio);if(!liga){$('#timer-rot').textContent='REVISÃO';$('#timer').textContent='—';return}
@@ -134,12 +141,13 @@ function cronometro(liga){clearInterval(relogio);if(!liga){$('#timer-rot').textC
 /* ---------- folha ---------- */
 function desenhar(){
   if(!origem)return;A.desenhar($('#folha'),origem,anal,{ajuste});pintarMarcas();$('#a-val').textContent=graus(Math.round((anal.inclinacao+ajuste)*100)/100);
-  const c=$('#folha'),area=$('#area');
-  if(zoom==='pagina'){const h=Math.max(300,Math.min(area.clientHeight,innerHeight-Math.max(0,area.getBoundingClientRect().top))-24),w=area.clientWidth-24;const esc=Math.min(h/c.height,w/c.width);c.style.width=Math.round(c.width*esc)+'px';c.style.height='auto';$('#z-val').textContent=Math.round(esc*c.width/(area.clientWidth-24)*100)+'%'}
-  else{c.style.width=Math.round((area.clientWidth-24)*zoom/100)+'px';c.style.height='auto';$('#z-val').textContent=zoom+'%'}
+  const c=$('#folha'),largura=larguraArea();
+  c.style.width=Math.round(largura*(zoom==='pagina'?1:zoom/100))+'px';c.style.height='auto';
+  $('#z-val').textContent=(zoom==='pagina'?100:zoom)+'%';
   $('#z-pagina').classList.toggle('on',zoom==='pagina');
 }
-function zoomAtual(){const area=$('#area'),c=$('#folha');return Math.round(parseFloat(c.style.width)/(area.clientWidth-24)*100/25)*25||100}
+function larguraArea(){const area=$('#area'),estilo=getComputedStyle(area);return Math.max(1,area.clientWidth-parseFloat(estilo.paddingLeft)-parseFloat(estilo.paddingRight))}
+function zoomAtual(){return Math.round(parseFloat($('#folha').style.width)/larguraArea()*100/25)*25||100}
 $('#z-pagina').addEventListener('click',()=>{zoom='pagina';desenhar()});
 $('#z-mais').addEventListener('click',()=>{zoom=Math.min(300,(zoom==='pagina'?zoomAtual():zoom)+25);desenhar()});
 $('#z-menos').addEventListener('click',()=>{zoom=Math.max(25,(zoom==='pagina'?zoomAtual():zoom)-25);desenhar()});
@@ -176,7 +184,7 @@ async function abrir(f){
   const idx=L.folhas.indexOf(f)+1;$('#pos').textContent=`REDAÇÃO ${idx} DE ${L.folhas.length}`;$('#aluno').textContent=f.nome||('RA '+f.ra);
   $('#sub').textContent=`Matrícula ${f.ra} · ${UN[L.lote.unidade]} · ${L.lote.codigo}`;
   preencher(f);progresso();cronometro(false);
-  try{origem=await A.desenharPagina(doc,f.pagina,150);if(atual!==f)return;anal=A.analisar(origem);ajuste=0;zoom='pagina';desenhar();
+  try{origem=await A.desenharPagina(doc,f.pagina,150);if(atual!==f)return;anal=A.analisar(origem);ajuste=0;zoom='pagina';desenhar();$('#area').scrollLeft=0;scrollTo({top:0,behavior:'instant'});
     $('#folha-info').textContent='página '+f.pagina+' do lote · alinhamento automático'+(anal.invertida?' (estava de cabeça para baixo)':'');
     cronometro(f.estado==='pendente');msg('')}catch(e){msg('Não foi possível mostrar a folha: '+e.message,'error')}
 }

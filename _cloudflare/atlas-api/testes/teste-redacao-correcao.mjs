@@ -99,7 +99,12 @@ ok('Lote de 4 folhas identificadas pronto para a professora', r.status === 200 &
 // ---------- API da professora ----------
 r = await api('/api/redacao/correcao/turmas', 'GET', undefined, 'prof-token');
 ok('Professora vê só a sua turma, com o lote e o progresso', r.status === 200 && r.data.turmas.length === 1 && r.data.turmas[0].codigo === '3EMA' && r.data.turmas[0].lotes[0].folhas === 4 && r.data.turmas[0].lotes[0].corrigidas === 0, JSON.stringify(r.data.turmas));
-ok('Listas de motivos vêm do servidor (11 de zero total, 4 da C5)', r.data.motivos.zero.length === 11 && r.data.motivos.c5.length === 4 && r.data.motivos.zero.includes('texto insuficiente (até 7 linhas válidas)'));
+const motivosZero = [
+  'em branco', 'texto insuficiente (até 7 linhas válidas)', 'cópia integral ou em mais da metade do texto', 'fuga ao tema',
+  'não atendimento ao tipo dissertativo-argumentativo', 'anulação proposital (impropérios, desenhos etc.)',
+  'trecho deliberadamente desconectado do tema', 'outras formas de anulação'
+];
+ok('Lista de anulação contém somente os 8 motivos aprovados', JSON.stringify(r.data.motivos.zero) === JSON.stringify(motivosZero) && r.data.motivos.c5.length === 4, JSON.stringify(r.data.motivos.zero));
 r = await api('/api/redacao/correcao/lotes/' + loteId, 'GET', undefined, 'outra-token');
 ok('Professora de outra turma não abre o lote', r.status === 404, r.status);
 r = await api('/api/redacao/correcao/lotes/' + loteId + '/pdf', 'GET', undefined, 'outra-token');
@@ -121,6 +126,10 @@ r = await nota(2, { zero_motivo: 'fuga ao tema', c1: 200, segundos: 40 });
 ok('Zero na redação inteira: competências vazias e total 0', r.status === 200 && r.data.folha.total === 0 && r.data.folha.c1 === null && r.data.folha.zero_motivo === 'fuga ao tema', JSON.stringify(r.data.folha));
 r = await nota(2, { zero_motivo: 'motivo inventado' });
 ok('Motivo de zero fora da lista é recusado', r.status === 400, r.data.error);
+r = await nota(2, { zero_motivo: 'sinal gráfico sem função no texto' });
+ok('Motivo retirado não pode ser usado em nova revisão', r.status === 400, r.data.error);
+r = await nota(2, { zero_motivo: 'outras formas de anulação' });
+ok('Novo motivo de anulação é aceito', r.status === 200 && r.data.folha.zero_motivo === 'outras formas de anulação', JSON.stringify(r.data.folha));
 r = await nota(1, { c1: 200, c2: 200, c3: 200, c4: 200, c5: 200, segundos: 9999 });
 const c1 = db.prepare('SELECT total, segundos, revisada_em FROM redacao_correcoes WHERE lote_id = ? AND pagina = 1').get(loteId);
 ok('Revisão muda a nota e guarda o tempo da 1ª correção', r.status === 200 && c1.total === 1000 && c1.segundos === 95 && !!c1.revisada_em, JSON.stringify(c1));
@@ -173,6 +182,17 @@ await page.waitForURL(/redacao-corrigir\.html\?lote=/);
 await page.waitForFunction(() => document.querySelector('#aluno')?.textContent && document.querySelector('#folha').width > 1000, null, { timeout: 30000 });
 ok('Abre direto a primeira folha pendente (página 3), alinhada', /ALUNO TESTE TRES/.test(await page.locator('#aluno').textContent()) && /REDAÇÃO 3 DE 4/.test(await page.locator('#pos').textContent()) && /cabeça para baixo/.test(await page.locator('#folha-info').textContent()), await page.locator('#pos').textContent());
 ok('Cabeçalho mostra unidade, série, turma e bimestre', /Batista Campos/.test(await page.locator('#chips').textContent()) && /Turma 3EMA/.test(await page.locator('#chips').textContent()) && /2º bimestre/.test(await page.locator('#chips').textContent()));
+const layout = await page.evaluate(() => {
+  const folha = document.querySelector('#folha').getBoundingClientRect();
+  const area = document.querySelector('#area').getBoundingClientRect();
+  const notas = document.querySelector('#painel').getBoundingClientRect();
+  return { largura: folha.width / area.width, notasAbaixo: notas.top >= area.bottom - 1,
+    cabecalho: document.querySelector('header').getBoundingClientRect().height,
+    grupos: [...document.querySelectorAll('.tool-group label')].map(x => x.textContent.trim()) };
+});
+ok('Folha usa a largura e notas ficam abaixo, com topo fino e controles separados',
+  layout.largura > 0.9 && layout.notasAbaixo && layout.cabecalho <= 60 &&
+  JSON.stringify(layout.grupos) === JSON.stringify(['ZOOM', 'ROTAÇÃO']), JSON.stringify(layout));
 await page.waitForFunction(() => document.querySelector('#timer').textContent !== '00:00', null, { timeout: 4000 }).catch(() => {});
 ok('Cronômetro anda', /^00:0[1-9]$/.test(await page.locator('#timer').textContent()), await page.locator('#timer').textContent());
 const clicarNota = (k, v) => page.locator('#sel-' + k + ' button[data-v="' + v + '"]').click();
@@ -199,15 +219,19 @@ ok('Zoom + sai de "Página inteira"', !(await page.locator('#z-pagina').getAttri
 await page.locator('#z-pagina').click();
 /* marca-texto: arrastar desenha uma faixa; desfazer tira; borracha apaga */
 await page.locator('#mt-on').click();
-const caixa = await page.locator('#folha').boundingBox();
-const arrastar = async (y) => { await page.mouse.move(caixa.x + caixa.width * 0.2, caixa.y + caixa.height * y); await page.mouse.down(); await page.mouse.move(caixa.x + caixa.width * 0.5, caixa.y + caixa.height * y, { steps: 5 }); await page.mouse.up(); };
+const pontoVisivel = async y => {
+  await page.evaluate(y => { const r = document.querySelector('#folha').getBoundingClientRect(); scrollBy(0, r.top + r.height * y - innerHeight / 2); }, y);
+  const caixa = await page.locator('#folha').boundingBox();
+  return { x: caixa.x + caixa.width * 0.35, y: caixa.y + caixa.height * y, caixa };
+};
+const arrastar = async y => { const p = await pontoVisivel(y); await page.mouse.move(p.caixa.x + p.caixa.width * 0.2, p.y); await page.mouse.down(); await page.mouse.move(p.caixa.x + p.caixa.width * 0.5, p.y, { steps: 5 }); await page.mouse.up(); };
 await arrastar(0.5); await arrastar(0.6);
 ok('Marca-texto: arrastar cria destaques', await page.evaluate(() => marcas.length) === 2);
 await page.locator('#mt-desfazer').click();
 ok('Desfazer tira o último destaque', await page.evaluate(() => marcas.length) === 1);
 await arrastar(0.7);
 await page.locator('#mt-apagar').click();
-await page.mouse.click(caixa.x + caixa.width * 0.35, caixa.y + caixa.height * 0.7);
+{ const p = await pontoVisivel(0.7); await page.mouse.click(p.x, p.y); }
 ok('Borracha apaga o destaque clicado', await page.evaluate(() => marcas.length) === 1 && await page.locator('#mt-apagar').getAttribute('aria-pressed') === 'true');
 await page.locator('#mt-apagar').click();
 const pixel = await page.evaluate(() => { const c = document.querySelector('#folha'); const d = c.getContext('2d').getImageData(Math.round(c.width * 0.35), Math.round(c.height * 0.5), 1, 1).data; return [d[0], d[1], d[2]]; });
