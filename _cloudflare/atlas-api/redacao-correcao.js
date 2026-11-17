@@ -12,8 +12,7 @@ export const ESCALA_C2 = [40, 80, 120, 160, 200];
 export const MOTIVOS_ZERO = [
   'em branco', 'texto insuficiente (até 7 linhas válidas)', 'cópia integral ou em mais da metade do texto', 'fuga ao tema',
   'não atendimento ao tipo dissertativo-argumentativo', 'anulação proposital (impropérios, desenhos etc.)',
-  'sinal gráfico sem função no texto', 'trecho deliberadamente desconectado do tema', 'identificação no espaço destinado ao texto',
-  'predomínio de língua estrangeira', 'escrita original ilegível'
+  'trecho deliberadamente desconectado do tema', 'outras formas de anulação'
 ];
 export const MOTIVOS_C5 = [
   'não apresenta proposta de intervenção', 'proposta integralmente copiada da prova',
