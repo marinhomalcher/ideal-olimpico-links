@@ -93,10 +93,22 @@ async function validarAtribuicoes(env, funcao, body) {
   const unidades = funcao === 'digitalizador' ? (Array.isArray(body.unidades) ? body.unidades : []) : [];
   if (unidades.length > 3 || new Set(unidades).size !== unidades.length || unidades.some(x => !UNIDADES.includes(x))) erro(400, 'Unidades inválidas.');
   if (funcao === 'professor' && turmas.length) {
+    await validarTurmaDaProfessora(env, turmas, body.usuario_id || null);
     const disponiveis = new Set((await env.DB.prepare('SELECT id FROM redacao_turmas WHERE ativa = 1').all()).results.map(x => x.id));
     if (turmas.some(id => !disponiveis.has(id))) erro(400, 'Uma turma selecionada não existe ou está inativa.');
   }
   return { turmas, unidades };
+}
+
+/* Regra única para as duas telas de cadastro: no máximo uma turma por professora
+   e uma professora por turma, mesmo quando a outra pessoa está desativada. */
+export async function validarTurmaDaProfessora(env, turmas, usuarioId = null) {
+  if (turmas.length > 1) erro(400, 'Cada professor de Redação pode ter somente uma turma.');
+  if (!turmas.length) return;
+  const outra = await env.DB.prepare(
+    'SELECT u.nome FROM redacao_professor_turmas pt JOIN usuarios u ON u.id = pt.usuario_id WHERE pt.turma_id = ? AND pt.usuario_id <> ? LIMIT 1'
+  ).bind(turmas[0], usuarioId || 0).first();
+  if (outra) erro(409, `Esta turma já está vinculada a ${outra.nome}. Retire a turma desse cadastro antes de atribuí-la a outra pessoa.`);
 }
 
 export async function rotaRedacaoAdm(request, env, path, { readJson, hojeSP, registrar, emailEmUso, sessao }) {
@@ -146,7 +158,7 @@ export async function rotaRedacaoAdm(request, env, path, { readJson, hojeSP, reg
     const funcao = body.funcao;
     if (!['professor', 'digitalizador'].includes(funcao)) erro(400, 'Função inválida.');
     const ativo = body.ativo === false ? 0 : 1;
-    const atribuicoes = await validarAtribuicoes(env, funcao, body);
+    const atribuicoes = await validarAtribuicoes(env, funcao, { ...body, usuario_id: id });
     const ops = [env.DB.prepare('UPDATE redacao_equipe SET funcao = ?, ativo = ?, professor = ?, digitalizador = ? WHERE usuario_id = ?').bind(funcao, ativo, funcao === 'professor' ? 1 : 0, funcao === 'digitalizador' ? 1 : 0, id),
       env.DB.prepare('DELETE FROM redacao_professor_turmas WHERE usuario_id = ?').bind(id),
       env.DB.prepare('DELETE FROM redacao_digitalizador_unidades WHERE usuario_id = ?').bind(id)];

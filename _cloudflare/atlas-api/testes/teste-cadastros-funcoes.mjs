@@ -88,9 +88,15 @@ r = await api('/api/redacao/lotes', 'GET', undefined, 'ana-token');
 ok('Como digitalizadora, vê as turmas das unidades dela', r.status === 200 && r.data.turmas.every(t => ['BC', 'CN'].includes(t.unidade)));
 r = await api('/api/redacao/correcao/turmas', 'GET', undefined, 'ana-token');
 ok('Como professora de redação, entra na correção da turma dela', r.status === 200 && r.data.turmas.length === 1 && r.data.turmas[0].id === bc3.id, r.status);
+r = await api('/api/adm/pessoas', 'POST', { nome: 'Duas Turmas', email: 'duas.turmas', redacao: { professor: { turmas: [bc3.id, cn1.id] } } });
+ok('Cadastro único recusa duas turmas para a mesma professora', r.status === 400 && /somente uma turma/.test(r.data.error), r.data.error);
+r = await api('/api/adm/pessoas', 'POST', { nome: 'Outra na Mesma Turma', email: 'outra.mesma', redacao: { professor: { turmas: [bc3.id] } } });
+ok('Cadastro único recusa outra professora na turma ocupada', r.status === 409 && /Ana Multi/.test(r.data.error), r.data.error);
 r = await api('/api/adm/pessoas', 'POST', { nome: 'Coord Só', email: 'coord.so@grupoideal.com.br', coordenacao: [{ unidade: 'CN', segmento: 'EM', serie: '1ª Série' }, { unidade: 'CN', segmento: 'EM', serie: '2ª Série' }] });
 const coord = r.data.pessoas?.find(p => p.email === 'coord.so@grupoideal.com.br');
 ok('Cria coordenador sem outras funções', r.status === 200 && !coord.banco && !coord.redacao.professor && coord.coordenacao.length === 2, JSON.stringify(coord));
+r = await api('/api/adm/pessoas/' + coord.id, 'PUT', { redacao: { professor: { turmas: [bc3.id] } } });
+ok('Edição recusa assumir a turma de outra professora sem alterar o cadastro', r.status === 409 && !db.prepare('SELECT 1 FROM redacao_professor_turmas WHERE usuario_id = ?').get(coord.id), r.status);
 r = await api('/api/adm/pessoas');
 ok('Lista única traz todas as pessoas (inclusive quem não é do banco de questões)', r.status === 200 && r.data.pessoas.some(p => p.email === 'coord.so@grupoideal.com.br') && r.data.pessoas.some(p => p.email === 'ana.multi@grupoideal.com.br'));
 r = await api('/api/adm/professores');
@@ -164,18 +170,18 @@ await page.locator('#rp-unidade').selectOption('CN');await page.locator('#rp-seg
 await page.locator('#rp-turmas label:visible', { hasText: '1EMA' }).locator('input').check();
 await page.locator('#rp-unidade').selectOption('BC');
 await page.locator('#rp-turmas label:visible', { hasText: '3EMA' }).locator('input').check();
-ok('Resumo das turmas marcadas em unidades diferentes', /2 turmas marcadas/.test(await page.locator('#rp-resumo').textContent()), await page.locator('#rp-resumo').textContent());
+ok('Escolher outra turma substitui a anterior', (await page.locator('[name=rp-t]:checked').count()) === 1 && /Turma da professora: 3EMA BC/.test(await page.locator('#rp-resumo').textContent()), await page.locator('#rp-resumo').textContent());
 await page.locator('#f-coord').check();
 await page.locator('#co-unidade').selectOption('BC');await page.locator('#co-segmento').selectOption('EM');
 await page.locator('#co-series label:visible', { hasText: '3ª Série' }).locator('input').check();
 await page.locator('#save').click();
 await page.waitForFunction(() => /Pessoa cadastrada/.test(document.querySelector('#app-status').textContent), null, { timeout: 10000 }).catch(() => {});
 const bia = db.prepare("SELECT id, disciplina FROM usuarios WHERE email = 'bia.red@grupoideal.com.br'").get();
-ok('Tela grava professora de redação (2 turmas) e coordenadora, sem banco de questões', bia && !bia.disciplina &&
-  db.prepare('SELECT COUNT(*) AS n FROM redacao_professor_turmas WHERE usuario_id = ?').get(bia.id).n === 2 &&
+ok('Tela grava professora de redação (1 turma) e coordenadora, sem banco de questões', bia && !bia.disciplina &&
+  db.prepare('SELECT COUNT(*) AS n FROM redacao_professor_turmas WHERE usuario_id = ?').get(bia.id).n === 1 &&
   db.prepare("SELECT COUNT(*) AS n FROM coordenadores WHERE usuario_id = ? AND unidade = 'BC' AND serie = '3ª Série'").get(bia.id).n === 1, await page.locator('#app-status').textContent());
 await page.locator('#list tr', { hasText: 'Bia Redação' }).getByRole('button', { name: 'Editar' }).click();
-ok('Editar abre com as funções marcadas', await page.locator('#f-red-prof').isChecked() && await page.locator('#f-coord').isChecked() && !(await page.locator('#f-banco').isChecked()) && /2 turmas marcadas/.test(await page.locator('#rp-resumo').textContent()));
+ok('Editar abre com a turma e as funções marcadas', await page.locator('#f-red-prof').isChecked() && await page.locator('#f-coord').isChecked() && !(await page.locator('#f-banco').isChecked()) && /Turma da professora: 3EMA BC/.test(await page.locator('#rp-resumo').textContent()));
 await page.locator('#f-red-dig').check();await page.locator('[name=dig-u][value="AM"]').check();
 await page.locator('#save').click();
 await page.waitForFunction(() => /Cadastro atualizado/.test(document.querySelector('#app-status').textContent), null, { timeout: 10000 }).catch(() => {});
@@ -192,7 +198,7 @@ sessao('bia-token', 'usuario', 'bia.red@grupoideal.com.br', bia.id);
 await page.evaluate(() => sessionStorage.setItem('atlas_user_auth', JSON.stringify({ token: 'bia-token' })));
 await page.goto(base + '/redacao.html');
 await page.locator('#upload-area').waitFor({ state: 'visible', timeout: 10000 }).catch(() => {});
-ok('Redação mostra turmas (professora) e envio de lotes (digitalizadora)', await page.locator('#upload-area').isVisible() && await page.locator('#list .turma').count() === 2 && (await page.locator('#title').textContent()) === 'Redação');
+ok('Redação mostra a turma da professora e o envio da digitalizadora', await page.locator('#upload-area').isVisible() && await page.locator('#list .turma').count() === 1 && (await page.locator('#title').textContent()) === 'Redação');
 /* Mapa da equipe na aba Equipe da Redação */
 await page.goto(base + '/redacao-admin.html#equipe');
 await page.locator('#mapa-equipe .mapa-un').first().waitFor({ timeout: 10000 });
