@@ -227,6 +227,33 @@
     return melhor && n >= 2 ? melhor : null;
   }
 
+  /* Código de barras numa página que não é folha de redação (mapas de desempenho, PDF digital):
+     varre linhas horizontais da região (frações da página) direto no canvas; vale a leitura mais repetida. */
+  function lerCodigoImagem(fonte, regiao = { x: [0, 1], y: [0, 1] }) {
+    const w = fonte.width, h = fonte.height;
+    const d = fonte.getContext('2d', { willReadFrequently: true }).getImageData(0, 0, w, h).data;
+    const votos = new Map(), x0 = Math.floor(regiao.x[0] * w), x1 = Math.ceil(regiao.x[1] * w);
+    for (let y = Math.floor(regiao.y[0] * h); y < regiao.y[1] * h; y += Math.max(1, Math.round(h * 0.002))) {
+      const linha = [];
+      let mn = 255, mx = 0;
+      for (let x = x0; x < x1; x++) { const i = (y * w + x) * 4, g = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2]; linha.push(g); if (g < mn) mn = g; if (g > mx) mx = g; }
+      if (mx - mn < 60) continue;
+      const corte = (mn + mx) / 2, r = [];
+      let atual = null;
+      for (const g of linha) {
+        const preto = g < corte;
+        if (atual === null) { if (!preto) continue; atual = true; r.push(0); }
+        if (preto !== atual) { atual = preto; r.push(0); }
+        r[r.length - 1]++;
+      }
+      const txt = decodificar(r);
+      if (txt) votos.set(txt, (votos.get(txt) || 0) + 1);
+    }
+    let melhor = null, n = 0;
+    for (const [t, c] of votos) if (c > n) { n = c; melhor = t; }
+    return melhor && n >= 2 ? melhor : null;
+  }
+
   /* ---------- análise de uma página ---------- */
   function analisar(fonte) {
     const w = fonte.width, h = fonte.height;
@@ -389,5 +416,5 @@
     return { bytes: await novo.save(), paginas: novo.getPageCount() };
   }
 
-  window.AtlasAlinhamento = { MODELO, C128, analisar, decodificar, desenhar, matrizFinal, abrirPdf, desenharPagina, carregarPdfLib, montarPdf };
+  window.AtlasAlinhamento = { MODELO, C128, analisar, decodificar, lerCodigoImagem, desenhar, matrizFinal, abrirPdf, desenharPagina, carregarPdfLib, montarPdf };
 })();
