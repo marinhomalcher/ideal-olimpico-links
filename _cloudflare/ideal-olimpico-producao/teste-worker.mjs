@@ -61,6 +61,14 @@ r = await call('autenticarAlunoCodigo', ['30003', '123456'], '198.51.100.1');
 ok('Teto por IP vale para o login por código', r.status === 429);
 env.PORTAL_LOGIN_IP_LIMITER = limitador(300);
 
+// Meu desempenho: lista e páginas, com o limite por sessão.
+r = await call('meuDesempenho', ['a'.repeat(64)]);
+ok('meuDesempenho é repassado ao Apps Script', r.status === 200 && r.data.data.eco === 'meuDesempenho');
+r = await call('paginasDesempenho', ['a'.repeat(64), 7]);
+ok('paginasDesempenho é repassado ao Apps Script', r.status === 200 && r.data.data.eco === 'paginasDesempenho');
+r = await call('paginasDesempenho', ['a'.repeat(64)]);
+ok('paginasDesempenho sem o documento: recusado', r.status === 400);
+
 // Chave do limite não contém a matrícula em texto.
 const chaves = [...env.PORTAL_LOGIN_LIMITER.usos.keys()];
 ok('Chaves do limite são embaralhadas (sem matrícula visível)', chaves.length > 0 && chaves.every(k => /^[0-9a-f]{64}$/.test(k)));

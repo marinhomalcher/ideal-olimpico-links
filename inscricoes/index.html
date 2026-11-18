@@ -3,7 +3,7 @@
 <head>
   <base target="_self">
   <meta charset="utf-8">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' https://cdnjs.cloudflare.com; style-src 'self'; img-src 'self' data: blob:; connect-src https://ideal-olimpico-producao.marinhomalcher.workers.dev; font-src 'self'; base-uri 'self'; form-action 'none'; object-src 'none'; frame-src 'none'; manifest-src 'self'; upgrade-insecure-requests">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' https://cdnjs.cloudflare.com; style-src 'self'; img-src 'self' data: blob: https://grupoideal.sharepoint.com; connect-src https://ideal-olimpico-producao.marinhomalcher.workers.dev; font-src 'self'; base-uri 'self'; form-action 'none'; object-src 'none'; frame-src 'none'; manifest-src 'self'; upgrade-insecure-requests">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><meta name="referrer" content="no-referrer"><meta name="robots" content="noindex, nofollow">
   <title>Portal de Inscrições — IDEAL OLÍMPICO</title>
   <meta name="description" content="Consulte competições acadêmicas, regras e prazos e acompanhe suas inscrições no Portal IDEAL OLÍMPICO.">
@@ -21,7 +21,7 @@
   <meta name="twitter:title" content="Portal de Inscrições — IDEAL OLÍMPICO">
   <meta name="twitter:description" content="Inscrições em competições acadêmicas. Consulte as competições e acompanhe seus pedidos.">
   <meta name="twitter:image" content="https://idealolimpico.com.br/logo-ideal-olimpico.png?v=20261018">
-  <link rel="stylesheet" href="./portal.css?v=cadastro-cpf-20261116">
+  <link rel="stylesheet" href="./portal.css?v=desempenho-20261118">
 </head>
 
 <body>
@@ -33,6 +33,11 @@
   </div>
 </header>
 <main>
+  <nav id="abasAluno" class="abas-aluno hidden" aria-label="Áreas do aluno">
+    <button id="abaDesempenho" class="aba" data-acao="abaDesempenho">📈 MEU DESEMPENHO</button>
+    <button id="abaCompeticoes" class="aba" data-acao="abaCompeticoes">🏅 COMPETIÇÕES OLÍMPICAS</button>
+    <button id="abaPedidos" class="aba" data-acao="abrirMeusPedidos">🛒 MEUS PEDIDOS</button>
+  </nav>
   <section id="matriculaSec">
     <div class="login-wrap">
       <div class="login-card">
@@ -125,6 +130,16 @@
       </div>
     </div>
   </section>
+  <section id="desempenhoSec" class="hidden">
+    <div class="desempenho-topo">
+      <div><div id="desempenhoTurma" class="eyebrow"></div><h2>Meu desempenho</h2><p>Seus mapas de desempenho de cada prova e o espelho da sua redação. Toque em "Ver" para abrir.</p></div>
+      <div id="bimestres" class="bimestres" role="group" aria-label="Bimestre"></div>
+    </div>
+    <div id="desempenhoLoading" class="loading hidden">Carregando seu desempenho...</div>
+    <div id="desempenhoMsg"></div>
+    <div id="desempenhoGrid" class="desempenho-grid"></div>
+    <p class="desempenho-nota">🔒 Só você vê os seus mapas. Eles abrem aqui no portal e não ficam salvos no seu aparelho.</p>
+  </section>
   <section id="home" class="hidden">
     <div class="hero"><div><div class="eyebrow">IDEAL OLÍMPICO</div><h2>Escolha a competição</h2><p>Consulte edições, regras e prazos. Antes de qualquer nova inscrição, o portal verifica se esta matrícula já possui solicitação para a mesma competição.</p></div></div>
     <div id="homeGrid" class="home-grid"></div>
@@ -149,9 +164,10 @@
 </main>
 <div id="cart" class="cart hidden"><div class="cart-inner"><div class="cart-main"><b id="cartQtd">0 inscrição(ões) selecionada(s)</b><small>Você poderá conferir tudo antes do pagamento.</small></div><div id="cartTotal" class="cart-total">R$ 0,00</div><button class="primary" data-acao="continuarCarrinho">CONTINUAR</button></div></div>
 <dialog id="alteracaoModal"><div class="modal-head"><h3>Solicitar alteração cadastral</h3><button class="close" data-acao="fecharAlteracaoModal">×</button></div><div class="modal-body request-box"><p>Descreva objetivamente qual informação está incorreta e qual deve ser a correção.</p><textarea id="alteracaoTexto" maxlength="1000" placeholder="Ex.: Minha unidade está incorreta. O correto é BC."></textarea><div id="alteracaoMsg"></div></div><div class="modal-actions"><button class="secondary" data-acao="fecharAlteracaoModal">CANCELAR</button><button id="enviarAlteracaoBtn" class="primary" data-acao="enviarSolicitacaoAlteracao">ENVIAR SOLICITAÇÃO</button></div></dialog>
+<dialog id="visorDesempenho" class="visor"><div class="visor-head"><div class="visor-titulo"><b id="visorTitulo"></b><span id="visorPagina"></span></div><div class="visor-botoes"><button class="secondary" data-acao="visorAnterior" aria-label="Página anterior">◀</button><button class="secondary" data-acao="visorProxima" aria-label="Próxima página">▶</button><button class="secondary" data-acao="visorZoom" data-arg="-1" aria-label="Diminuir">−</button><button class="secondary" data-acao="visorZoom" data-arg="1" aria-label="Aumentar">+</button><button class="close" data-acao="fecharVisor" aria-label="Fechar">×</button></div></div><div id="visorArea" class="visor-area"><img id="visorImg" class="visor-img" alt="" draggable="false"><div id="visorMsg" class="visor-msg"></div></div></dialog>
 <dialog id="modal"><div class="modal-head"><h3 id="modalTitle">Detalhes</h3><button class="close" data-acao="fecharModal">×</button></div><div id="modalBody" class="modal-body"></div><div id="modalActions" class="modal-actions"></div></dialog>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" integrity="sha384-3zSEDfvllQohrq0PHL1fOXJuC/jSOO34H46t6UQfobFOmxE5BpjjaIJY5F2/bMnU" crossorigin="anonymous"></script>
-<script src="./config.js?v=worker-prod-20261105"></script><script src="./worker-client.js?v=login-codigo-20261116b"></script><script src="./portal.js?v=csp-20261118" defer></script>
+<script src="./config.js?v=worker-prod-20261105"></script><script src="./worker-client.js?v=desempenho-20261118"></script><script src="./portal.js?v=desempenho-20261118" defer></script>
 </body>
 </html>

@@ -14,7 +14,9 @@ const ACOES={
   confirmarCadastro:()=>confirmarCadastro(),continuarCarrinho:()=>continuarCarrinho(),confirmarPedidoCarrinho:()=>confirmarPedidoCarrinho(),
   fecharModal:()=>fecharModal(),verMeusPedidos:()=>{fecharModal();abrirMeusPedidos();},
   adicionarCarrinhoSerie:arg=>adicionarCarrinhoSerie(arg),abrirPagamentoNovo:arg=>abrirPagamentoNovo(Number(arg)),
-  copiarPixAtual:()=>copiarPixAtual(),enviarComprovanteAtual:()=>enviarComprovanteAtual(),voltarPagamentosNovos:()=>voltarPagamentosNovos()
+  copiarPixAtual:()=>copiarPixAtual(),enviarComprovanteAtual:()=>enviarComprovanteAtual(),voltarPagamentosNovos:()=>voltarPagamentosNovos(),
+  abaDesempenho:()=>abrirDesempenho(),abaCompeticoes:()=>irHome(),escolherBimestre:arg=>escolherBimestre(Number(arg)),verDocumento:arg=>verDocumento(Number(arg)),
+  visorAnterior:()=>visorIr(-1),visorProxima:()=>visorIr(1),visorZoom:arg=>visorZoom(Number(arg)),fecharVisor:()=>fecharVisor()
 };
 document.addEventListener('click',e=>{
   const el=e.target&&e.target.closest?e.target.closest('[data-acao]'):null;
@@ -137,6 +139,7 @@ function entrarComSessao(r){
   document.getElementById('matriculaSec').classList.add('hidden');
   document.getElementById('home').classList.add('hidden');
   document.getElementById('grupoSec').classList.add('hidden');
+  mostrarAbas(false);desempenho=null;
   document.getElementById('cadastroSec').classList.remove('hidden');
   document.getElementById('matriculaMsg').innerHTML='';
   renderCadastroAluno();
@@ -223,9 +226,10 @@ function confirmarCadastro(){
   google.script.run.withSuccessHandler(r=>{
     btn.disabled=false;
     document.getElementById('cadastroSec').classList.add('hidden');
-    document.getElementById('home').classList.remove('hidden');
     renderHome((r&&r.home)||[]);
     atualizarResumoPedidos();
+    mostrarAbas(true);
+    abrirDesempenho();
     window.scrollTo({top:0,behavior:'smooth'});
   }).withFailureHandler(e=>{
     btn.disabled=false;msg.innerHTML=`<div class="message bad">${esc(e&&e.message?e.message:e)}</div>`;
@@ -270,6 +274,7 @@ function trocarAluno(){
   const token=alunoAtual&&alunoAtual.sessao;
   if(token){try{google.script.run.encerrarSessaoAluno(token);}catch(e){}}
   alunoAtual=null;grupos={};grupoAtual=null;catalogoAtual=[];carrinho={};pedidoPendenteIds=[];atualizarCarrinho();
+  mostrarAbas(false);desempenho=null;fecharVisor();
   document.getElementById('alunoBadge').classList.add('hidden');
   document.getElementById('meusPedidosBtn').classList.add('hidden');
   document.getElementById('meusPedidosCount').textContent='0';
@@ -583,6 +588,7 @@ function atualizarResumoPedidos(){
 
 function abrirMeusPedidos(){
   if(!alunoAtual||!alunoAtual.sessao){trocarAluno();return;}
+  document.getElementById('desempenhoSec').classList.add('hidden');marcarAba('abaPedidos');
   document.getElementById('home').classList.add('hidden');
   document.getElementById('cadastroSec').classList.add('hidden');
   document.getElementById('grupoSec').classList.add('hidden');
@@ -602,7 +608,7 @@ function abrirMeusPedidos(){
 
 function fecharMeusPedidos(){
   document.getElementById('pedidosSec').classList.add('hidden');
-  if(alunoAtual){document.getElementById('home').classList.remove('hidden');}
+  if(alunoAtual){document.getElementById('home').classList.remove('hidden');marcarAba('abaCompeticoes');}
   else trocarAluno();
   window.scrollTo({top:0,behavior:'smooth'});
 }
@@ -826,10 +832,113 @@ function statusLegivel(s){return String(s||'').replace(/_/g,' ').replace(/\s+/g,
 function classeStatusPedido(s){const n=statusLegivel(s).toUpperCase();if(/CONFIRMADO|CONCLUID|PAGO|APROVAD/.test(n))return'ok';if(/REJEIT|CANCEL|RECUS/.test(n))return'bad';if(/AGUARD|PENDENTE|ANALISE|ANÁLISE/.test(n))return'warn';return'neutral';}
 
 function fecharModal(){const d=document.getElementById('modal');d.close();d.classList.remove('wide');pixAtualCodigo='';pedidoPixAtualId='';}function loading(on){document.getElementById('loading').classList.toggle('hidden',!on);}
-function irHome(){document.getElementById('grupoSec').classList.add('hidden');document.getElementById('pedidosSec').classList.add('hidden');document.getElementById('catalogo').innerHTML='';grupoAtual=null;if(alunoAtual)document.getElementById('home').classList.remove('hidden');else trocarAluno();}
+function irHome(){document.getElementById('desempenhoSec').classList.add('hidden');marcarAba('abaCompeticoes');document.getElementById('grupoSec').classList.add('hidden');document.getElementById('pedidosSec').classList.add('hidden');document.getElementById('catalogo').innerHTML='';grupoAtual=null;if(alunoAtual)document.getElementById('home').classList.remove('hidden');else trocarAluno();}
 function falha(e){
   loading(false);
   const msg=e&&e.message?e.message:String(e||'Erro inesperado.');
   alert(msg);
   if(/sessão expirou|sessao expirou|identifique-se novamente/i.test(msg))trocarAluno();
 }
+
+// ---------- Meu desempenho (aprovado em 17/11/2026) ----------
+// Mapas de desempenho e espelho da redação, por bimestre. Só aparece o que o ADM liberou.
+// O visualizador mostra as imagens (links temporários do SharePoint) sem botão de baixar.
+const PROVAS_DESEMPENHO=[
+  {id:'PART',titulo:'Simulado Particulares',sub:'Todas as disciplinas',botao:'VER MAPA',tipo:'mapa'},
+  {id:'ENEM1',titulo:'Simulado ENEM · 1º dia',sub:'Linguagens, Humanas e Redação',botao:'VER MAPA',tipo:'mapa'},
+  {id:'ENEM2',titulo:'Simulado ENEM · 2º dia',sub:'Natureza e Matemática',botao:'VER MAPA',tipo:'mapa'},
+  {id:'ESPELHO',titulo:'Espelho da redação',sub:'Sua redação corrigida, com a nota de cada competência',botao:'VER ESPELHO',tipo:'espelho'}
+];
+let desempenho=null,bimestreAtual=1,visor=null;
+function mostrarAbas(on){document.getElementById('abasAluno').classList.toggle('hidden',!on);if(!on)document.getElementById('desempenhoSec').classList.add('hidden');}
+function marcarAba(id){for(const b of document.querySelectorAll('#abasAluno .aba')){const on=b.id===id;b.classList.toggle('ativa',on);b.setAttribute('aria-current',on?'page':'false');}}
+function abrirDesempenho(){
+  if(!alunoAtual||!alunoAtual.sessao){trocarAluno();return;}
+  ['home','grupoSec','pedidosSec','cadastroSec'].forEach(id=>document.getElementById(id).classList.add('hidden'));
+  document.getElementById('desempenhoSec').classList.remove('hidden');marcarAba('abaDesempenho');
+  document.getElementById('desempenhoTurma').textContent=[alunoAtual.serie,alunoAtual.unidade].filter(Boolean).join(' · ');
+  window.scrollTo({top:0,behavior:'smooth'});
+  if(desempenho){renderDesempenho();return;}
+  document.getElementById('desempenhoGrid').innerHTML='';document.getElementById('desempenhoMsg').innerHTML='';
+  document.getElementById('desempenhoLoading').classList.remove('hidden');
+  google.script.run.withSuccessHandler(r=>{
+    document.getElementById('desempenhoLoading').classList.add('hidden');
+    desempenho=(r&&Array.isArray(r.documentos))?r.documentos:[];
+    const comDocs=desempenho.map(d=>Number(d.bimestre)).filter(b=>b>=1&&b<=4);
+    bimestreAtual=comDocs.length?Math.max(...comDocs):1;
+    renderDesempenho();
+  }).withFailureHandler(e=>{
+    document.getElementById('desempenhoLoading').classList.add('hidden');
+    const msg=String(e&&e.message?e.message:e);
+    if(/sessão expirou|sessao expirou|identifique-se novamente/i.test(msg)){trocarAluno();return;}
+    document.getElementById('desempenhoMsg').innerHTML=`<div class="message bad">${esc(msg)}</div>`;
+  }).meuDesempenho(alunoAtual.sessao);
+}
+function escolherBimestre(b){if(b>=1&&b<=4){bimestreAtual=b;renderDesempenho();}}
+const dataCurta=iso=>{const d=new Date(iso);return isNaN(d)?'':String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0');};
+function renderDesempenho(){
+  const docs=desempenho||[];
+  const bims=document.getElementById('bimestres');bims.innerHTML='';
+  for(let b=1;b<=4;b++){const t=document.createElement('button');t.className='bim'+(b===bimestreAtual?' ativo':'')+(docs.some(d=>Number(d.bimestre)===b)?'':' vazio');t.dataset.acao='escolherBimestre';t.dataset.arg=String(b);t.textContent=b+'º bimestre';t.setAttribute('aria-pressed',String(b===bimestreAtual));bims.appendChild(t);}
+  const grid=document.getElementById('desempenhoGrid');grid.innerHTML='';
+  for(const p of PROVAS_DESEMPENHO){
+    const d=docs.find(x=>Number(x.bimestre)===bimestreAtual&&x.prova===p.id);
+    const card=document.createElement('article');card.className='desempenho-card'+(d?'':' indisponivel');
+    const mini=p.tipo==='espelho'
+      ?'<div class="mini espelho"><i class="mini-folha"></i><i class="mini-painel"></i></div>'
+      :'<div class="mini"><i class="mini-faixa"></i><i class="mini-circ"></i><i class="mini-circ"></i><i class="mini-circ"></i><i class="mini-linha"></i><i class="mini-linha curta"></i><i class="mini-grade"></i></div>';
+    const paginas=d?` · ${Number(d.paginas)} ${Number(d.paginas)===1?'página':'páginas'}`:'';
+    card.innerHTML=`<div class="desempenho-thumb">${mini}</div><div class="desempenho-body"><h3>${esc(p.titulo)}</h3><p>${esc(bimestreAtual+'º bimestre · '+p.sub)}${esc(paginas)}</p>`+
+      (d?`<span class="status-chip open">Liberado em ${esc(dataCurta(d.liberado_em))}</span><button class="primary" data-acao="verDocumento" data-arg="${Number(d.id)}">${p.botao}</button>`
+        :`<span class="status-chip soon">Ainda não liberado</span><button class="secondary" disabled>EM BREVE</button>`)+'</div>';
+    grid.appendChild(card);
+  }
+}
+
+/* Visualizador: uma página por vez, com zoom; sem link de download nem menu de "salvar imagem". */
+function verDocumento(id){
+  const d=(desempenho||[]).find(x=>Number(x.id)===id);if(!d||!alunoAtual)return;
+  const p=PROVAS_DESEMPENHO.find(x=>x.id===d.prova)||{titulo:'Documento'};
+  visor={id,titulo:p.titulo+' · '+d.bimestre+'º bimestre',links:[],pagina:0,zoom:1,tentou:false};
+  document.getElementById('visorTitulo').textContent=visor.titulo;document.getElementById('visorPagina').textContent='';
+  const img=document.getElementById('visorImg');img.removeAttribute('src');img.classList.add('hidden');
+  document.getElementById('visorMsg').textContent='Abrindo...';
+  const dlg=document.getElementById('visorDesempenho');if(!dlg.open)dlg.showModal();
+  buscarPaginas();
+}
+function buscarPaginas(){
+  const atual=visor;
+  google.script.run.withSuccessHandler(r=>{
+    if(visor!==atual)return;
+    visor.links=(r&&Array.isArray(r.links))?r.links.filter(l=>/^https:\/\/grupoideal\.sharepoint\.com\//.test(String(l))):[];
+    if(!visor.links.length){document.getElementById('visorMsg').textContent='Não foi possível abrir agora. Tente de novo em instantes.';return;}
+    mostrarPagina();
+  }).withFailureHandler(e=>{
+    if(visor!==atual)return;
+    const msg=String(e&&e.message?e.message:e);
+    if(/sessão expirou|sessao expirou|identifique-se novamente/i.test(msg)){fecharVisor();trocarAluno();return;}
+    document.getElementById('visorMsg').textContent=msg;
+  }).paginasDesempenho(alunoAtual.sessao,visor.id);
+}
+function mostrarPagina(){
+  if(!visor||!visor.links.length)return;
+  const img=document.getElementById('visorImg'),n=visor.links.length;
+  document.getElementById('visorPagina').textContent=n>1?`Página ${visor.pagina+1} de ${n}`:'';
+  document.getElementById('visorMsg').textContent='Carregando a página...';
+  img.classList.add('hidden');img.alt=visor.titulo+(n>1?' — página '+(visor.pagina+1):'');
+  img.onload=()=>{document.getElementById('visorMsg').textContent='';img.classList.remove('hidden');};
+  /* link temporário vencido (cerca de 1 h): pede links novos uma vez */
+  img.onerror=()=>{if(visor&&!visor.tentou){visor.tentou=true;document.getElementById('visorMsg').textContent='Abrindo de novo...';buscarPaginas();}else document.getElementById('visorMsg').textContent='Não foi possível carregar a página. Feche e abra de novo.';};
+  img.src=visor.links[visor.pagina];
+  aplicarZoom();
+  for(const b of document.querySelectorAll('#visorDesempenho [data-acao=visorAnterior],#visorDesempenho [data-acao=visorProxima]'))b.classList.toggle('hidden',n<2);
+  document.querySelector('#visorDesempenho [data-acao=visorAnterior]').disabled=visor.pagina===0;
+  document.querySelector('#visorDesempenho [data-acao=visorProxima]').disabled=visor.pagina>=n-1;
+}
+function visorIr(passo){if(!visor)return;const n=visor.links.length,p=visor.pagina+passo;if(p<0||p>=n)return;visor.pagina=p;mostrarPagina();document.getElementById('visorArea').scrollTo({top:0,left:0});}
+const ZOOMS=[1,1.5,2,3];
+function visorZoom(passo){if(!visor)return;const i=Math.max(0,Math.min(ZOOMS.length-1,ZOOMS.indexOf(visor.zoom)+passo));visor.zoom=ZOOMS[i];aplicarZoom();}
+function aplicarZoom(){const img=document.getElementById('visorImg');for(const z of ZOOMS)img.classList.toggle('zoom-'+String(z).replace('.','-'),!!visor&&visor.zoom===z);}
+function fecharVisor(){visor=null;const img=document.getElementById('visorImg');img.onload=img.onerror=null;img.removeAttribute('src');const dlg=document.getElementById('visorDesempenho');if(dlg&&dlg.open)dlg.close();}
+document.getElementById('visorDesempenho').addEventListener('close',()=>{if(visor)fecharVisor();});
+for(const ev of ['contextmenu','dragstart'])document.getElementById('visorDesempenho').addEventListener(ev,e=>e.preventDefault());
