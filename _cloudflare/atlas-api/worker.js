@@ -61,7 +61,7 @@ class HttpError extends Error {
 }
 
 // ---------- férias: ATLAS fechado para professores, supervisores e digitadores ----------
-// Professor e supervisor: julho inteiro e recesso de 15 de dezembro a 31 de janeiro (horário de Brasília).
+// Professor e supervisor: julho inteiro e recesso de 15 de dezembro a 9 de janeiro (horário de Brasília; decisão do Marinho em 18/11/2026: reabre em 10/01).
 // Digitador: só julho (trabalha no recesso). A Administração entra sempre.
 function hojeSP(env) {
   const teste = env && env.ATLAS_HOJE_TESTE;   // só para testes automáticos (AAAA-MM-DD)
@@ -70,11 +70,11 @@ function hojeSP(env) {
 }
 function emFerias(env, digitador = false) {
   const [, m, d] = hojeSP(env).split('-').map(Number);
-  return m === 7 || (!digitador && (m === 1 || (m === 12 && d >= 15)));
+  return m === 7 || (!digitador && ((m === 1 && d <= 9) || (m === 12 && d >= 15)));
 }
 function voltaDasFerias(env) {
   const [a, m] = hojeSP(env).split('-').map(Number);
-  return m === 7 ? '1º de agosto' : '1º de fevereiro';
+  return m === 7 ? '1º de agosto' : '10 de janeiro';
 }
 function bloquearFerias(env, digitador = false) {
   if (!emFerias(env, digitador)) return;
