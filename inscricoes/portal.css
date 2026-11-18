@@ -288,6 +288,8 @@ dialog[open] > .modal-actions {
   .cadastro-cols{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.15fr);gap:32px;align-items:start}
   .cadastro-cols .dados-grid{grid-template-columns:repeat(2,minmax(0,1fr));margin-bottom:0}
   .cadastro-cols .dados-grid .dado-readonly:first-child{grid-column:1/-1}
+  /* E-mail institucional numa linha só (18/11/2026): ocupa a largura toda, como o nome. */
+  .cadastro-cols .dados-grid .dado-email{grid-column:1/-1}
   .cadastro-cols .contatos-box{border-top:0;padding-top:0;border-left:1px solid var(--borda);padding-left:32px}
   .cadastro-cols label.field{display:block}
   .cadastro-cols label.field>input,.cadastro-cols label.field>select{display:block;margin-top:6px}
