@@ -70,6 +70,7 @@ await page.route('https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/**', rou
   if (pdfjsAdulterado) body = Buffer.concat([body, Buffer.from('\n/* alterado */')]);
   route.fulfill({ status: 200, headers: { 'content-type': 'text/javascript', 'access-control-allow-origin': '*' }, body });
 });
+await page.route('https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/**', route => route.fulfill({ status: 200, headers: { 'content-type': 'text/javascript', 'access-control-allow-origin': '*' }, body: fs.readFileSync(S + 'pdflib/package/dist/pdf-lib.min.js') }));
 await page.route('https://atlas-api.marinhomalcher.workers.dev/**', async route => {
   const req = route.request(), u = new URL(req.url()), type = req.headers()['content-type'], body = req.postDataBuffer();
   const token = (req.headers()['authorization'] || '').replace(/^Bearer /i, '');
@@ -152,7 +153,8 @@ let r = await api('/api/adm/redacao/turmas');
 const bc = r.data.turmas.find(t => t.unidade === 'BC' && t.codigo === '3EMA');
 r = await api('/api/adm/redacao/equipe', 'POST', { nome: 'Digitalizador BC', email: 'bc@grupoideal.com.br', funcao: 'digitalizador', unidades: ['BC'] });
 sessao('bc-token', 'usuario', 'bc@grupoideal.com.br', r.data.equipe.find(x => x.email === 'bc@grupoideal.com.br')?.id);
-r = await api('/api/redacao/lotes?turma_id=' + bc.id + '&bimestre=4', 'POST', pdf, 'bc-token', 'application/pdf');
+const envio4 = (await api('/api/redacao/envios', 'POST', { bimestre: 4, unidade: 'BC' }, 'bc-token')).data.envio_id;
+r = await api('/api/redacao/lotes?envio=' + envio4 + '&turma_id=' + bc.id + '&paginas=3', 'POST', pdf, 'bc-token', 'application/pdf');
 ok('PDF fictício de 3 páginas recebido como lote', r.status === 200 && !!r.data.lote_id, r.data.error);
 await page.reload();
 await page.locator('#app').waitFor({ state: 'visible' });
@@ -194,15 +196,18 @@ ok('Prévia cabe no celular', await page.evaluate(() => document.documentElement
 await page.locator('#align-close').click();
 ok('Fechar esconde a prévia', await page.locator('#align-viewer').isHidden());
 
-// ---------- 3. digitalizador: leitura do RA e conferência da turma antes do envio ----------
+// ---------- 3. digitalizador: envio automático por bimestre e unidade (v17) ----------
 await page.addScriptTag({ content: FOLHA_JS });   /* a página foi recarregada */
-const pdfDe = async lista => pdfDeJpegs((await page.evaluate(l => l.map(o => { const c = window.escanear(window.folhaTeste(o.folha), o.scan); return { jpeg: window.jpeg(c), w: c.width, h: c.height }; }), lista)).map(j => ({ ...j, jpeg: Buffer.from(j.jpeg, 'base64') })));
+const pdfDe = async lista => { if (!await page.evaluate(() => typeof window.folhaTeste === 'function')) await page.addScriptTag({ content: FOLHA_JS }); return pdfDe2(lista); };
+const pdfDe2 = async lista => pdfDeJpegs((await page.evaluate(l => l.map(o => { const c = window.escanear(window.folhaTeste(o.folha), o.scan); return { jpeg: window.jpeg(c), w: c.width, h: c.height }; }), lista)).map(j => ({ ...j, jpeg: Buffer.from(j.jpeg, 'base64') })));
+const { PDFDocument } = require(S + 'pdflib/package/dist/pdf-lib.min.js');
+const contagem = new Map();
+const paginasPdf = buf => contagem.get(buf) ?? -1;
+const contar = async (...bufs) => { for (const b of bufs) if (b) contagem.set(b, (await PDFDocument.load(b)).getPageCount()); };
 const turmas = (await api('/api/adm/redacao/turmas')).data.turmas;
 const t2 = turmas.find(t => t.unidade === 'BC' && t.codigo === '2EMA'), tcn = turmas.find(t => t.unidade === 'CN' && t.codigo === '3EMA');
-const pdfCerto = await pdfDe([{ folha: { ra: '11111' }, scan: { ang: 0.7 } }, { folha: { ra: '22222' }, scan: { ang: 179.5, cinza: true } }, { folha: { avulsa: true }, scan: { ang: -0.4 } }]);
-const pdfErrado = await pdfDe([{ folha: { ra: '33333' }, scan: { ang: 1 } }, { folha: { ra: '44444' }, scan: { ang: -1 } }, { folha: { ra: '55555' }, scan: { ang: 0.3 } }]);
-/* API: sem cadastro, todo RA fica "fora do cadastro" e a resposta avisa. */
-r = await api('/api/redacao/lotes/conferir', 'POST', { turma_id: bc.id, ras: ['11111'] }, 'bc-token');
+const m1 = turmas.find(t => t.unidade === 'BC' && t.codigo === '1MED'), m2 = turmas.find(t => t.unidade === 'BC' && t.codigo === '2MED'), c1 = turmas.find(t => t.unidade === 'CN' && t.codigo === '1EMA');
+r = await api('/api/redacao/lotes/conferir', 'POST', { bimestre: 2, unidade: 'BC', ras: ['61111'] }, 'bc-token');
 ok('Conferência avisa que o cadastro de alunos está vazio', r.status === 200 && r.data.cadastro_vazio && r.data.alunos[0].situacao === 'fora_cadastro', JSON.stringify(r.data));
 const aluno = db.prepare('INSERT INTO redacao_alunos (ra, nome, turma_id, ano, segmento, serie) VALUES (?, ?, ?, ?, ?, ?)');
 const ano = db.prepare('SELECT ano FROM redacao_turmas WHERE id = ?').get(bc.id).ano;
@@ -211,68 +216,127 @@ aluno.run('22222', 'ALUNO TESTE DOIS', bc.id, ano, 'EM', '3ª Série');
 aluno.run('33333', 'ALUNO TESTE TRES', t2.id, ano, 'EM', '2ª Série');
 aluno.run('44444', 'ALUNO TESTE QUATRO', t2.id, ano, 'EM', '2ª Série');
 aluno.run('55555', 'ALUNO TESTE CINCO', tcn.id, ano, 'EM', '3ª Série');
-r = await api('/api/redacao/lotes/conferir', 'POST', { turma_id: bc.id, ras: ['11111', '33333', '55555', '99999'] }, 'bc-token');
+for (const [ra, nome, t] of [['61111', 'MARIA FICTICIA', m1], ['62222', 'JOAO FICTICIO', m1], ['66666', 'ANA FICTICIA', m1], ['68888', 'PEDRO FICTICIO', m1],
+  ['63333', 'LUIZA FICTICIA', m2], ['64444', 'CARLOS FICTICIO', m2], ['65555', 'BEATRIZ FICTICIA (CN)', c1]]) aluno.run(ra, nome, t.id, ano, 'EM', t.serie);
+/* professora fictícia de 1MED (para o resumo mostrar o nome) */
+r = await api('/api/adm/redacao/equipe', 'POST', { nome: 'Professora Fictícia', email: 'prof1med@grupoideal.com.br', funcao: 'professor', turmas: [m1.id] });
+r = await api('/api/redacao/lotes/conferir', 'POST', { bimestre: 2, unidade: 'BC', ras: ['61111', '63333', '65555', '99999'] }, 'bc-token');
 const sit = Object.fromEntries((r.data.alunos || []).map(x => [x.ra, x]));
-ok('Conferência separa turma, outra turma, outra unidade e fora do cadastro', r.status === 200 && sit['11111'].situacao === 'turma' && sit['33333'].situacao === 'outra_turma' && sit['33333'].codigo === '2EMA' && sit['55555'].situacao === 'outra_unidade' && sit['99999'].situacao === 'fora_cadastro', JSON.stringify(r.data));
-ok('Aluno de outra unidade não mostra nome nem turma', !sit['55555'].nome && !sit['55555'].codigo);
-r = await api('/api/redacao/lotes/conferir', 'POST', { turma_id: tcn.id, ras: ['11111'] }, 'bc-token');
-ok('Digitalizador não confere turma de outra unidade', r.status === 404, r.status);
-r = await api('/api/redacao/lotes/conferir', 'POST', { turma_id: bc.id, ras: ['11111'] }, 'prof-inexistente');
+const tconf = Object.fromEntries((r.data.turmas || []).map(x => [x.codigo + x.unidade, x]));
+ok('Conferência acha a turma de cada aluno (inclusive de outra unidade) e o fora da lista', r.status === 200 && sit['61111'].turma_id === m1.id && sit['63333'].turma_id === m2.id && sit['65555'].unidade === 'CN' && sit['99999'].situacao === 'fora_cadastro', JSON.stringify(r.data.alunos));
+ok('Conferência traz professora, lote e lista de alunos de cada turma', tconf['1MEDBC']?.professoras?.[0] === 'Professora Fictícia' && tconf['1MEDBC'].lote === null && tconf['1MEDBC'].alunos.length === 4 && tconf['2MEDBC'].professoras.length === 0, JSON.stringify(r.data.turmas));
+r = await api('/api/redacao/lotes/conferir', 'POST', { bimestre: 2, unidade: 'CN', ras: ['61111'] }, 'bc-token');
+ok('Digitalizador não escolhe unidade que não é dele', r.status === 403, r.status);
+r = await api('/api/redacao/lotes/conferir', 'POST', { bimestre: 2, unidade: 'BC', ras: ['61111'] }, 'prof-inexistente');
 ok('Conferência exige login de digitalizador', r.status === 401 || r.status === 403, r.status);
-r = await api('/api/redacao/lotes/conferir', 'POST', { turma_id: bc.id, ras: ['12a'] }, 'bc-token');
+r = await api('/api/redacao/lotes/conferir', 'POST', { bimestre: 2, unidade: 'BC', ras: ['12a'] }, 'bc-token');
 ok('RA inválido é recusado', r.status === 400, r.status);
 ok('Conferência não grava nada', db.prepare('SELECT COUNT(*) AS n FROM redacao_lotes').get().n === 1);
 
-/* Tela do digitalizador */
+/* Tela do digitalizador: 1º envio, pilha da 1MED com uma folha sem código */
 await page.setViewportSize({ width: 1280, height: 900 });
 await page.evaluate(() => sessionStorage.setItem('atlas_user_auth', JSON.stringify({ token: 'bc-token' })));
 await page.goto(base + '/redacao.html');
 await page.locator('#upload-area').waitFor({ state: 'visible' });
-await page.locator('#bimestre').selectOption('1');
+ok('Tela pede só bimestre, unidade e o PDF', await page.locator('#bimestre').isVisible() && await page.locator('#unidade').isVisible() && await page.locator('#turma').count() === 0 && await page.locator('#serie').count() === 0);
+await page.locator('#bimestre').selectOption('2');
 await page.locator('#unidade').selectOption('BC');
-await page.locator('#segmento').selectOption('EM');
-await page.locator('#serie').selectOption('3ª Série');
-await page.locator('#turma').selectOption(String(bc.id));
-const esperaRelatorio = () => page.waitForFunction(() => { const t = document.querySelector('#ra-report').textContent; return /RAs? lidos?/.test(t) && !/conferindo|Lendo/.test(t); }, null, { timeout: 40000 });
-await page.locator('#pdf-file').setInputFiles({ name: 'turma.pdf', mimeType: 'application/pdf', buffer: pdfCerto });
+const esperaRelatorio = () => page.waitForFunction(() => { const t = document.querySelector('#ra-report').textContent; return /identificad/.test(t) && !/Conferindo|Lendo/.test(t); }, null, { timeout: 40000 });
+const enviarEEsperar = async () => { const antes = await page.locator('#upload-status').textContent(); await page.locator('#send-file').click(); await page.waitForFunction(a => { const t = document.querySelector('#upload-status').textContent; return t !== a && !/^Enviando/.test(t); }, antes, { timeout: 40000 }).catch(() => {}); };
+const pdfA = await pdfDe([{ folha: { ra: '61111' }, scan: { ang: 0.7 } }, { folha: { ra: '62222' }, scan: { ang: 179.5, cinza: true } }, { folha: { avulsa: true }, scan: { ang: -0.4 } }]);
+await page.locator('#pdf-file').setInputFiles({ name: 'turma.pdf', mimeType: 'application/pdf', buffer: pdfA });
 await esperaRelatorio();
 let rel = await page.locator('#ra-report').textContent();
-ok('Relatório: 3 páginas, 2 RAs lidos, 2 da turma, 1 avulsa', /3 páginas · 2 RAs lidos · 2 da turma 3EMA/.test(rel) && /1 folha sem código de barras/.test(rel) && !/bloqueado/.test(rel), rel);
-ok('Turma certa: envio liberado', await page.locator('#send-file').isEnabled());
-await page.locator('#ra-report summary').click();
-ok('Página por página mostra RA, aluno e situação', await page.locator('#ra-report tbody tr').count() === 3 && /11111.*ALUNO TESTE UM.*da turma/.test(await page.locator('#ra-report tbody tr').nth(0).textContent()) && /avulsa/.test(await page.locator('#ra-report tbody tr').nth(2).textContent()));
-await page.locator('#pdf-file').setInputFiles({ name: 'errado.pdf', mimeType: 'application/pdf', buffer: pdfErrado });
+ok('Resumo: 3 páginas, 2 identificados, 1 para decidir; turma, professora e lote novo', /3 páginas · 2 alunos identificados · 1 folha para você decidir/.test(rel) && /1MED · Batista Campos/.test(rel) && /Professora Fictícia/.test(rel) && /lote novo/.test(rel), rel);
+ok('Envio fica travado até decidir a folha sem código', await page.locator('#send-file').isDisabled());
+const opcoesDec = await page.locator('.dec select option').allTextContents();
+ok('Folha sem código: lista só os alunos da turma que faltam, descartar e ADM', opcoesDec.some(o => /ANA FICTICIA/.test(o)) && opcoesDec.some(o => /PEDRO FICTICIO/.test(o)) && !opcoesDec.some(o => /MARIA FICTICIA/.test(o)) && opcoesDec.some(o => /Descartar/.test(o)) && opcoesDec.some(o => /ADM/.test(o)), opcoesDec.join(' | '));
+ok('A decisão mostra o cabeçalho da folha', await page.locator('.dec img').count() === 1 && (await page.locator('.dec img').getAttribute('src')).startsWith('data:image/jpeg'));
+await page.locator('.dec select').selectOption('ra:66666');
+ok('Depois de decidir, o envio é liberado', await page.locator('#send-file').isEnabled());
+await enviarEEsperar();
+ok('Envio concluído informa a turma', /Envio concluído: 1MED \(3 folhas\)/.test(await page.locator('#upload-status').textContent()), await page.locator('#upload-status').textContent());
+const loteM1 = db.prepare('SELECT * FROM redacao_lotes WHERE turma_id = ? AND bimestre = 2 AND cancelado_em IS NULL').get(m1.id);
+await contar(objetos.get(loteM1?.r2_key));
+let pagsM1 = db.prepare('SELECT pagina, ra_lido, situacao, aluno_ra, resolvido_por, envio_id FROM redacao_paginas WHERE lote_id = ? ORDER BY pagina').all(loteM1?.id ?? 0);
+ok('Lote da 1MED com 3 folhas: 2 pelo código e 1 escolhida pelo digitalizador', loteM1?.paginas_arquivo === 3 && paginasPdf(objetos.get(loteM1.r2_key)) === 3 && pagsM1.map(p => p.aluno_ra).join() === '61111,62222,66666' &&
+  pagsM1[2].resolvido_por === 'bc@grupoideal.com.br' && !pagsM1[0].resolvido_por && pagsM1.every(p => p.envio_id), JSON.stringify(pagsM1));
+ok('"Seus envios" mostra o envio com "Desfazer envio"', /1MED: 3 folhas/.test(await page.locator('#lot-list').textContent()) && await page.locator('#lot-list .lot').first().getByRole('button', { name: 'Desfazer envio' }).isEnabled());
+
+/* 2º envio: pilha da 2MED com um aluno da CN no meio e um aluno fora da lista */
+const pdfB = await pdfDe([{ folha: { ra: '63333' }, scan: { ang: 1 } }, { folha: { ra: '64444' }, scan: { ang: -1 } }, { folha: { ra: '65555' }, scan: { ang: 0.3 } }, { folha: { ra: '77777' }, scan: { ang: 0.2 } }]);
+await page.locator('#pdf-file').setInputFiles({ name: 'mista.pdf', mimeType: 'application/pdf', buffer: pdfB });
 await esperaRelatorio();
 rel = await page.locator('#ra-report').textContent();
-ok('PDF de outra turma: envio bloqueado e explicado', /Envio bloqueado: 3 das 3 folhas lidas são de alunos de outra turma \(2EMA\)/.test(rel) && await page.locator('#send-file').isDisabled(), rel);
-ok('Aluno de outra unidade aparece sem nome', /aluno de outra unidade/.test(rel) && !/ALUNO TESTE CINCO/.test(rel));
-await page.locator('#serie').selectOption('2ª Série');
-await page.locator('#turma').selectOption(String(t2.id));
+ok('Aluno de outra unidade segue para a turma dele; fora da lista vai ao ADM sem travar', /4 páginas · 3 alunos identificados/.test(rel) && !/para você decidir/.test(rel.split('Turma')[0]) && /2MED · Batista Campos.*3 \(1 para o ADM\)/.test(rel) && /1EMA · Cidade Nova/.test(rel) && /sem professora cadastrada/.test(rel) && !/maioria das folhas/.test(rel), rel);
+ok('Sem pendências, o envio já fica liberado', await page.locator('#send-file').isEnabled());
+await enviarEEsperar();
+ok('Envio separa as folhas por turma', /Envio concluído: 2MED \(3 folhas\), 1EMA \(1 folha\)/.test(await page.locator('#upload-status').textContent()), await page.locator('#upload-status').textContent());
+const loteM2 = db.prepare('SELECT * FROM redacao_lotes WHERE turma_id = ? AND bimestre = 2 AND cancelado_em IS NULL').get(m2.id);
+const loteC1 = db.prepare('SELECT * FROM redacao_lotes WHERE turma_id = ? AND bimestre = 2 AND cancelado_em IS NULL').get(c1.id);
+await contar(objetos.get(loteM2?.r2_key), objetos.get(loteC1?.r2_key));
+const pagsM2 = db.prepare('SELECT situacao, motivo, aluno_ra, ra_lido FROM redacao_paginas WHERE lote_id = ? ORDER BY pagina').all(loteM2?.id ?? 0);
+ok('2MED recebe os dela e a folha do aluno fora da lista (para o ADM); CN recebe a do aluno dela', !!loteM2 && !!loteC1 && paginasPdf(objetos.get(loteM2.r2_key)) === 3 && paginasPdf(objetos.get(loteC1.r2_key)) === 1 &&
+  pagsM2.map(p => p.situacao + ':' + (p.aluno_ra || p.motivo)).join() === 'aluno:63333,aluno:64444,duvida:fora_cadastro' &&
+  db.prepare('SELECT aluno_ra FROM redacao_paginas WHERE lote_id = ?').get(loteC1?.id ?? 0)?.aluno_ra === '65555', JSON.stringify(pagsM2));
+
+/* 3º envio: uma folha atrasada da 1MED entra no fim do lote já enviado; uma repetida é descartada */
+const pdfC = await pdfDe([{ folha: { ra: '68888' }, scan: { ang: 0.4 } }, { folha: { ra: '61111' }, scan: { ang: -0.3 } }]);
+await page.locator('#pdf-file').setInputFiles({ name: 'atrasadas.pdf', mimeType: 'application/pdf', buffer: pdfC });
 await esperaRelatorio();
 rel = await page.locator('#ra-report').textContent();
-ok('Ao escolher a turma certa, a conferência refaz e libera (2 de 3 = maioria)', /2 da turma 2EMA/.test(rel) && !/bloqueado/.test(rel) && await page.locator('#send-file').isEnabled(), rel);
-await page.locator('#send-file').click();
-await page.waitForFunction(() => document.querySelector('#upload-status').textContent.includes('Lote recebido.'), null, { timeout: 15000 }).catch(() => {});
-ok('Envio conferido é recebido e o relatório some', /Lote recebido/.test(await page.locator('#upload-status').textContent()) && await page.locator('#ra-report').isHidden());
+ok('Folhas de turma já enviada: "acrescenta ao lote" e o aluno repetido pede decisão', /acrescenta ao lote já enviado \(3 folhas\)/.test(rel) && /aluno repetido/.test(rel) && await page.locator('#send-file').isDisabled(), rel);
+await page.locator('.dec select').selectOption('descartar');
+await enviarEEsperar();
+pagsM1 = db.prepare('SELECT pagina, situacao, aluno_ra FROM redacao_paginas WHERE lote_id = ? ORDER BY pagina').all(loteM1.id);
+const loteM1b = db.prepare('SELECT * FROM redacao_lotes WHERE id = ?').get(loteM1.id);
+await contar(objetos.get(loteM1b.r2_key));
+ok('As folhas novas entram no fim do mesmo lote; as antigas mantêm o número', /Envio concluído: 1MED \(2 folhas\)/.test(await page.locator('#upload-status').textContent()) && loteM1b.paginas_arquivo === 5 && paginasPdf(objetos.get(loteM1b.r2_key)) === 5 &&
+  !objetos.has(loteM1.r2_key) && pagsM1.map(p => p.pagina + ':' + (p.aluno_ra || p.situacao)).join() === '1:61111,2:62222,3:66666,4:68888,5:descartada', JSON.stringify(pagsM1));
 await page.setViewportSize({ width: 390, height: 840 });
 ok('Tela do digitalizador cabe no celular', await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
-ok('Envio grava o índice das folhas e informa o resultado', /2 alunos identificados, 0 folhas avulsas e 1 dúvida para o ADM/.test(await page.locator('#upload-status').textContent()), await page.locator('#upload-status').textContent());
-const loteT2 = db.prepare('SELECT id FROM redacao_lotes WHERE turma_id = ? AND cancelado_em IS NULL').get(t2.id).id;
-const pags = db.prepare('SELECT pagina, ra_lido, situacao, motivo, aluno_ra, invertida FROM redacao_paginas WHERE lote_id = ? ORDER BY pagina').all(loteT2);
-ok('Índice: páginas da turma viram aluno; outra unidade vira dúvida', pags.length === 3 && pags[0].situacao === 'aluno' && pags[0].aluno_ra === '33333' && pags[1].situacao === 'aluno' && pags[2].situacao === 'duvida' && pags[2].motivo === 'outra_unidade', JSON.stringify(pags));
+await page.setViewportSize({ width: 1280, height: 900 });
 
-/* API do índice: o servidor decide a situação; só o dono do lote grava; RA repetido vira dúvida. */
-r = await api('/api/redacao/lotes/' + loteT2 + '/paginas', 'POST', { paginas: [{ pagina: 1, ra: '33333', situacao: 'aluno' }, { pagina: 2, ra: '33333' }, { pagina: 3, ra: null }, { pagina: 4, ra: '99999' }] }, 'bc-token');
-ok('RA repetido, sem código e fora do cadastro são classificados no servidor', r.status === 200 && r.data.resumo.aluno === 0 && r.data.resumo.duvida === 3 && r.data.resumo.avulsa === 1 &&
-  db.prepare("SELECT COUNT(*) AS n FROM redacao_paginas WHERE lote_id = ? AND motivo = 'repetido'").get(loteT2).n === 2, JSON.stringify(r.data));
-r = await api('/api/redacao/lotes/' + loteT2 + '/paginas', 'POST', { paginas: [{ pagina: 2, ra: '33333' }] }, 'bc-token');
-ok('Numeração de páginas fora de ordem é recusada', r.status === 400, r.status);
-sessao('bc2-token', 'usuario', 'bc2@grupoideal.com.br', (await api('/api/adm/redacao/equipe', 'POST', { nome: 'Outro Digitalizador BC', email: 'bc2@grupoideal.com.br', funcao: 'digitalizador', unidades: ['BC'] })).data.equipe.find(x => x.email === 'bc2@grupoideal.com.br')?.id);
-r = await api('/api/redacao/lotes/' + loteT2 + '/paginas', 'POST', { paginas: [{ pagina: 1, ra: '33333' }] }, 'bc2-token');
-ok('Outro digitalizador não grava o índice de um lote que não é dele', r.status === 404, r.status);
-db.prepare('UPDATE redacao_lotes SET cancelavel_ate = ? WHERE id = ?').run('2000-01-01T00:00:00Z', loteT2);
-r = await api('/api/redacao/lotes/' + loteT2 + '/paginas', 'POST', { paginas: [{ pagina: 1, ra: '33333' }] }, 'bc-token');
-ok('Depois de 2 horas só o ADM refaz a leitura', r.status === 403, r.status);
+/* API: proteções do envio */
+const envioId = (await api('/api/redacao/envios', 'POST', { bimestre: 2, unidade: 'BC' }, 'bc-token')).data.envio_id;
+r = await api('/api/redacao/lotes/' + loteM2.id + '/paginas', 'POST', { envio_id: envioId, paginas: [{ pagina: 4, ra_lido: '61111', destino: 'aluno' }] }, 'bc-token');
+ok('Servidor recusa aluno de outra turma no lote', r.status === 400 || r.status === 409, r.status + ' ' + r.data.error);
+r = await api('/api/redacao/lotes/' + loteM2.id + '/paginas', 'POST', { envio_id: envioId, paginas: [{ pagina: 2, ra_lido: '64444', destino: 'aluno' }] }, 'bc-token');
+ok('Servidor recusa página que já existe no lote', r.status === 400, r.status);
+r = await api('/api/redacao/lotes?envio=' + envioId + '&turma_id=' + m2.id + '&paginas=1', 'POST', pdfA, 'bc-token', 'application/pdf');
+ok('Turma que já tem lote no bimestre não ganha outro', r.status === 409, r.status);
+r = await api('/api/redacao/lotes/' + loteM2.id + '/arquivo?envio=' + envioId + '&antes=1&paginas=4', 'PUT', pdfA, 'bc-token', 'application/pdf');
+ok('Acréscimo com contagem errada é recusado (lote mudou)', r.status === 409, r.status);
+sessao('bc2-token', 'usuario', 'bc2@grupoideal.com.br', (await api('/api/adm/redacao/equipe', 'POST', { nome: 'Outro Digitalizador BC', email: 'bc2@grupoideal.com.br', funcao: 'digitalizador', unidades: ['BC'] })).data.equipe.find(x => x.email === 'bc2@grupoideal.com.br').id);
+const envioB = db.prepare('SELECT envio_id FROM redacao_paginas WHERE lote_id = ? LIMIT 1').get(loteM2.id).envio_id;
+r = await api('/api/redacao/envios/' + envioB, 'DELETE', undefined, 'bc2-token');
+ok('Outro digitalizador não desfaz o envio', r.status === 404, r.status);
+/* desfazer: o 2º envio criou os lotes da 2MED e da CN, sem correção → os dois são cancelados */
+await page.reload();
+await page.locator('#lot-list .lot').first().waitFor();
+const cartaoB = page.locator('#lot-list .lot', { hasText: '2MED' });
+await cartaoB.getByRole('button', { name: 'Desfazer envio' }).click();
+await cartaoB.getByRole('button', { name: 'Confirmar: desfazer' }).click();
+await page.waitForFunction(() => /Envio desfeito/.test(document.querySelector('#upload-status').textContent), null, { timeout: 15000 }).catch(() => {});
+ok('Desfazer envio cancela os lotes que ele criou e apaga os PDFs', /Envio desfeito/.test(await page.locator('#upload-status').textContent()) &&
+  !!db.prepare('SELECT cancelado_em FROM redacao_lotes WHERE id = ?').get(loteM2.id).cancelado_em && !!db.prepare('SELECT cancelado_em FROM redacao_lotes WHERE id = ?').get(loteC1.id).cancelado_em &&
+  !objetos.has(loteM2.r2_key) && !objetos.has(loteC1.r2_key), await page.locator('#upload-status').textContent());
+/* depois que a professora começa a corrigir, só o ADM desfaz */
+const envioA = db.prepare('SELECT envio_id FROM redacao_paginas WHERE lote_id = ? AND pagina = 1').get(loteM1.id).envio_id;
+db.prepare("INSERT INTO redacao_correcoes (lote_id, pagina, aluno_ra, professor_id, enviada_em) VALUES (?, 1, '61111', 1, '2026-11-13T10:00:00Z')").run(loteM1.id);
+r = await api('/api/redacao/envios/' + envioA, 'DELETE', undefined, 'bc-token');
+ok('Com correção começada, o digitalizador não desfaz', r.status === 409 && /começou a corrigir/.test(r.data.error), r.data.error);
+const envioC = db.prepare('SELECT envio_id FROM redacao_paginas WHERE lote_id = ? AND pagina = 4').get(loteM1.id).envio_id;
+r = await api('/api/redacao/envios/' + envioC, 'DELETE', undefined, 'bc-token');
+ok('Desfazer folhas acrescentadas tira só elas do lote (o lote continua)', r.status === 200 && r.data.folhas_retiradas === 2 && !db.prepare('SELECT cancelado_em FROM redacao_lotes WHERE id = ?').get(loteM1.id).cancelado_em &&
+  db.prepare('SELECT COUNT(*) AS n FROM redacao_paginas WHERE lote_id = ?').get(loteM1.id).n === 3, JSON.stringify(r.data));
+db.prepare('DELETE FROM redacao_correcoes WHERE lote_id = ?').run(loteM1.id);
+
+/* Para a parte do ADM: lote da 2EMA (1º bimestre) com uma folha de aluno de outra unidade, lido pelo ADM. */
+const envioT2 = (await api('/api/redacao/envios', 'POST', { bimestre: 1, unidade: 'BC' }, 'bc-token')).data.envio_id;
+const pdfErrado = await pdfDe([{ folha: { ra: '33333' }, scan: { ang: 1 } }, { folha: { ra: '44444' }, scan: { ang: -1 } }, { folha: { ra: '55555' }, scan: { ang: 0.3 } }]);
+r = await api('/api/redacao/lotes?envio=' + envioT2 + '&turma_id=' + t2.id + '&paginas=3', 'POST', pdfErrado, 'bc-token', 'application/pdf');
+const loteT2 = r.data.lote_id;
 r = await api('/api/adm/redacao/lotes/' + loteT2 + '/paginas', 'POST', { paginas: [{ pagina: 1, ra: '33333' }, { pagina: 2, ra: '44444' }, { pagina: 3, ra: '55555' }] });
 ok('ADM refaz a leitura pela API', r.status === 200 && r.data.resumo.aluno === 2 && r.data.resumo.duvida === 1 && r.data.paginas[2].lido_unidade === 'CN', JSON.stringify(r.data.resumo));
 

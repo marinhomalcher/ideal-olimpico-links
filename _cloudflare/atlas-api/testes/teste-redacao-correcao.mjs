@@ -91,9 +91,10 @@ const aluno = db.prepare('INSERT INTO redacao_alunos (ra, nome, turma_id, ano, s
 for (const [ra, nome] of [['11111', 'ALUNO TESTE UM'], ['22222', 'ALUNO TESTE DOIS'], ['33333', 'ALUNO TESTE TRES'], ['44444', 'ALUNO TESTE QUATRO']]) aluno.run(ra, nome, t3.id, ano, 'EM', '3ª Série');
 const jpegs = await page.evaluate(() => [['11111', 0.6], ['22222', -1.1], ['33333', 179.4], ['44444', 0.2]].map(([ra, ang]) => { const c = window.escanear(window.folhaTeste({ ra }), { ang }); return { jpeg: window.jpeg(c), w: c.width, h: c.height }; }));
 const pdf = pdfDeJpegs(jpegs.map(j => ({ ...j, jpeg: Buffer.from(j.jpeg, 'base64') })));
-r = await api('/api/redacao/lotes?turma_id=' + t3.id + '&bimestre=2', 'POST', pdf, 'dig-token', 'application/pdf');
+const envioId = (await api('/api/redacao/envios', 'POST', { bimestre: 2, unidade: t3.unidade }, 'dig-token')).data.envio_id;
+r = await api('/api/redacao/lotes?envio=' + envioId + '&turma_id=' + t3.id + '&paginas=4', 'POST', pdf, 'dig-token', 'application/pdf');
 const loteId = r.data.lote_id;
-r = await api('/api/redacao/lotes/' + loteId + '/paginas', 'POST', { paginas: [1, 2, 3, 4].map((n, i) => ({ pagina: n, ra: ['11111', '22222', '33333', '44444'][i], angulo: 0, invertida: n === 3, marcadores: 4 })) }, 'dig-token');
+r = await api('/api/redacao/lotes/' + loteId + '/paginas', 'POST', { envio_id: envioId, paginas: [1, 2, 3, 4].map((n, i) => ({ pagina: n, ra_lido: ['11111', '22222', '33333', '44444'][i], destino: 'aluno', angulo: 0, invertida: n === 3, marcadores: 4 })) }, 'dig-token');
 ok('Lote de 4 folhas identificadas pronto para a professora', r.status === 200 && r.data.resumo.aluno === 4, JSON.stringify(r.data));
 
 // ---------- API da professora ----------
