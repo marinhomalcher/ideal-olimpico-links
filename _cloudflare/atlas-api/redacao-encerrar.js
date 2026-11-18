@@ -1,19 +1,15 @@
-// "Encerrar ano" da Redação (política de privacidade aprovada em 18/11/2026).
-// O ADM aciona na tela "Cadastros de Redação" → aba "Encerrar ano", digitando o ano para confirmar.
-// Apaga, do ano letivo indicado: correções e notas, índice de folhas, lotes e os PDFs no R2
-// (redacao/<ano>/…), envios, alunos de redação, turmas e o vínculo professora ↔ turma, importações
-// e os registros (eventos) de redação do ano. Professoras, digitalizadores, coordenadores e usuários
-// continuam cadastrados. No fim, faz uma cópia de segurança nova (já sem redação) e apaga as anteriores.
-// Só pode ser usado de 1º de dezembro (o próprio ano) a 31 de janeiro (o ano anterior).
-// O apagamento é feito em lotes: cada chamada faz uma parte e devolve `concluido: false` até acabar;
-// a tela chama de novo até `concluido: true`. O andamento fica em `meta` ("encerramento_redacao_<ano>").
-import { RedacaoError } from './redacao-cadastros.js';
-
+// Encerramento automático do ano da Redação (política de privacidade aprovada em 18/11/2026;
+// decisão do Marinho em 18/11/2026: automático, sem tela e sem botão).
+// Roda na madrugada de 31/12 (cron diário, 3h17 de Brasília) e apaga, do ano que termina:
+// correções e notas, índice de folhas, lotes e os PDFs no R2 (redacao/<ano>/…), envios,
+// alunos de redação, turmas e o vínculo professora ↔ turma, importações e os registros (eventos)
+// de redação do ano. Professoras, digitalizadores, coordenadores e usuários continuam cadastrados.
+// No fim faz uma cópia de segurança nova (já sem redação), apaga as anteriores, registra o evento
+// "redacao_ano_encerrado" e manda o relatório por e-mail ao ADM.
+// Se não houver nada do ano para apagar, não faz nada (nem e-mail), então pode rodar mais de uma vez.
 const LOTE_LINHAS = 500;      // linhas apagadas por comando
-const COMANDOS_POR_CHAMADA = 12;
-const LOTE_R2 = 500;          // objetos apagados por chamada (o R2 aceita até 1.000 chaves por delete)
-
-function erro(status, message) { throw new RedacaoError(status, message); }
+const LOTE_R2 = 500;          // objetos apagados por vez (o R2 aceita até 1.000 chaves por delete)
+const MAX_RODADAS = 5000;     // trava de segurança do laço
 
 /* Tabelas do ano, na ordem em que podem ser apagadas (as que dependem de outras vêm primeiro). */
 const ETAPAS = [
@@ -42,14 +38,7 @@ export const NOMES = { pdfs: 'PDFs no armazenamento', correcoes: 'correções (n
   vinculos: 'vínculos professora ↔ turma', turmas: 'turmas', importacoes: 'importações', eventos: 'registros de redação' };
 
 function prefixoR2(ano) { return 'redacao/' + ano + '/'; }
-
-/* Época permitida: dezembro apaga o próprio ano; janeiro apaga o ano anterior. Fora disso, nenhum. */
-export function anoPermitido(hoje) {
-  const [ano, mes] = hoje.split('-').map(Number);
-  if (mes === 12) return ano;
-  if (mes === 1) return ano - 1;
-  return null;
-}
+const args = (e, ano) => (e.args ? e.args(ano) : [ano]);
 
 async function contarR2(env, ano) {
   if (!env.IMAGENS) return 0;
@@ -62,72 +51,60 @@ async function contarR2(env, ano) {
   return total;
 }
 
-async function contagens(env, ano) {
+/* Quanto há do ano para apagar (usado antes de começar e nos testes). */
+export async function contagens(env, ano) {
   const c = { pdfs: await contarR2(env, ano) };
-  for (const e of ETAPAS) c[e.chave] = (await env.DB.prepare(e.contar).bind(...(e.args ? e.args(ano) : [ano])).first()).n;
+  for (const e of ETAPAS) c[e.chave] = (await env.DB.prepare(e.contar).bind(...args(e, ano)).first()).n;
   return c;
 }
 
-function chaveMeta(ano) { return 'encerramento_redacao_' + ano; }
-async function lerAndamento(env, ano) {
-  const r = await env.DB.prepare('SELECT valor FROM meta WHERE chave = ?').bind(chaveMeta(ano)).first();
-  if (!r) return null;
-  try { return JSON.parse(r.valor); } catch { return null; }
-}
-async function gravarAndamento(env, ano, andamento) {
-  await env.DB.prepare('INSERT INTO meta (chave, valor) VALUES (?, ?) ON CONFLICT(chave) DO UPDATE SET valor = excluded.valor')
-    .bind(chaveMeta(ano), JSON.stringify(andamento)).run();
-}
-
-/* Uma rodada de apagamento. Devolve o que apagou nesta chamada e se ainda falta algo. */
-async function apagarParte(env, ano) {
+/* Apaga tudo do ano, em lotes. Devolve quanto apagou de cada coisa. */
+async function apagarTudo(env, ano) {
   const apagados = {};
-  let comandos = 0;
+  const soma = (k, n) => { if (n) apagados[k] = (apagados[k] || 0) + n; };
+  let rodadas = 0;
   if (env.IMAGENS) {
-    const r = await env.IMAGENS.list({ prefix: prefixoR2(ano), limit: LOTE_R2 });
-    const chaves = r.objects.map(o => o.key);
-    if (chaves.length) { await env.IMAGENS.delete(chaves); apagados.pdfs = chaves.length; }
-    if (r.truncated) return { apagados, concluido: false };
+    for (;;) {
+      if (++rodadas > MAX_RODADAS) throw new Error('Encerramento: laço do R2 passou do limite.');
+      const r = await env.IMAGENS.list({ prefix: prefixoR2(ano), limit: LOTE_R2 });
+      const chaves = r.objects.map(o => o.key);
+      if (!chaves.length) break;
+      await env.IMAGENS.delete(chaves);
+      soma('pdfs', chaves.length);
+      if (!r.truncated) break;
+    }
   }
   for (const e of ETAPAS) {
     for (;;) {
-      if (comandos >= COMANDOS_POR_CHAMADA) return { apagados, concluido: false };
-      const r = await env.DB.prepare(e.apagar).bind(...(e.args ? e.args(ano) : [ano])).run();
-      comandos++;
-      const n = r.meta?.changes || 0;
-      if (n) apagados[e.chave] = (apagados[e.chave] || 0) + n;
+      if (++rodadas > MAX_RODADAS) throw new Error('Encerramento: laço do banco passou do limite.');
+      const n = (await env.DB.prepare(e.apagar).bind(...args(e, ano)).run()).meta?.changes || 0;
+      soma(e.chave, n);
       if (n < LOTE_LINHAS) break;
     }
   }
-  return { apagados, concluido: true };
+  return apagados;
 }
 
-export async function rotaEncerrarAno(request, env, path, { readJson, hojeSP, registrar, sessao, fazerBackup, listarBackups }) {
-  if (path !== '/api/adm/redacao/encerrar-ano') return null;
-  const hoje = hojeSP(env);
-  const permitido = anoPermitido(hoje);
-  if (request.method === 'GET') {
-    const url = new URL(request.url);
-    const pedido = Number(url.searchParams.get('ano') || permitido || hoje.slice(0, 4));
-    if (!Number.isInteger(pedido) || pedido < 2026 || pedido > 2100) erro(400, 'Ano inválido.');
-    return { ok: true, hoje, ano: pedido, ano_permitido: permitido, permitido: permitido === pedido, contagens: await contagens(env, pedido), andamento: await lerAndamento(env, pedido) };
-  }
-  if (request.method !== 'POST') return null;
-  const body = await readJson(request);
-  const ano = Number(body.ano);
-  if (!Number.isInteger(ano) || ano < 2026 || ano > 2100) erro(400, 'Ano inválido.');
-  if (permitido === null) erro(403, 'O encerramento só pode ser feito de 1º de dezembro a 31 de janeiro. Hoje é ' + hoje.split('-').reverse().join('/') + '.');
-  if (ano !== permitido) erro(403, 'Hoje só é possível encerrar o ano ' + permitido + '.');
-  if (String(body.confirmacao ?? '').trim() !== String(ano)) erro(400, 'Digite o ano ' + ano + ' para confirmar.');
+function textoRelatorio(relatorio) {
+  const linhas = Object.keys(NOMES).map(k => `- ${NOMES[k]}: ${(relatorio.apagados[k] || 0).toLocaleString('pt-BR')}`);
+  return `O ATLAS encerrou o ano ${relatorio.ano} da Redação em ${relatorio.data.split('-').reverse().join('/')}, conforme a política de privacidade.\n\n` +
+    `O que foi apagado:\n${linhas.join('\n')}\n\n` +
+    (relatorio.copia ? `Cópia de segurança nova (já sem redação): ${relatorio.copia}\n` : 'Cópia de segurança nova: não foi possível fazer (armazenamento indisponível).\n') +
+    `Cópias anteriores apagadas: ${relatorio.copias_removidas}\n\n` +
+    'Professoras, digitalizadores e coordenadores continuam cadastrados. As turmas do ano novo entram pela planilha de alunos.\n\n' +
+    'https://idealolimpico.com.br/atlas/admin.html';
+}
 
-  const andamento = (await lerAndamento(env, ano)) || { iniciado_em: hoje, por: sessao.email, apagados: {} };
-  const parte = await apagarParte(env, ano);
-  for (const [k, v] of Object.entries(parte.apagados)) andamento.apagados[k] = (andamento.apagados[k] || 0) + v;
-  if (!parte.concluido) {
-    await gravarAndamento(env, ano, andamento);
-    return { ok: true, concluido: false, ano, apagados: parte.apagados, total: andamento.apagados };
-  }
-  /* Tudo apagado: cópia nova (já sem redação) e as anteriores saem, como decidido em 18/11/2026. */
+/* Chamada pela rotina agendada. Só age em 31/12; em qualquer outro dia volta sem fazer nada. */
+export async function encerrarAnoAutomatico(env, { hojeSP, registrar, fazerBackup, listarBackups, avisar }) {
+  const hoje = hojeSP(env);
+  if (!hoje.endsWith('-12-31')) return null;
+  const ano = Number(hoje.slice(0, 4));
+  const antes = await contagens(env, ano);
+  if (Object.values(antes).every(n => !n)) return null;    /* nada do ano: já encerrado ou sem uso */
+
+  const apagados = await apagarTudo(env, ano);
+  /* cópia nova (já sem redação) e as anteriores saem, como decidido em 18/11/2026 */
   let copia = null, copias_removidas = 0;
   if (env.IMAGENS) {
     copia = await fazerBackup(env, 'encerramento-redacao-' + ano);
@@ -137,8 +114,8 @@ export async function rotaEncerrarAno(request, env, path, { readJson, hojeSP, re
       copias_removidas++;
     }
   }
-  await env.DB.prepare('DELETE FROM meta WHERE chave = ?').bind(chaveMeta(ano)).run();
-  const relatorio = { ano, por: sessao.email, iniciado_em: andamento.iniciado_em, concluido_em: hoje, apagados: andamento.apagados, copia: copia?.nome || null, copias_removidas };
+  const relatorio = { ano, data: hoje, apagados, copia: copia?.nome || null, copias_removidas };
   await registrar(env, 'redacao_ano_encerrado', relatorio);
-  return { ok: true, concluido: true, ano, apagados: parte.apagados, total: andamento.apagados, copia: copia?.nome || null, copias_removidas };
+  if (env.ADMIN_EMAIL) avisar(env, env.ADMIN_EMAIL, 'ATLAS: ano ' + ano + ' da Redação encerrado', textoRelatorio(relatorio), true);
+  return relatorio;
 }

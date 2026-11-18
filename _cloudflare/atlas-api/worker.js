@@ -2,7 +2,7 @@
 import { rotaRedacaoAdm, rotaRedacaoUsuario, limparAlunosVirada, RedacaoError } from './redacao-cadastros.js';
 import { rotaLotesUsuario, rotaLotesAdm, limparPdfCancelados } from './redacao-lotes.js';
 import { rotaCorrecao } from './redacao-correcao.js';
-import { rotaEncerrarAno } from './redacao-encerrar.js';
+import { encerrarAnoAutomatico } from './redacao-encerrar.js';
 import { listarPessoas, salvarPessoa } from './pessoas.js';
 // Administração: login "Entrar com Google", liberado SOMENTE para o e-mail em ADMIN_EMAIL.
 // Professores e Supervisores: login por código no e-mail institucional.
@@ -2244,9 +2244,6 @@ async function rotasAdm(request, env, path) {
   const sessao = await sessaoAtual(request, env, 'adm');
   const redacaoLotes = await rotaLotesAdm(request, env, path, { hojeSP, registrar, sessao, readJson });
   if (redacaoLotes) return redacaoLotes;
-  /* antes dos cadastros, que respondem 404 a qualquer /api/adm/redacao/ desconhecido */
-  const encerrar = await rotaEncerrarAno(request, env, path, { readJson, hojeSP, registrar, sessao, fazerBackup, listarBackups });
-  if (encerrar) return encerrar;
   const redacaoAdm = await rotaRedacaoAdm(request, env, path, { readJson, hojeSP, registrar, emailEmUso, sessao });
   if (redacaoAdm) return redacaoAdm;
   if (path === '/api/adm/imagens' && request.method === 'POST') return await receberImagem(request, env, sessao.email);
@@ -2352,8 +2349,10 @@ export default {
     ctx.waitUntil((async () => {
       try {
         await fazerBackup(env, 'automatico');
+        /* 31/12: encerramento automático do ano da Redação (política de privacidade; apaga dados do ano e manda o relatório ao ADM) */
+        await encerrarAnoAutomatico(env, { hojeSP, registrar, fazerBackup, listarBackups, avisar });
         await limparAlunosVirada(env, hojeSP, registrar);
-      } catch (error) { console.error('ATLAS backup ou virada da Redação falhou:', error && error.message); }
+      } catch (error) { console.error('ATLAS backup, encerramento ou virada da Redação falhou:', error && error.message); }
     })());
     ctx.waitUntil(lembrarRetiradas(env).catch(error => console.error('ATLAS lembrete de retiradas falhou:', error && error.message)));
     ctx.waitUntil(limparPdfCancelados(env).catch(error => console.error('ATLAS limpeza de PDFs cancelados falhou:', error && error.message)));
