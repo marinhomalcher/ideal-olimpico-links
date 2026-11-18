@@ -2028,9 +2028,15 @@ async function testarSharePoint(env) {
   r = await graph('/sites/' + site + '/drive/root:/' + nome + ':/content', { method: 'PUT', headers: { 'Content-Type': 'text/plain' }, body: conteudo });
   if (!passo('Gravar um arquivo de teste', r.status === 200 || r.status === 201, r.status === 200 || r.status === 201 ? nome : r.status + ' ' + r.erro)) return fim();
   const itemId = r.corpo.id;
-  r = await graph('/sites/' + site + '/drive/items/' + encodeURIComponent(itemId) + '?$select=id,size,@microsoft.graph.downloadUrl');
-  const link = r.corpo?.['@microsoft.graph.downloadUrl'];
-  if (passo('Link temporário (o que o aluno vai usar)', !!link, link ? 'gerado' : r.status + ' ' + r.erro)) {
+  /* No SharePoint, o link pré-autenticado não vem quando se usa $select: pede o item inteiro e,
+     se mesmo assim faltar, usa /content (a Microsoft responde 302 apontando para o link temporário). */
+  r = await graph('/sites/' + site + '/drive/items/' + encodeURIComponent(itemId));
+  let link = r.corpo?.['@microsoft.graph.downloadUrl'];
+  if (!link) {
+    const c = await fetch('https://graph.microsoft.com/v1.0/sites/' + site + '/drive/items/' + encodeURIComponent(itemId) + '/content', { headers: { Authorization: 'Bearer ' + token }, redirect: 'manual' });
+    if (c.status >= 300 && c.status < 400) link = c.headers.get('Location');
+  }
+  if (passo('Link temporário (o que o aluno vai usar)', !!link, link ? 'gerado' : r.status + ' ' + (r.erro || 'a Microsoft não devolveu o link'))) {
     const lido = await fetch(link).then(x => x.ok ? x.text() : '').catch(() => '');
     passo('Ler o arquivo pelo link temporário', lido === conteudo, lido === conteudo ? 'conteúdo confere' : 'conteúdo diferente ou vazio');
   }
