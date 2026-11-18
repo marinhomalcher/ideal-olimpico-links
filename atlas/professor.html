@@ -120,7 +120,7 @@ window.ATLAS_ANTES_DE_SAIR=()=>{if(!loggedUser)return;try{localStorage.setItem(R
 function restaurarRascunho(){let r;try{r=JSON.parse(localStorage.getItem(RASCUNHO)||'null')}catch{}if(!r||r.usuario!==loggedUser.id||Date.now()-r.salvoEm>7*864e5)return false;localStorage.removeItem(RASCUNHO);correcting=r.correcting||null;preencher(r.dados||{});if(r.modoGrupo&&typeof trocarModo==='function'){document.querySelector('input[name="modo"][value="grupo"]').checked=true;grupoItens=Array.isArray(r.grupoItens)?r.grupoItens:[];trocarModo(true)}if(window.ATLAS_RENOVAR_IMAGENS)window.ATLAS_RENOVAR_IMAGENS(r.dados||{}).then(d=>{for(const id of AtlasRich.ids)if(d[id]!==(r.dados||{})[id])rich.write(id,d[id]||'')}).catch(()=>{});if(correcting)enviar.textContent='Reenviar para análise';aviso('<strong>Rascunho recuperado.</strong> Os dados que você tinha preenchido foram guardados e voltaram para a tela. Confira e envie.');return true}
 const MESES_LONGOS=['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
 let resumoDados=null;
-const MESES_TAB=[1,2,3,4,5,6,7,8,9,10,11];// índices: fevereiro (1) a dezembro (11)
+const MESES_TAB=[0,1,2,3,4,5,6,7,8,9,10,11];// índices: janeiro (0) a dezembro (11); julho sai no filtro (férias). Janeiro entrou em 18/11/2026: o ATLAS reabre em 10/01.
 function desenharResumo(){const r=resumoDados;if(!r)return;const sel=document.querySelector('#resumo-mes-sel').value;const k=sel==='ano'?null:Number(sel);
   const pm=r.por_mes;const soma=campo=>pm.reduce((t,m)=>t+m[campo],0);
   const v=k===null?{enviadas:r.total,aprovado:r.aprovado,analise:r.analise,ajustes:r.ajustes,descartado:r.descartado}:pm[k];
@@ -132,7 +132,7 @@ function desenharResumo(){const r=resumoDados;if(!r)return;const sel=document.qu
   for(const [cls,n,t] of cart){const d=document.createElement('div');d.className='cartao '+cls;const b=document.createElement('b');b.textContent=String(n);const sp=document.createElement('span');sp.textContent=t;d.append(b,sp);box.append(d)}
 }
 async function carregarResumo(){try{const r=await ATLAS_API('/api/itens/meus/resumo');resumoDados=r;const sel=document.querySelector('#resumo-mes-sel');
-  if(!sel.options.length){sel.replaceChildren(new Option('Ano todo','ano'),...MESES_TAB.filter(i=>i!==6).map(i=>new Option(MESES_LONGOS[i][0].toUpperCase()+MESES_LONGOS[i].slice(1),String(i))));const atual=r.mes_atual-1;sel.value=(atual>=1&&atual!==6)?String(atual):'ano';sel.addEventListener('change',desenharResumo)}
+  if(!sel.options.length){sel.replaceChildren(new Option('Ano todo','ano'),...MESES_TAB.filter(i=>i!==6).map(i=>new Option(MESES_LONGOS[i][0].toUpperCase()+MESES_LONGOS[i].slice(1),String(i))));const atual=r.mes_atual-1;sel.value=atual!==6?String(atual):'ano';sel.addEventListener('change',desenharResumo)}
   document.querySelector('#resumo-sub').textContent='Suas questões de '+r.ano+'. A situação é a de hoje. Escolha o mês ao lado.';desenharResumo()
 }catch(e){document.querySelector('#resumo-sub').textContent=e.message}}
 const nomeSit={analise:'Em análise',ajustes:'Ajuste solicitado',aprovado:'Aprovada',rascunho:'Rascunho',descartado:'Descartada'};

@@ -1,4 +1,4 @@
-// Tela de FÉRIAS: professor e supervisor ficam fora em julho e de 15/12 a 31/01; digitador só em julho (o servidor decide).
+// Tela de FÉRIAS: professor e supervisor ficam fora em julho e de 15/12 a 09/01 (reabre em 10/01); digitador só em julho (o servidor decide).
 window.ATLAS_FERIAS = function (reabre, fechavel) {
   if (document.getElementById('atlas-ferias')) return;
   const mostrar = () => {

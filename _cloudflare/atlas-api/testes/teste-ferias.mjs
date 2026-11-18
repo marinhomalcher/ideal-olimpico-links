@@ -87,7 +87,7 @@ const cs=[];for(let k=0;k<3;k++){const r=await call('/api/itens',{method:'POST',
 db.exec("UPDATE itens SET criado_em='"+ANO+"-03-10T15:00:00Z' WHERE codigo='"+cs[0]+"'");db.exec("UPDATE itens SET criado_em='"+ANO+"-11-13T15:00:00Z' WHERE codigo IN ('"+cs[1]+"','"+cs[2]+"')");   /* as outras fora de março, em qualquer época do ano */
 let r=await call('/api/itens/meus/resumo',{token:tEdi});
 ok('Resumo traz por_mes com a situação de cada mês', r.data.por_mes.length===12&&r.data.por_mes[2].enviadas===1&&r.data.por_mes[2].analise===1&&r.data.por_mes.reduce((t,m)=>t+m.enviadas,0)===3, JSON.stringify(r.data.por_mes[2]));
-const casos=[['2026-06-30',false],['2026-07-01',true],['2026-07-31',true],['2026-08-01',false],['2026-12-14',false],['2026-12-15',true],['2026-12-31',true],['2027-01-15',true],['2027-01-31',true],['2027-02-01',false]];
+const casos=[['2026-06-30',false],['2026-07-01',true],['2026-07-31',true],['2026-08-01',false],['2026-12-14',false],['2026-12-15',true],['2026-12-31',true],['2027-01-01',true],['2027-01-09',true],['2027-01-10',false],['2027-01-15',false],['2027-01-31',false],['2027-02-01',false]];
 for(const [dia,fechado] of casos){env.ATLAS_HOJE_TESTE=dia;db.exec('DELETE FROM login_rate_limits');
   const c=await call('/api/login/codigo',{method:'POST',body:{email:'edi.franco@grupoideal.com.br'}});
   const s=await call('/api/login/sessao',{token:tEdi});
@@ -98,7 +98,8 @@ r=await call('/api/itens/meus',{token:tEdi});ok('Férias: rotas do professor fec
 r=await call('/api/supervisor/fila?situacao=analise',{token:tMarcio});ok('Férias: Supervisor também fechado', r.status===423);
 r=await call('/api/adm/relatorio?ano=2026',{token:tAdm});ok('Férias: ADM continua entrando', r.status===200, r.status);
 r=await call('/api/adm/itens/enviar',{method:'POST',token:tAdm,body:{disciplina:'Química',dados:{comando:'Nas férias','alt-a':'1','alt-b':'2','alt-c':'3','alt-d':'4','alt-e':'5',gabarito:'A'}}});ok('Férias: ADM continua enviando questões', r.status===200, r.data?.error);
-env.ATLAS_HOJE_TESTE='2026-12-20';r=await call('/api/login/sessao',{token:tEdi});ok('Dezembro → reabre 1º de fevereiro', r.data.reabre==='1º de fevereiro');
+env.ATLAS_HOJE_TESTE='2026-12-20';r=await call('/api/login/sessao',{token:tEdi});ok('Dezembro → reabre 10 de janeiro', r.data.reabre==='10 de janeiro');
+env.ATLAS_HOJE_TESTE='2027-01-05';r=await call('/api/login/sessao',{token:tEdi});ok('Começo de janeiro → reabre 10 de janeiro', r.status===423&&r.data.reabre==='10 de janeiro', r.status);
 // ===== digitador: fechado só em julho; trabalha no recesso de dezembro/janeiro =====
 db.exec("INSERT INTO usuarios (nome,email,disciplina,papel,digitador) VALUES ('Dig Férias','dig.ferias@grupoideal.com.br',NULL,'professor',1)");
 const conteudoDig={comando:'Questão digitada no recesso','alt-a':'1','alt-b':'2','alt-c':'3','alt-d':'4','alt-e':'5',gabarito:'B'};
@@ -132,8 +133,8 @@ db.exec('DELETE FROM login_rate_limits');await page.goto('https://idealolimpico.
 await page.waitForURL(/professor\.html/);await page.waitForFunction(()=>document.querySelector('#resumo-mes-sel').options.length>0&&document.querySelector('#resumo-mes').textContent!=='–');
 ok('Tela: sem tabela de meses (só o resumo)', !(await page.$('#resumo-tabela')));
 const opts=await page.$$eval('#resumo-mes-sel option',o=>o.map(x=>x.textContent));
-ok('Tela: filtro tem Ano todo e fevereiro a dezembro, sem julho nem janeiro', opts[0]==='Ano todo'&&opts[1]==='Fevereiro'&&opts.at(-1)==='Dezembro'&&!opts.includes('Julho')&&!opts.includes('Janeiro'), opts.join('|'));
-{const mesReal=Number(new Intl.DateTimeFormat('en',{timeZone:'America/Sao_Paulo',month:'numeric'}).format(new Date()));const esperado=(mesReal-1>=1&&mesReal-1!==6)?String(mesReal-1):'ano';   /* janeiro e julho não estão no filtro: começa em "Ano todo" */
+ok('Tela: filtro tem Ano todo e janeiro a dezembro, sem julho (reabre em 10/01)', opts[0]==='Ano todo'&&opts[1]==='Janeiro'&&opts[2]==='Fevereiro'&&opts.at(-1)==='Dezembro'&&!opts.includes('Julho')&&opts.length===12, opts.join('|'));
+{const mesReal=Number(new Intl.DateTimeFormat('en',{timeZone:'America/Sao_Paulo',month:'numeric'}).format(new Date()));const esperado=(mesReal-1!==6)?String(mesReal-1):'ano';   /* julho não está no filtro: começa em "Ano todo" */
 ok('Tela: filtro começa no mês atual', (await page.inputValue('#resumo-mes-sel'))===esperado, (await page.inputValue('#resumo-mes-sel'))+' / '+esperado);}
 await page.selectOption('#resumo-mes-sel','2');
 ok('Tela: escolher março filtra os cartões', (await page.textContent('#resumo-mes'))==='1'&&(await page.textContent('#resumo-mes-rot')).includes('março'));
