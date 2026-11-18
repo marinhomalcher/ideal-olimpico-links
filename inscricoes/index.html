@@ -3,6 +3,7 @@
 <head>
   <base target="_self">
   <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' https://cdnjs.cloudflare.com; style-src 'self'; img-src 'self' data: blob:; connect-src https://ideal-olimpico-producao.marinhomalcher.workers.dev; font-src 'self'; base-uri 'self'; form-action 'none'; object-src 'none'; frame-src 'none'; manifest-src 'self'; upgrade-insecure-requests">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><meta name="referrer" content="no-referrer"><meta name="robots" content="noindex, nofollow">
   <title>Portal de Inscrições — IDEAL OLÍMPICO</title>
   <meta name="description" content="Consulte competições acadêmicas, regras e prazos e acompanhe suas inscrições no Portal IDEAL OLÍMPICO.">
@@ -28,7 +29,7 @@
   <div class="head">
     <img id="brandLogo" class="brand-logo" alt="Ideal Olímpico">
     <div class="brand"><h1>Portal de Inscrições – IDEAL OLÍMPICO</h1><p>Inscrições em competições acadêmicas</p></div>
-    <div id="alunoBadge" class="student-badge hidden"><div class="who"><b id="badgeNome"></b><span id="badgeEmail"></span></div><div class="badge-actions"><button id="meusPedidosBtn" class="orders-btn hidden" onclick="abrirMeusPedidos()">🛒 MEUS PEDIDOS <span id="meusPedidosCount" class="pedido-count">0</span></button><button onclick="trocarAluno()">TROCAR ALUNO</button></div></div>
+    <div id="alunoBadge" class="student-badge hidden"><div class="who"><b id="badgeNome"></b><span id="badgeEmail"></span></div><div class="badge-actions"><button id="meusPedidosBtn" class="orders-btn hidden" data-acao="abrirMeusPedidos">🛒 MEUS PEDIDOS <span id="meusPedidosCount" class="pedido-count">0</span></button><button data-acao="trocarAluno">TROCAR ALUNO</button></div></div>
   </div>
 </header>
 <main>
@@ -42,7 +43,7 @@
           <label class="field">Matrícula
             <input id="matriculaInput" type="text" inputmode="numeric" autocomplete="off" maxlength="5" pattern="[0-9]{5}" placeholder="12345" aria-label="Matrícula de 5 algarismos">
           </label>
-          <button id="loginBtn" class="primary" onclick="pedirCodigo()">RECEBER CÓDIGO</button>
+          <button id="loginBtn" class="primary" data-acao="pedirCodigo">RECEBER CÓDIGO</button>
         </div>
         <div id="etapaCodigo" class="hidden">
           <div id="codigoDestino" class="codigo-destino"></div>
@@ -50,11 +51,11 @@
             <label class="field">Código de 6 dígitos
               <input id="codigoInput" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" pattern="[0-9]{6}" placeholder="000000" aria-label="Código de 6 dígitos recebido por e-mail">
             </label>
-            <button id="codigoBtn" class="primary" onclick="entrarComCodigo()">ENTRAR</button>
+            <button id="codigoBtn" class="primary" data-acao="entrarComCodigo">ENTRAR</button>
           </div>
           <div class="login-actions">
-            <button id="reenviarBtn" class="secondary" onclick="pedirCodigo(true)">PEDIR NOVO CÓDIGO</button>
-            <button class="secondary" onclick="voltarParaMatricula()">TROCAR MATRÍCULA</button>
+            <button id="reenviarBtn" class="secondary" data-acao="reenviarCodigo">PEDIR NOVO CÓDIGO</button>
+            <button class="secondary" data-acao="voltarParaMatricula">TROCAR MATRÍCULA</button>
           </div>
         </div>
         <div class="login-hint">O código chega em <b>matrícula@aluno.grupoideal.com.br</b> e vale 10 minutos. Confira também a pasta de lixo eletrônico.</div>
@@ -118,8 +119,8 @@
         </div>
 
         <div class="cadastro-actions">
-          <button id="solicitarAlteracaoBtn" class="secondary" onclick="abrirSolicitacaoAlteracao()">SOLICITAR ALTERAÇÃO</button>
-          <div class="right"><button id="confirmarCadastroBtn" class="primary" onclick="confirmarCadastro()">CONFIRMAR DADOS</button></div>
+          <button id="solicitarAlteracaoBtn" class="secondary" data-acao="abrirSolicitacaoAlteracao">SOLICITAR ALTERAÇÃO</button>
+          <div class="right"><button id="confirmarCadastroBtn" class="primary" data-acao="confirmarCadastro">CONFIRMAR DADOS</button></div>
         </div>
       </div>
     </div>
@@ -131,7 +132,7 @@
   <section id="grupoSec" class="hidden">
     <div class="topbar">
       <img id="grupoLogo" alt=""><div><div class="eyebrow">Inscrições</div><h2 id="grupoTitulo"></h2><p id="grupoSub"></p></div>
-      <button class="secondary back" onclick="irHome()">← Voltar</button>
+      <button class="secondary back" data-acao="irHome">← Voltar</button>
     </div>
     <div id="literaturaPerfil" class="hidden"></div>
     <div id="catalogo"></div><div id="loading" class="loading hidden">Carregando...</div>
@@ -139,18 +140,18 @@
   <section id="pedidosSec" class="hidden">
     <div class="topbar">
       <div class="orders-top-icon" aria-hidden="true">🛒</div><div><div class="eyebrow">IDEAL OLÍMPICO</div><h2>Meus pedidos</h2><p>Acompanhe suas inscrições e retome pagamentos pendentes. As confirmações ficam registradas aqui no portal.</p></div>
-      <button class="secondary back" onclick="fecharMeusPedidos()">← Voltar às competições</button>
+      <button class="secondary back" data-acao="fecharMeusPedidos">← Voltar às competições</button>
     </div>
     <div id="pedidosResumo" class="orders-summary"></div>
     <div id="pedidosLoading" class="loading hidden">Carregando seus pedidos...</div>
     <div id="pedidosLista" class="pedidos-list"></div>
   </section>
 </main>
-<div id="cart" class="cart hidden"><div class="cart-inner"><div class="cart-main"><b id="cartQtd">0 inscrição(ões) selecionada(s)</b><small>Você poderá conferir tudo antes do pagamento.</small></div><div id="cartTotal" class="cart-total">R$ 0,00</div><button class="primary" onclick="continuarCarrinho()">CONTINUAR</button></div></div>
-<dialog id="alteracaoModal"><div class="modal-head"><h3>Solicitar alteração cadastral</h3><button class="close" onclick="fecharAlteracaoModal()">×</button></div><div class="modal-body request-box"><p>Descreva objetivamente qual informação está incorreta e qual deve ser a correção.</p><textarea id="alteracaoTexto" maxlength="1000" placeholder="Ex.: Minha unidade está incorreta. O correto é BC."></textarea><div id="alteracaoMsg"></div></div><div class="modal-actions"><button class="secondary" onclick="fecharAlteracaoModal()">CANCELAR</button><button id="enviarAlteracaoBtn" class="primary" onclick="enviarSolicitacaoAlteracao()">ENVIAR SOLICITAÇÃO</button></div></dialog>
-<dialog id="modal"><div class="modal-head"><h3 id="modalTitle">Detalhes</h3><button class="close" onclick="fecharModal()">×</button></div><div id="modalBody" class="modal-body"></div><div id="modalActions" class="modal-actions"></div></dialog>
+<div id="cart" class="cart hidden"><div class="cart-inner"><div class="cart-main"><b id="cartQtd">0 inscrição(ões) selecionada(s)</b><small>Você poderá conferir tudo antes do pagamento.</small></div><div id="cartTotal" class="cart-total">R$ 0,00</div><button class="primary" data-acao="continuarCarrinho">CONTINUAR</button></div></div>
+<dialog id="alteracaoModal"><div class="modal-head"><h3>Solicitar alteração cadastral</h3><button class="close" data-acao="fecharAlteracaoModal">×</button></div><div class="modal-body request-box"><p>Descreva objetivamente qual informação está incorreta e qual deve ser a correção.</p><textarea id="alteracaoTexto" maxlength="1000" placeholder="Ex.: Minha unidade está incorreta. O correto é BC."></textarea><div id="alteracaoMsg"></div></div><div class="modal-actions"><button class="secondary" data-acao="fecharAlteracaoModal">CANCELAR</button><button id="enviarAlteracaoBtn" class="primary" data-acao="enviarSolicitacaoAlteracao">ENVIAR SOLICITAÇÃO</button></div></dialog>
+<dialog id="modal"><div class="modal-head"><h3 id="modalTitle">Detalhes</h3><button class="close" data-acao="fecharModal">×</button></div><div id="modalBody" class="modal-body"></div><div id="modalActions" class="modal-actions"></div></dialog>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-<script src="./config.js?v=worker-prod-20261105"></script><script src="./worker-client.js?v=login-codigo-20261116b"></script><script src="./portal.js?v=cadastro-cpf-20261116b" defer></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" integrity="sha384-3zSEDfvllQohrq0PHL1fOXJuC/jSOO34H46t6UQfobFOmxE5BpjjaIJY5F2/bMnU" crossorigin="anonymous"></script>
+<script src="./config.js?v=worker-prod-20261105"></script><script src="./worker-client.js?v=login-codigo-20261116b"></script><script src="./portal.js?v=csp-20261118" defer></script>
 </body>
 </html>

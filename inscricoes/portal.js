@@ -5,6 +5,25 @@ let grupos={},grupoAtual=null,catalogoAtual=[],carrinho={},alunoAtual=null,pedid
 const money=v=>new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(Number(v||0));
 const esc=s=>String(s??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
 
+// Cliques: a política de segurança (CSP) proíbe onclick no HTML. Cada botão traz data-acao (e data-arg, se precisar)
+// e este despachante único chama a função correspondente. Vale para botões fixos e para os criados por innerHTML.
+const ACOES={
+  pedirCodigo:()=>pedirCodigo(),reenviarCodigo:()=>pedirCodigo(true),entrarComCodigo:()=>entrarComCodigo(),voltarParaMatricula:()=>voltarParaMatricula(),
+  abrirMeusPedidos:()=>abrirMeusPedidos(),fecharMeusPedidos:()=>fecharMeusPedidos(),trocarAluno:()=>trocarAluno(),irHome:()=>irHome(),
+  abrirSolicitacaoAlteracao:()=>abrirSolicitacaoAlteracao(),fecharAlteracaoModal:()=>fecharAlteracaoModal(),enviarSolicitacaoAlteracao:()=>enviarSolicitacaoAlteracao(),
+  confirmarCadastro:()=>confirmarCadastro(),continuarCarrinho:()=>continuarCarrinho(),confirmarPedidoCarrinho:()=>confirmarPedidoCarrinho(),
+  fecharModal:()=>fecharModal(),verMeusPedidos:()=>{fecharModal();abrirMeusPedidos();},
+  adicionarCarrinhoSerie:arg=>adicionarCarrinhoSerie(arg),abrirPagamentoNovo:arg=>abrirPagamentoNovo(Number(arg)),
+  copiarPixAtual:()=>copiarPixAtual(),enviarComprovanteAtual:()=>enviarComprovanteAtual(),voltarPagamentosNovos:()=>voltarPagamentosNovos()
+};
+document.addEventListener('click',e=>{
+  const el=e.target&&e.target.closest?e.target.closest('[data-acao]'):null;
+  if(!el||el.disabled)return;
+  const fn=ACOES[el.dataset.acao];
+  if(!fn){console.error('Ação sem função: '+el.dataset.acao);return;}
+  fn(el.dataset.arg);
+});
+
 window.addEventListener('load',()=>{
   const mat=document.getElementById('matriculaInput');
   const cod=document.getElementById('codigoInput');
@@ -397,7 +416,7 @@ function criarLinhaEdicao(c){
 }
 
 function statusChip(status){if(status==='ABERTA')return`<span class="status-chip open">● ABERTA</span>`;if(status==='EM BREVE')return`<span class="status-chip soon">● EM BREVE</span>`;return`<span class="status-chip closed">● ENCERRADA</span>`;}
-function abrirDetalhes(c){document.getElementById('modalTitle').textContent=c.competicao;const body=document.getElementById('modalBody');body.innerHTML=`${statusChip(c.status)}<div class="details">${c.edicao?`<div><b>Edição</b>${esc(c.edicao)}</div>`:''}${c.fase?`<div><b>Fase</b>${esc(c.fase)}</div>`:''}${c.dataReferencia?`<div><b>Data</b>${esc(c.dataReferencia)}</div>`:''}${c.fechamentoInterno?`<div><b>Inscrição pela escola até</b>${esc(c.fechamentoInterno)}</div>`:''}${c.prazoOficial?`<div><b>Prazo oficial</b>${esc(c.prazoOficial)}</div>`:''}<div><b>Valor</b>${c.valor>0?money(c.valor):'A definir'}</div></div>${c.observacoes?`<p>${esc(c.observacoes)}</p>`:''}${c.status==='ENCERRADA'?`<div class="message bad">As inscrições desta edição já foram encerradas.</div>`:''}${c.status==='EM BREVE'?`<div class="message warn">Esta edição ainda não está aberta para inscrição.</div>`:''}`;const actions=document.getElementById('modalActions');actions.innerHTML=`<button class="secondary" onclick="fecharModal()">FECHAR</button>`;if(c.status==='ABERTA'&&c.permiteInscricao&&c.valor>0){const b=document.createElement('button');b.className='primary';b.textContent='CONTINUAR';b.onclick=()=>{fecharModal();abrirPerfilSerie(c);};actions.appendChild(b);}document.getElementById('modal').showModal();}
+function abrirDetalhes(c){document.getElementById('modalTitle').textContent=c.competicao;const body=document.getElementById('modalBody');body.innerHTML=`${statusChip(c.status)}<div class="details">${c.edicao?`<div><b>Edição</b>${esc(c.edicao)}</div>`:''}${c.fase?`<div><b>Fase</b>${esc(c.fase)}</div>`:''}${c.dataReferencia?`<div><b>Data</b>${esc(c.dataReferencia)}</div>`:''}${c.fechamentoInterno?`<div><b>Inscrição pela escola até</b>${esc(c.fechamentoInterno)}</div>`:''}${c.prazoOficial?`<div><b>Prazo oficial</b>${esc(c.prazoOficial)}</div>`:''}<div><b>Valor</b>${c.valor>0?money(c.valor):'A definir'}</div></div>${c.observacoes?`<p>${esc(c.observacoes)}</p>`:''}${c.status==='ENCERRADA'?`<div class="message bad">As inscrições desta edição já foram encerradas.</div>`:''}${c.status==='EM BREVE'?`<div class="message warn">Esta edição ainda não está aberta para inscrição.</div>`:''}`;const actions=document.getElementById('modalActions');actions.innerHTML=`<button class="secondary" data-acao="fecharModal">FECHAR</button>`;if(c.status==='ABERTA'&&c.permiteInscricao&&c.valor>0){const b=document.createElement('button');b.className='primary';b.textContent='CONTINUAR';b.onclick=()=>{fecharModal();abrirPerfilSerie(c);};actions.appendChild(b);}document.getElementById('modal').showModal();}
 function abrirPerfilSerie(c){
   verificarAntesDeProsseguir(c,()=>abrirPerfilSerieDireto(c));
 }
@@ -414,14 +433,14 @@ function verificarAntesDeProsseguir(c,continuar){
 function mostrarDuplicidade(c,r){
   document.getElementById('modalTitle').textContent='Inscrição já localizada';
   document.getElementById('modalBody').innerHTML=`<div class="message warn"><b>${esc(r.status||'SOLICITAÇÃO REGISTRADA')}</b><br>${esc(r.mensagem||'Já existe uma inscrição para esta competição.')}</div><div class="details"><div><b>Aluno</b>${esc(alunoAtual&&alunoAtual.nome||'')}</div><div><b>Competição</b>${esc((c&&c.competicao)||r.competicao||'')}</div></div><p>Não faça um novo pagamento para a mesma competição.</p>`;
-  document.getElementById('modalActions').innerHTML=`<button class="secondary" onclick="fecharModal()">ENTENDI</button><button class="primary" onclick="fecharModal();abrirMeusPedidos()">🛒 VER MEUS PEDIDOS</button>`;
+  document.getElementById('modalActions').innerHTML=`<button class="secondary" data-acao="fecharModal">ENTENDI</button><button class="primary" data-acao="verMeusPedidos">🛒 VER MEUS PEDIDOS</button>`;
   document.getElementById('modal').showModal();
 }
 
 function abrirPerfilSerieDireto(c){
   document.getElementById('modalTitle').textContent=c.competicao;
   document.getElementById('modalBody').innerHTML=`<div id="serieMsg" class="message warn">Verificando sua série e seu nível...</div>`;
-  document.getElementById('modalActions').innerHTML=`<button class="secondary" onclick="fecharModal()">CANCELAR</button>`;
+  document.getElementById('modalActions').innerHTML=`<button class="secondary" data-acao="fecharModal">CANCELAR</button>`;
   document.getElementById('modal').showModal();
   validarSerie(c.id);
 }
@@ -434,7 +453,7 @@ function validarSerie(id){
     const c=r.competicao;
     box.className='message ok';
     box.innerHTML=`<b>Disponível para você.</b><br>${r.nivel?`Nível: ${esc(r.nivel)}<br>`:''}${r.aviso?esc(r.aviso):''}`;
-    document.getElementById('modalActions').innerHTML=`<button class="secondary" onclick="fecharModal()">CANCELAR</button><button class="primary" ${r.selecionavel?'':'disabled'} onclick="adicionarCarrinhoSerie('${esc(c.id)}')">${r.valorPendente?'AGUARDANDO VALOR':'ADICIONAR À INSCRIÇÃO'}</button>`;
+    document.getElementById('modalActions').innerHTML=`<button class="secondary" data-acao="fecharModal">CANCELAR</button><button class="primary" ${r.selecionavel?'':'disabled'} data-acao="adicionarCarrinhoSerie" data-arg="${esc(c.id)}">${r.valorPendente?'AGUARDANDO VALOR':'ADICIONAR À INSCRIÇÃO'}</button>`;
   }).withFailureHandler(e=>{const box=document.getElementById('serieMsg');if(box){box.className='message bad';box.innerHTML=esc(e.message||e);}else falha(e);}).validarCompeticaoSerie(id,alunoAtual.sessao);
 }
 
@@ -470,7 +489,7 @@ function continuarCarrinho(){
       const lista=(r.conflitos||[]).map(x=>`<div class="message warn"><b>${esc(x.competicao)}</b><br>${esc(x.status)}<br>${esc(x.mensagem)}</div>`).join('');
       document.getElementById('modalTitle').textContent='Inscrição já localizada';
       document.getElementById('modalBody').innerHTML=`${lista}<p>As competições acima foram retiradas da sua seleção para evitar cobrança duplicada.</p>`;
-      document.getElementById('modalActions').innerHTML=`<button class="secondary" onclick="fecharModal()">ENTENDI</button><button class="primary" onclick="fecharModal();abrirMeusPedidos()">🛒 VER MEUS PEDIDOS</button>`;
+      document.getElementById('modalActions').innerHTML=`<button class="secondary" data-acao="fecharModal">ENTENDI</button><button class="primary" data-acao="verMeusPedidos">🛒 VER MEUS PEDIDOS</button>`;
       document.getElementById('modal').showModal();return;
     }
 
@@ -479,7 +498,7 @@ function continuarCarrinho(){
     const total=itens.reduce((s,c)=>s+Number(c.valor||0),0);
     document.getElementById('modalTitle').textContent='Confira suas inscrições';
     document.getElementById('modalBody').innerHTML=`<div class="message ok"><b>Identidade e duplicidade conferidas.</b><br>Confira as inscrições antes de continuar.</div><div class="details"><div><b>Aluno</b>${esc(alunoAtual.nome)}</div><div><b>E-mail</b>${esc(alunoAtual.email)}</div></div>${linhas}<p><b>Total das inscrições: ${money(total)}</b></p><div class="message warn"><b>Os pagamentos serão separados.</b><br>Cada competição gerará seu próprio pedido e seu próprio Pix de R$ 15,00 ou R$ 25,00. Os valores nunca serão somados em um único Pix.</div>`;
-    document.getElementById('modalActions').innerHTML=`<button class="secondary" onclick="fecharModal()">VOLTAR</button><button id="confirmarPedidoBtn" class="primary" onclick="confirmarPedidoCarrinho()">CONFIRMAR INSCRIÇÕES</button>`;
+    document.getElementById('modalActions').innerHTML=`<button class="secondary" data-acao="fecharModal">VOLTAR</button><button id="confirmarPedidoBtn" class="primary" data-acao="confirmarPedidoCarrinho">CONFIRMAR INSCRIÇÕES</button>`;
     document.getElementById('modal').showModal();
   }).withFailureHandler(falha).verificarCarrinhoAluno(alunoAtual.sessao,itens.map(c=>c.id));
 }
@@ -520,7 +539,7 @@ function abrirFilaPagamentosNovos(totalGeral){
     return `<div class="payment-queue-card ${concluido?'done':''}">
       <div><h4>${esc(item.competicao||'Competição')}</h4><p>Pedido ${esc(p.pedidoId)}${item.nivel?` • ${esc(item.nivel)}`:''}</p></div>
       <div class="payment-queue-value">${money(p.valorTotal)}</div>
-      <div class="payment-queue-actions">${concluido?'<span class="payment-queue-done">✓ COMPROVANTE ENVIADO</span>':`<button class="primary" onclick="abrirPagamentoNovo(${i})">PAGAR ${money(p.valorTotal)} / ENVIAR COMPROVANTE</button>`}</div>
+      <div class="payment-queue-actions">${concluido?'<span class="payment-queue-done">✓ COMPROVANTE ENVIADO</span>':`<button class="primary" data-acao="abrirPagamentoNovo" data-arg="${i}">PAGAR ${money(p.valorTotal)} / ENVIAR COMPROVANTE</button>`}</div>
     </div>`;
   }).join('');
   const dlg=document.getElementById('modal');
@@ -532,7 +551,7 @@ function abrirFilaPagamentosNovos(totalGeral){
     :'<div class="message warn">Não foi possível confirmar o envio de todos os avisos por e-mail. Acompanhe cada pedido em Meus Pedidos no portal.</div>';
   window.emailAvisosEnviados=null;
   document.getElementById('modalBody').innerHTML=`<div class="message ok"><b>Inscrições registradas com sucesso.</b><br>${pedidos.length>1?`Foram criados ${pedidos.length} pagamentos separados.`:'Foi criado 1 pagamento.'}</div>${emailNote}<div class="payment-queue">${cards}</div><div class="payment-queue-note"><b>Total das inscrições: ${money(total)}</b><br>${pendentes?`Ainda falta${pendentes>1?'m':''} ${pendentes} pagamento${pendentes>1?'s':''}. Pague um de cada vez e anexe o comprovante correspondente.`:'Todos os comprovantes deste conjunto já foram enviados.'}</div>`;
-  document.getElementById('modalActions').innerHTML=`<button class="secondary" onclick="fecharModal()">FECHAR</button><button class="secondary" onclick="fecharModal();abrirMeusPedidos()">🛒 MEUS PEDIDOS</button>`;
+  document.getElementById('modalActions').innerHTML=`<button class="secondary" data-acao="fecharModal">FECHAR</button><button class="secondary" data-acao="verMeusPedidos">🛒 MEUS PEDIDOS</button>`;
   if(!dlg.open)dlg.showModal();
 }
 
@@ -682,12 +701,12 @@ function abrirPagamentoPix(p){
   dlg.classList.add('wide');
   document.getElementById('modalTitle').textContent='Pagamento via Pix';
   document.getElementById('modalBody').innerHTML='<div class="pix-loading">Gerando o Pix do pedido...</div>';
-  document.getElementById('modalActions').innerHTML='<button class="secondary" onclick="fecharModal()">FECHAR</button>';
+  document.getElementById('modalActions').innerHTML='<button class="secondary" data-acao="fecharModal">FECHAR</button>';
   dlg.showModal();
 
   google.script.run.withSuccessHandler(r=>{
     pixAtualCodigo=String(r.pixCopiaCola||'');
-    document.getElementById('modalBody').innerHTML=`<div class="message warn"><b>Pague exatamente ${money(r.total)}.</b><br>Este é o Pix individual do pedido ${esc(r.pedidoId)}. O Portal não soma pagamentos de competições diferentes.</div><div class="pix-grid"><div class="pix-qr"><div id="pixQr"></div></div><div class="pix-info"><p class="pix-value">${money(r.total)}</p><div class="details"><div><b>Recebedor</b>${esc(r.recebedor)}</div><div><b>Instituição</b>${esc(r.instituicao||'')}</div><div><b>Chave Pix</b>${esc(r.chave)}</div><div><b>Pedido</b>${esc(r.pedidoId)}</div></div><div class="pix-note">Você pode ler o QR Code com o aplicativo do seu banco ou usar o código Pix Copia e Cola abaixo. Antes de confirmar o pagamento, confira o recebedor e o valor no aplicativo.</div></div></div><div class="pix-code"><label>PIX COPIA E COLA</label><textarea id="pixCodigo" readonly>${esc(pixAtualCodigo)}</textarea><div id="pixCopyMsg" class="pix-copy-ok"></div></div><div class="proof-box"><h4>Enviar comprovante</h4><p>Depois de realizar o Pix, envie o comprovante deste pedido. Aceitamos PDF, JPG ou PNG com até 5 MB.</p><input id="comprovanteArquivo" class="proof-input" type="file" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png"><div id="comprovanteArquivoInfo" class="proof-meta">Nenhum arquivo selecionado.</div><div id="comprovanteStatus" class="proof-status"></div><div class="proof-actions"><button id="enviarComprovanteBtn" class="primary" onclick="enviarComprovanteAtual()">ENVIAR COMPROVANTE</button></div></div>`;
+    document.getElementById('modalBody').innerHTML=`<div class="message warn"><b>Pague exatamente ${money(r.total)}.</b><br>Este é o Pix individual do pedido ${esc(r.pedidoId)}. O Portal não soma pagamentos de competições diferentes.</div><div class="pix-grid"><div class="pix-qr"><div id="pixQr"></div></div><div class="pix-info"><p class="pix-value">${money(r.total)}</p><div class="details"><div><b>Recebedor</b>${esc(r.recebedor)}</div><div><b>Instituição</b>${esc(r.instituicao||'')}</div><div><b>Chave Pix</b>${esc(r.chave)}</div><div><b>Pedido</b>${esc(r.pedidoId)}</div></div><div class="pix-note">Você pode ler o QR Code com o aplicativo do seu banco ou usar o código Pix Copia e Cola abaixo. Antes de confirmar o pagamento, confira o recebedor e o valor no aplicativo.</div></div></div><div class="pix-code"><label>PIX COPIA E COLA</label><textarea id="pixCodigo" readonly>${esc(pixAtualCodigo)}</textarea><div id="pixCopyMsg" class="pix-copy-ok"></div></div><div class="proof-box"><h4>Enviar comprovante</h4><p>Depois de realizar o Pix, envie o comprovante deste pedido. Aceitamos PDF, JPG ou PNG com até 5 MB.</p><input id="comprovanteArquivo" class="proof-input" type="file" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png"><div id="comprovanteArquivoInfo" class="proof-meta">Nenhum arquivo selecionado.</div><div id="comprovanteStatus" class="proof-status"></div><div class="proof-actions"><button id="enviarComprovanteBtn" class="primary" data-acao="enviarComprovanteAtual">ENVIAR COMPROVANTE</button></div></div>`;
     const qr=document.getElementById('pixQr');
     if(window.QRCode&&pixAtualCodigo){
       try{new QRCode(qr,{text:pixAtualCodigo,width:220,height:220,correctLevel:QRCode.CorrectLevel.M});}
@@ -702,7 +721,7 @@ function abrirPagamentoPix(p){
       if(!info)return;
       info.textContent=f?`${f.name} • ${formatarBytes(f.size)}`:'Nenhum arquivo selecionado.';
     });
-    document.getElementById('modalActions').innerHTML='<button class="secondary" onclick="fecharModal()">FECHAR</button><button class="primary" onclick="copiarPixAtual()">COPIAR PIX</button>';
+    document.getElementById('modalActions').innerHTML='<button class="secondary" data-acao="fecharModal">FECHAR</button><button class="primary" data-acao="copiarPixAtual">COPIAR PIX</button>';
   }).withFailureHandler(e=>{
     document.getElementById('modalBody').innerHTML=`<div class="message bad">${esc(e&&e.message?e.message:String(e||'Não foi possível gerar o Pix.'))}</div>`;
   }).obterPixPedido(alunoAtual.sessao,p.pedidoId);
@@ -777,7 +796,7 @@ function enviarComprovanteAtual(){
       if(novo)novo.statusPagamento=String(r.status||'AGUARDANDO CONFERÊNCIA');
       const haOutros=pagamentosNovos.some(x=>/AGUARDANDO[ _]COMPROVANTE/i.test(x.statusPagamento||''));
       document.getElementById('modalBody').innerHTML=`<div class="message ok"><b>Comprovante enviado com sucesso.</b><br>O pagamento ficou com status <b>${esc(statusLegivel(r.status||'AGUARDANDO CONFERÊNCIA'))}</b>.</div><div class="details"><div><b>Pedido</b>${esc(r.pedidoId)}</div><div><b>Pagamento</b>${esc(r.pagamentoId)}</div><div><b>Arquivo</b>${esc(r.arquivoNome||file.name)}</div><div><b>Enviado em</b>${esc(r.enviadoEm||'Agora')}</div></div><p>Não é necessário enviar este comprovante novamente. A equipe do IDEAL OLÍMPICO fará a conferência do pagamento.</p>`;
-      document.getElementById('modalActions').innerHTML=haOutros?'<button class="secondary" onclick="fecharModal()">FECHAR</button><button class="primary" onclick="voltarPagamentosNovos()">PAGAR PRÓXIMA INSCRIÇÃO</button>':'<button class="primary" onclick="fecharModal()">CONCLUIR</button>';
+      document.getElementById('modalActions').innerHTML=haOutros?'<button class="secondary" data-acao="fecharModal">FECHAR</button><button class="primary" data-acao="voltarPagamentosNovos">PAGAR PRÓXIMA INSCRIÇÃO</button>':'<button class="primary" data-acao="fecharModal">CONCLUIR</button>';
       recarregarPedidosSilencioso();
     }).withFailureHandler(e=>{
       if(btn){btn.disabled=false;btn.textContent='ENVIAR COMPROVANTE';}

@@ -5,6 +5,7 @@ on:
     paths:
       - 'atlas/**'
       - '_cloudflare/atlas-api/**'
+      - 'inscricoes/**'
       - '.github/workflows/atlas-testes.yml'
   workflow_dispatch:
 
