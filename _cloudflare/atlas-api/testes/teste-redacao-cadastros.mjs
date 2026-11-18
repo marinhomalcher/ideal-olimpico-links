@@ -151,7 +151,7 @@ for (const f of ['admin.html', 'admin-questoes.html', 'admin-enviar.html', 'admi
   const menu = fs.readFileSync(atlas + f, 'utf8').match(/<aside><small>ÁREA DO ADM<\/small>(.*?)<\/aside>/)?.[1] || '';
   ok('Menu do ADM com "Alunos" logo abaixo de "Cadastros e funções": ' + f, /^<a href="admin\.html"[^>]*>Cadastros e funções<\/a><a href="alunos-admin\.html"[^>]*>Alunos<\/a>/.test(menu) && menu.includes('<a href="alunos-admin.html">Alunos</a><a href="redacao-lotes-admin.html">Redação</a>') && !menu.includes('redacao-admin.html'));
 }
-ok('Login do ADM volta para a página Alunos', fs.readFileSync(atlas + 'admin.html', 'utf8').includes("['alunos-admin.html','redacao-admin.html','redacao-lotes-admin.html']"));
+ok('Login do ADM volta para a página Alunos', fs.readFileSync(atlas + 'admin.html', 'utf8').includes("['alunos-admin.html','redacao-admin.html','redacao-lotes-admin.html',"));
 const turmaAluno = db.prepare("SELECT turma_id FROM redacao_alunos WHERE ra = '12345'").get().turma_id;
 await page.goto(base + '/alunos-admin.html?turma=' + turmaAluno);
 await page.waitForFunction(() => /aluno\(s\) nesta turma/.test(document.querySelector('#consultar-status').textContent), null, { timeout: 10000 }).catch(() => {});
