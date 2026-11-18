@@ -20,6 +20,8 @@ ATLAS_AVISOS_ATIVOS = "1"
 MS_TENANT_ID = "84ccf0a0-7901-47f8-9c1a-4a4b95689d19"
 MS_CLIENT_ID = "ffae919b-7e6c-4109-969c-d969abd48beb"
 MS_REMETENTE = "olimpiadas@grupoideal.com.br"
+# Site do SharePoint "Resultados IDEAL OLÍMPICO" (mapas de desempenho e espelhos). O app tem Sites.Selected só neste site.
+SHAREPOINT_SITE = "grupoideal.sharepoint.com,606621f7-db7d-46ab-a0da-1c6200e3a14d,4602c978-fb0c-4bfc-9e55-0d502aee359c"
 
 [[d1_databases]]
 binding = "DB"

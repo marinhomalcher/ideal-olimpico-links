@@ -1994,6 +1994,57 @@ async function listarBackups(env) {
   } while (cursor);
   return todos.sort((a, b) => (a.nome < b.nome ? 1 : -1));
 }
+// ---------- SharePoint "Resultados IDEAL OLÍMPICO" (mapas de desempenho e espelhos) ----------
+// O app "ATLAS – envio de e-mails" tem Sites.Selected com escrita só neste site (liberado pela TI em 18/11/2026).
+// SHAREPOINT_SITE em [vars]: id do site (não é segredo). O teste grava, lê por link temporário e apaga um arquivo.
+function papeisDoToken(token) {
+  try {
+    const meio = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+    const json = JSON.parse(new TextDecoder().decode(Uint8Array.from(atob(meio + '='.repeat((4 - meio.length % 4) % 4)), c => c.charCodeAt(0))));
+    return Array.isArray(json.roles) ? json.roles : [];
+  } catch { return []; }
+}
+async function testarSharePoint(env) {
+  const etapas = [];
+  const passo = (etapa, ok, detalhe = '') => { etapas.push({ etapa, ok, detalhe: String(detalhe).slice(0, 300) }); return ok; };
+  const fim = () => ({ ok: etapas.every(e => e.ok), etapas });
+  if (!microsoftConfigurado(env) || !env.SHAREPOINT_SITE) { passo('Configuração', false, 'Falta a configuração da Microsoft ou o SHAREPOINT_SITE.'); return fim(); }
+  const graph = async (caminho, op = {}) => {
+    const r = await fetch('https://graph.microsoft.com/v1.0' + caminho, { ...op, headers: { Authorization: 'Bearer ' + token, ...(op.headers || {}) } });
+    const corpo = r.status === 204 ? {} : await r.json().catch(() => ({}));
+    return { status: r.status, corpo, erro: corpo?.error ? (corpo.error.code + ': ' + (corpo.error.message || '')).slice(0, 200) : '' };
+  };
+  let token;
+  try { tokenMicrosoft = null; token = await tokenDaMicrosoft(env); }
+  catch (e) { passo('Chave da Microsoft', false, e.message); return fim(); }
+  const papeis = papeisDoToken(token);
+  passo('Chave da Microsoft', true, 'Permissões do aplicativo: ' + (papeis.join(', ') || 'nenhuma'));
+  if (!passo('Permissão Sites.Selected aprovada pelo administrador', papeis.includes('Sites.Selected'), papeis.includes('Sites.Selected') ? 'ok' : 'A TI precisa conceder o consentimento do administrador para Sites.Selected.')) return fim();
+  const site = encodeURIComponent(env.SHAREPOINT_SITE);
+  let r = await graph('/sites/' + site + '?$select=id,displayName,webUrl');
+  if (!passo('Abrir o site', r.status === 200, r.status === 200 ? r.corpo.displayName + ' — ' + r.corpo.webUrl : r.status + ' ' + r.erro)) return fim();
+  const nome = 'ATLAS-teste/conexao-' + new Date().toISOString().replace(/[:.]/g, '-') + '.txt';
+  const conteudo = 'Teste de conexão do ATLAS em ' + new Date().toISOString();
+  r = await graph('/sites/' + site + '/drive/root:/' + nome + ':/content', { method: 'PUT', headers: { 'Content-Type': 'text/plain' }, body: conteudo });
+  if (!passo('Gravar um arquivo de teste', r.status === 200 || r.status === 201, r.status === 200 || r.status === 201 ? nome : r.status + ' ' + r.erro)) return fim();
+  const itemId = r.corpo.id;
+  r = await graph('/sites/' + site + '/drive/items/' + encodeURIComponent(itemId) + '?$select=id,size,@microsoft.graph.downloadUrl');
+  const link = r.corpo?.['@microsoft.graph.downloadUrl'];
+  if (passo('Link temporário (o que o aluno vai usar)', !!link, link ? 'gerado' : r.status + ' ' + r.erro)) {
+    const lido = await fetch(link).then(x => x.ok ? x.text() : '').catch(() => '');
+    passo('Ler o arquivo pelo link temporário', lido === conteudo, lido === conteudo ? 'conteúdo confere' : 'conteúdo diferente ou vazio');
+  }
+  r = await graph('/sites/' + site + '/drive/items/' + encodeURIComponent(itemId), { method: 'DELETE' });
+  passo('Apagar o arquivo de teste', r.status === 204, r.status === 204 ? 'ok' : r.status + ' ' + r.erro);
+  return fim();
+}
+async function rotaSharePointAdm(request, env, path) {
+  if (path !== '/api/adm/sharepoint/teste') return null;
+  if (request.method !== 'POST') throw new HttpError(405, 'Método não permitido.');
+  const permitido = await contarTentativaLogin(env, 'adm-sharepoint-teste', 60, 2);
+  if (!permitido) throw new HttpError(429, 'Aguarde um minuto antes de testar de novo.');
+  return { ok: true, teste: await testarSharePoint(env) };
+}
 async function rotasBackupAdm(request, env, path, sessao) {
   if (!path.startsWith('/api/adm/backups')) return null;
   if (!env.IMAGENS) throw new HttpError(503, 'Armazenamento indisponível.');
@@ -2256,6 +2307,8 @@ async function rotasAdm(request, env, path) {
   if (path === '/api/adm/itens/enviar' && request.method === 'POST') return await enviarSemClassificacao(env, request, await admUsuarioId(env), 'adm');
   const retiradas = await rotasRetiradas(request, env, path, sessao);
   if (retiradas) return retiradas;
+  const sharepointAdm = await rotaSharePointAdm(request, env, path);
+  if (sharepointAdm) return sharepointAdm;
   const backupAdm = await rotasBackupAdm(request, env, path, sessao);
   if (backupAdm) return backupAdm;
   const selecoesAdm = await rotasSelecoesAdm(request, env, path, new URL(request.url), sessao);
