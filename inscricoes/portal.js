@@ -11,7 +11,7 @@ const ACOES={
   pedirCodigo:()=>pedirCodigo(),reenviarCodigo:()=>pedirCodigo(true),entrarComCodigo:()=>entrarComCodigo(),voltarParaMatricula:()=>voltarParaMatricula(),
   abrirMeusPedidos:()=>abrirMeusPedidos(),fecharMeusPedidos:()=>fecharMeusPedidos(),trocarAluno:()=>trocarAluno(),irHome:()=>irHome(),
   abrirSolicitacaoAlteracao:()=>abrirSolicitacaoAlteracao(),fecharAlteracaoModal:()=>fecharAlteracaoModal(),enviarSolicitacaoAlteracao:()=>enviarSolicitacaoAlteracao(),
-  confirmarCadastro:()=>confirmarCadastro(),continuarCarrinho:()=>continuarCarrinho(),confirmarPedidoCarrinho:()=>confirmarPedidoCarrinho(),
+  confirmarCadastro:()=>confirmarCadastro(),editarCadastro:()=>editarCadastro(),continuarCarrinho:()=>continuarCarrinho(),confirmarPedidoCarrinho:()=>confirmarPedidoCarrinho(),
   fecharModal:()=>fecharModal(),verMeusPedidos:()=>{fecharModal();abrirMeusPedidos();},
   adicionarCarrinhoSerie:arg=>adicionarCarrinhoSerie(arg),abrirPagamentoNovo:arg=>abrirPagamentoNovo(Number(arg)),
   copiarPixAtual:()=>copiarPixAtual(),enviarComprovanteAtual:()=>enviarComprovanteAtual(),voltarPagamentosNovos:()=>voltarPagamentosNovos(),
@@ -163,12 +163,68 @@ function renderCadastroAluno(){
   document.getElementById('cadRespVinculo').value=a.responsavelVinculo||'';
   document.getElementById('cadRespWhatsapp').value=a.responsavelWhatsapp||'';
 
-  const annual=document.getElementById('annualOk');
-  if(a.contatosConfirmadosNesteAno){annual.textContent=`Contatos já confirmados em ${a.anoAtual}. Você pode apenas revisar e continuar.`;annual.classList.remove('hidden');}
-  else annual.classList.add('hidden');
-
   configurarContatosPorSegmento(a.segmento);
+  // Já confirmou neste ano e os dados salvos seguem válidos: contatos travados, só CONFIRMAR DADOS (ou EDITAR).
+  document.getElementById('cadEmailPessoal2').value=a.emailPessoal||'';
+  const travar=!!a.contatosConfirmadosNesteAno&&!erroContatos(lerContatosTela());
+  if(!travar)document.getElementById('cadEmailPessoal2').value='';
+  travarContatos(travar);
+  const annual=document.getElementById('annualOk');
+  if(a.contatosConfirmadosNesteAno){
+    annual.textContent=travar?`Contatos já confirmados em ${a.anoAtual}. Confira e clique em CONFIRMAR DADOS. Para mudar algo, clique em EDITAR.`:`Contatos já confirmados em ${a.anoAtual}. Revise os contatos abaixo e clique em CONFIRMAR DADOS.`;
+    annual.classList.remove('hidden');
+  }else annual.classList.add('hidden');
   limparMensagemCadastro();
+}
+
+// Contatos travados (18/11/2026): os campos ficam só de leitura e o "Repita o e-mail pessoal" some.
+// EDITAR destrava tudo e pede o e-mail repetido de novo, com as mesmas regras de sempre.
+const CAMPOS_CONTATO=['cadCpfNovo','cadWhatsappAluno','cadEmailPessoal','cadRespNome','cadRespVinculo','cadRespWhatsapp'];
+function travarContatos(travar){
+  CAMPOS_CONTATO.forEach(id=>{const el=document.getElementById(id);if(el.tagName==='SELECT')el.disabled=travar;else el.readOnly=travar;});
+  document.getElementById('cadEmailPessoal2Box').classList.toggle('hidden',travar);
+  document.getElementById('editarCadastroBtn').classList.toggle('hidden',!travar);
+  document.querySelector('.contatos-box').classList.toggle('contatos-travados',travar);
+}
+function editarCadastro(){
+  travarContatos(false);
+  document.getElementById('cadEmailPessoal2').value='';
+  const a=alunoAtual||{};
+  if(a.contatosConfirmadosNesteAno)document.getElementById('annualOk').textContent='Altere o que precisar, repita o e-mail pessoal e clique em CONFIRMAR DADOS.';
+  limparMensagemCadastro();
+  const seg=String(a.segmento||'').toUpperCase();
+  document.getElementById(seg==='EF1'?'cadCpfNovo':'cadWhatsappAluno').focus();
+}
+
+function lerContatosTela(){
+  return {
+    seg:String((alunoAtual&&alunoAtual.segmento)||'').toUpperCase(),
+    waAluno:document.getElementById('cadWhatsappAluno').value,
+    emailPessoal:document.getElementById('cadEmailPessoal').value.trim(),
+    emailPessoal2:document.getElementById('cadEmailPessoal2').value.trim(),
+    cpf:document.getElementById('cadCpfNovo').value.replace(/\D/g,''),
+    respNome:document.getElementById('cadRespNome').value.trim(),
+    respVinculo:document.getElementById('cadRespVinculo').value,
+    respWa:document.getElementById('cadRespWhatsapp').value
+  };
+}
+// Devolve {msg, foco} com o primeiro problema dos contatos, ou null se está tudo certo.
+function erroContatos(v){
+  if(!v.emailPessoal||v.emailPessoal.length>254||!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.emailPessoal))return {msg:'Informe um e-mail pessoal válido. Ele pode ser do aluno ou do responsável.'};
+  if(v.emailPessoal.toLowerCase()!==v.emailPessoal2.toLowerCase())return {msg:'Os dois e-mails pessoais não são iguais. Digite o mesmo e-mail nos dois campos.',foco:'cadEmailPessoal2'};
+  if(!cpfValidoLocal(v.cpf))return {msg:'Informe um CPF válido do aluno (11 números).',foco:'cadCpfNovo'};
+  const respOk=!!(v.respNome&&v.respVinculo&&whatsappValidoLocal(v.respWa));
+  if(v.seg==='EF1'){
+    if(!respOk)return {msg:'Preencha corretamente nome, vínculo e WhatsApp do responsável.'};
+  }else if(v.seg==='EF2'){
+    if(v.waAluno&&!whatsappValidoLocal(v.waAluno))return {msg:'Confira o WhatsApp do aluno.'};
+    if(!respOk)return {msg:'Preencha corretamente nome, vínculo e WhatsApp do responsável.'};
+  }else{
+    if(!whatsappValidoLocal(v.waAluno))return {msg:'Informe um WhatsApp válido do aluno.'};
+    const algumResp=!!(v.respNome||v.respVinculo||v.respWa.replace(/\D/g,''));
+    if(algumResp&&!respOk)return {msg:'Se informar um responsável, preencha nome, vínculo e WhatsApp.'};
+  }
+  return null;
 }
 
 function configurarContatosPorSegmento(segmento){
@@ -197,29 +253,11 @@ function configurarContatosPorSegmento(segmento){
 
 function confirmarCadastro(){
   if(!alunoAtual||!alunoAtual.sessao)return;
-  const seg=String(alunoAtual.segmento||'').toUpperCase();
-  const waAluno=document.getElementById('cadWhatsappAluno').value;
-  const emailPessoal=document.getElementById('cadEmailPessoal').value.trim();
-  const respNome=document.getElementById('cadRespNome').value.trim();
-  const respVinculo=document.getElementById('cadRespVinculo').value;
-  const respWa=document.getElementById('cadRespWhatsapp').value;
+  const v=lerContatosTela();
   const msg=document.getElementById('cadastroMsg');
-  if(!emailPessoal||emailPessoal.length>254||!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailPessoal)){msg.innerHTML='<div class="message bad">Informe um e-mail pessoal válido. Ele pode ser do aluno ou do responsável.</div>';return;}
-  const emailPessoal2=document.getElementById('cadEmailPessoal2').value.trim();
-  if(emailPessoal.toLowerCase()!==emailPessoal2.toLowerCase()){msg.innerHTML='<div class="message bad">Os dois e-mails pessoais não são iguais. Digite o mesmo e-mail nos dois campos.</div>';document.getElementById('cadEmailPessoal2').focus();return;}
-  const cpf=document.getElementById('cadCpfNovo').value.replace(/\D/g,'');
-  if(!cpfValidoLocal(cpf)){msg.innerHTML='<div class="message bad">Informe um CPF válido do aluno (11 números).</div>';document.getElementById('cadCpfNovo').focus();return;}
-
-  if(seg==='EF1'){
-    if(!respNome||!respVinculo||!whatsappValidoLocal(respWa)){msg.innerHTML='<div class="message bad">Preencha corretamente nome, vínculo e WhatsApp do responsável.</div>';return;}
-  }else if(seg==='EF2'){
-    if(waAluno&&!whatsappValidoLocal(waAluno)){msg.innerHTML='<div class="message bad">Confira o WhatsApp do aluno.</div>';return;}
-    if(!respNome||!respVinculo||!whatsappValidoLocal(respWa)){msg.innerHTML='<div class="message bad">Preencha corretamente nome, vínculo e WhatsApp do responsável.</div>';return;}
-  }else{
-    if(!whatsappValidoLocal(waAluno)){msg.innerHTML='<div class="message bad">Informe um WhatsApp válido do aluno.</div>';return;}
-    const algumResp=!!(respNome||respVinculo||respWa.replace(/\D/g,''));
-    if(algumResp&&(!respNome||!respVinculo||!whatsappValidoLocal(respWa))){msg.innerHTML='<div class="message bad">Se informar um responsável, preencha nome, vínculo e WhatsApp.</div>';return;}
-  }
+  const erro=erroContatos(v);
+  if(erro){msg.innerHTML=`<div class="message bad">${esc(erro.msg)}</div>`;if(erro.foco)document.getElementById(erro.foco).focus();return;}
+  const {waAluno,emailPessoal,respNome,respVinculo,respWa,cpf}=v;
 
   const btn=document.getElementById('confirmarCadastroBtn');btn.disabled=true;
   msg.innerHTML='<div class="message warn">Salvando a confirmação...</div>';

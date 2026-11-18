@@ -101,7 +101,7 @@
             <input id="cadEmailPessoal" type="email" maxlength="254" autocomplete="email" inputmode="email" placeholder="voce@exemplo.com" required>
             <small>Informe o e-mail do aluno ou do responsável para emergências.</small>
           </label>
-          <label class="field email-pessoal-field">Repita o e-mail pessoal <span aria-hidden="true">(obrigatório)</span>
+          <label id="cadEmailPessoal2Box" class="field email-pessoal-field">Repita o e-mail pessoal <span aria-hidden="true">(obrigatório)</span>
             <input id="cadEmailPessoal2" type="email" maxlength="254" autocomplete="off" inputmode="email" placeholder="digite de novo o mesmo e-mail" required>
           </label>
           <div id="responsavelBox" class="resp-grid">
@@ -125,7 +125,7 @@
 
         <div class="cadastro-actions">
           <button id="solicitarAlteracaoBtn" class="secondary" data-acao="abrirSolicitacaoAlteracao">SOLICITAR ALTERAÇÃO</button>
-          <div class="right"><button id="confirmarCadastroBtn" class="primary" data-acao="confirmarCadastro">CONFIRMAR DADOS</button></div>
+          <div class="right"><button id="editarCadastroBtn" class="secondary hidden" data-acao="editarCadastro">EDITAR</button><button id="confirmarCadastroBtn" class="primary" data-acao="confirmarCadastro">CONFIRMAR DADOS</button></div>
         </div>
       </div>
     </div>
