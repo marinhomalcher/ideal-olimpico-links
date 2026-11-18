@@ -1959,7 +1959,7 @@ async function rotasSelecoesAdm(request, env, path, url, sessao) {
 // Guarda as tabelas de conteúdo e cadastro; não guarda sessões nem códigos de login.
 // As imagens já ficam no R2 e não são copiadas de novo.
 const TABELAS_BACKUP = ['meta', 'usuarios', 'retiradas', 'grupos', 'grupo_versoes', 'itens', 'item_versoes', 'revisoes', 'consertos', 'selecoes', 'selecao_itens', 'eventos',
-  'redacao_turmas', 'redacao_alunos', 'redacao_equipe', 'redacao_professor_turmas', 'redacao_digitalizador_unidades', 'redacao_importacoes', 'redacao_lotes', 'redacao_paginas', 'redacao_correcoes', 'coordenadores'];
+  'redacao_turmas', 'redacao_alunos', 'redacao_equipe', 'redacao_professor_turmas', 'redacao_digitalizador_unidades', 'redacao_importacoes', 'redacao_lotes', 'redacao_paginas', 'redacao_correcoes', 'coordenadores', 'redacao_envios'];
 const MANTER_BACKUPS = 60;
 
 async function fazerBackup(env, origem) {
@@ -2445,7 +2445,7 @@ export default {
       }
       if (url.pathname.startsWith('/api/redacao/')) {
         if (!ALLOWED_ORIGINS.includes(origin)) throw new HttpError(403, 'Origem não permitida.');
-        const resultado = url.pathname.startsWith('/api/redacao/lotes')
+        const resultado = url.pathname.startsWith('/api/redacao/lotes') || url.pathname.startsWith('/api/redacao/envios')
           ? await rotaLotesUsuario(request, env, url.pathname, { sessaoAtual, hojeSP, registrar, readJson })
           : url.pathname.startsWith('/api/redacao/correcao')
             ? await rotaCorrecao(request, env, url.pathname, { sessaoAtual, hojeSP, registrar, readJson })

@@ -360,5 +360,34 @@
     return c;
   }
 
-  window.AtlasAlinhamento = { MODELO, C128, analisar, decodificar, desenhar, matrizFinal, abrirPdf, desenharPagina };
+  /* ---------- separar e juntar páginas (pdf-lib 1.17.1, conferido pela assinatura) ----------
+     O envio automático separa o PDF da turma por destino e acrescenta folhas no fim de um lote já guardado.
+     As páginas são copiadas como estão (sem comprimir de novo), então a imagem escaneada não muda. */
+  const PDFLIB = 'https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js';
+  const ASSINATURA_PDFLIB = 'weMABwrltA6jWR8DDe9Jp5blk+tZQh7ugpCsF3JwSA53WZM9/14PjS5LAJNHNjAI';
+  let pdflib = null;
+  function carregarPdfLib() {
+    return pdflib || (pdflib = (async () => {
+      let r;
+      try { r = await fetch(PDFLIB); } catch { throw Error('Não foi possível carregar o montador de PDF. Confira a internet e tente de novo.'); }
+      if (!r.ok) throw Error('Não foi possível carregar o montador de PDF. Tente de novo.');
+      const buf = await r.arrayBuffer(), dig = new Uint8Array(await crypto.subtle.digest('SHA-384', buf));
+      if (btoa(String.fromCharCode(...dig)) !== ASSINATURA_PDFLIB) throw Error('O montador de PDF baixado não confere com o esperado. Avise o ADM.');
+      const url = URL.createObjectURL(new Blob([buf], { type: 'text/javascript' }));
+      await new Promise((ok, falha) => { const sc = document.createElement('script'); sc.src = url; sc.onload = ok; sc.onerror = () => falha(Error('Não foi possível carregar o montador de PDF.')); document.head.append(sc); });
+      if (!window.PDFLib) throw Error('Não foi possível carregar o montador de PDF.');
+      return window.PDFLib;
+    })().catch(e => { pdflib = null; throw e; }));
+  }
+  /* Novo PDF com as páginas `numeros` (1, 2, …) de `origem`; se `base` vier, as páginas entram depois das dela. */
+  async function montarPdf(origem, numeros, base = null) {
+    const { PDFDocument } = await carregarPdfLib();
+    const fonte = await PDFDocument.load(origem, { ignoreEncryption: true });
+    const novo = base ? await PDFDocument.load(base, { ignoreEncryption: true }) : await PDFDocument.create();
+    const copias = await novo.copyPages(fonte, numeros.map(n => n - 1));
+    for (const p of copias) novo.addPage(p);
+    return { bytes: await novo.save(), paginas: novo.getPageCount() };
+  }
+
+  window.AtlasAlinhamento = { MODELO, C128, analisar, decodificar, desenhar, matrizFinal, abrirPdf, desenharPagina, carregarPdfLib, montarPdf };
 })();

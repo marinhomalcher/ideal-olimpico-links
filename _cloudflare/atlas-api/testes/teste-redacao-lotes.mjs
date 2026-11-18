@@ -45,7 +45,18 @@ async function api(path, method = 'GET', body, token = 'adm-token', contentType 
   const response = await worker.fetch(request, env, { waitUntil() {} });
   return { status: response.status, data: response.headers.get('Content-Type')?.includes('json') ? await response.json() : Buffer.from(await response.arrayBuffer()), headers: response.headers };
 }
-ok('Schema 16', db.prepare("SELECT valor FROM meta WHERE chave='schema_versao'").get().valor === '16');
+ok('Schema 17', db.prepare("SELECT valor FROM meta WHERE chave='schema_versao'").get().valor === '17');
+{ /* migração 0017 aplicada sobre o schema v16 */
+  const m = new DatabaseSync(':memory:'), sql = fs.readFileSync(repo + '_cloudflare/atlas-api/schema.sql', 'utf8');
+  m.exec(sql.split('-- ---------- v17 ----------')[0]); m.exec(fs.readFileSync(repo + '_cloudflare/atlas-api/migrations/0017_redacao_envios.sql', 'utf8'));
+  ok('Migração 0017 cria redacao_envios, envio_id e paginas_arquivo e marca a versão 17',
+    m.prepare("SELECT name FROM sqlite_master WHERE name = 'redacao_envios'").get() && m.prepare('PRAGMA table_info(redacao_paginas)').all().some(c => c.name === 'envio_id') &&
+    m.prepare('PRAGMA table_info(redacao_lotes)').all().some(c => c.name === 'paginas_arquivo') && m.prepare("SELECT valor FROM meta WHERE chave = 'schema_versao'").get().valor === '17'); }
+async function novoEnvio(token, bimestre, unidade) { return (await api('/api/redacao/envios', 'POST', { bimestre, unidade }, token)).data.envio_id; }
+async function subir(token, turmaId, bimestre, unidade, corpo, paginas = 1) {
+  const envio = await novoEnvio(token, bimestre, unidade);
+  return await api('/api/redacao/lotes?envio=' + envio + '&turma_id=' + turmaId + '&paginas=' + paginas, 'POST', corpo, token, 'application/pdf');
+}
 let r = await api('/api/adm/redacao/turmas');
 const bc = r.data.turmas.find(t => t.unidade === 'BC' && t.codigo === '1EMA');
 const cn = r.data.turmas.find(t => t.unidade === 'CN' && t.codigo === '1EMA');
@@ -63,31 +74,37 @@ r = await api('/api/redacao/lotes', 'GET', undefined, 'bc-token');
 ok('Digitalizador vê só turmas da sua unidade', r.status === 200 && r.data.turmas.length > 0 && r.data.turmas.every(t => t.unidade === 'BC') && r.data.lotes.length === 0, r.data.error);
 r = await api('/api/redacao/lotes', 'GET', undefined, 'prof-token');
 ok('Professora não recebe acesso aos PDFs brutos', r.status === 403, r.data.error);
-r = await api('/api/redacao/lotes?turma_id=' + cn.id + '&bimestre=1', 'POST', pdf, 'bc-token', 'application/pdf');
-ok('Unidade alheia bloqueada', r.status === 403 && objetos.size === 0, r.data.error);
-r = await api('/api/redacao/lotes?turma_id=' + bc.id + '&bimestre=1', 'POST', Buffer.from('falso'), 'bc-token', 'application/pdf');
-ok('Arquivo sem assinatura PDF recusado', r.status === 415 && objetos.size === 0, r.data.error);
+r = await api('/api/redacao/envios', 'POST', { bimestre: 1, unidade: 'CN' }, 'bc-token');
+ok('Envio por unidade alheia bloqueado', r.status === 403 && objetos.size === 0, r.data.error);
 r = await api('/api/redacao/lotes?turma_id=' + bc.id + '&bimestre=1', 'POST', pdf, 'bc-token', 'application/pdf');
+ok('Lote sem envio (forma antiga) é recusado', r.status === 400 && objetos.size === 0, r.data.error);
+r = await subir('bc-token', bc.id, 1, 'BC', Buffer.from('falso'));
+ok('Arquivo sem assinatura PDF recusado', r.status === 415 && objetos.size === 0, r.data.error);
+r = await subir('bc-token', bc.id, 1, 'BC', pdf);
 const loteId = r.data.lote_id;
 ok('PDF recebido no R2 e slot ocupado', r.status === 200 && !!loteId && objetos.size === 1 && db.prepare('SELECT COUNT(*) AS n FROM redacao_lotes WHERE cancelado_em IS NULL').get().n === 1, r.data.error);
-r = await api('/api/redacao/lotes?turma_id=' + bc.id + '&bimestre=1', 'POST', pdf, 'bc-token', 'application/pdf');
+r = await subir('bc-token', bc.id, 1, 'BC', pdf);
 ok('Mesmo bimestre e turma não duplicam', r.status === 409 && objetos.size === 1, r.data.error);
 r = await api('/api/redacao/lotes/' + loteId + '/pdf', 'GET', undefined, 'bc-token');
 ok('Digitalizador autorizado lê o PDF privado', r.status === 200 && r.data.equals(pdf) && r.headers.get('Cache-Control').includes('no-store'));
 r = await api('/api/redacao/lotes/' + loteId + '/pdf', 'GET', undefined, 'cn-token');
 ok('Outra unidade não lê o PDF', r.status === 404);
+r = await api('/api/redacao/lotes/' + loteId + '/pdf?acrescentar=1', 'GET', undefined, 'cn-token');
+ok('Para acrescentar folhas (aluno que mudou de unidade), outra unidade lê o PDF do lote', r.status === 200 && r.data.equals(pdf));
 r = await api('/api/adm/redacao/lotes/' + loteId + '/pdf');
 ok('ADM consegue conferir o PDF', r.status === 200 && r.data.equals(pdf));
 r = await api('/api/adm/redacao/lotes');
 ok('ADM vê o lote e sua origem', r.status === 200 && r.data.lotes[0].digitalizador === 'Digitalizador BC' && r.data.lotes[0].codigo === '1EMA', r.data.error);
-db.prepare('UPDATE redacao_lotes SET cancelavel_ate = ? WHERE id = ?').run('2000-01-01T00:00:00Z', loteId);
+db.prepare("INSERT INTO redacao_correcoes (lote_id, pagina, aluno_ra, professor_id, enviada_em) VALUES (?, 1, '00000', ?, '2026-11-14T10:00:00Z')").run(loteId, profId);
 r = await api('/api/redacao/lotes/' + loteId, 'DELETE', undefined, 'bc-token');
-ok('Digitalizador não cancela depois de 2 horas', r.status === 403 && objetos.size === 1, r.data.error);
+ok('Digitalizador não cancela depois que a professora começou a corrigir', r.status === 403 && /começou a corrigir/.test(r.data.error) && objetos.size === 1, r.data.error);
+r = await api('/api/redacao/lotes/' + loteId, 'DELETE', undefined, 'cn-token');
+ok('Outro digitalizador não cancela', r.status === 404 || r.status === 403, r.status);
 r = await api('/api/adm/redacao/lotes/' + loteId, 'DELETE');
-ok('ADM cancela depois do prazo e exclui PDF', r.status === 200 && r.data.cancelado && objetos.size === 0 && db.prepare('SELECT cancelado_em FROM redacao_lotes WHERE id = ?').get(loteId).cancelado_em, r.data.error);
+ok('ADM cancela mesmo com correção e exclui PDF', r.status === 200 && r.data.cancelado && objetos.size === 0 && db.prepare('SELECT cancelado_em FROM redacao_lotes WHERE id = ?').get(loteId).cancelado_em, r.data.error);
 r = await api('/api/adm/redacao/lotes/' + loteId + '/pdf');
 ok('Lote cancelado não abre PDF', r.status === 404);
-r = await api('/api/redacao/lotes?turma_id=' + bc.id + '&bimestre=1', 'POST', pdf, 'bc-token', 'application/pdf');
+r = await subir('bc-token', bc.id, 1, 'BC', pdf);
 const novoId = r.data.lote_id;
 ok('Cancelamento libera o mesmo slot', r.status === 200 && novoId !== loteId && objetos.size === 1, r.data.error);
 falharExclusao = true;
@@ -98,19 +115,20 @@ ok('Limpeza posterior exclui o PDF pendente', objetos.size === 0 && !!db.prepare
 r = await api('/api/redacao/lotes', 'GET', undefined, 'bc-token');
 ok('Histórico mantém lotes cancelados', r.status === 200 && r.data.lotes.length === 2 && r.data.lotes.every(l => !!l.cancelado_em), r.data.error);
 const pdfMaior = Buffer.concat([pdf, Buffer.alloc(4 * 1024 * 1024)]);
-r = await api('/api/redacao/lotes?turma_id=' + bc.id + '&bimestre=3', 'POST', pdfMaior, 'bc-token', 'application/pdf');
+r = await subir('bc-token', bc.id, 3, 'BC', pdfMaior);
 ok('PDF de vários megabytes entra por fluxo', r.status === 200 && db.prepare('SELECT bytes FROM redacao_lotes WHERE id = ?').get(r.data.lote_id).bytes === pdfMaior.length, r.data.error);
 await api('/api/redacao/lotes/' + r.data.lote_id, 'DELETE', undefined, 'bc-token');
 ok('PDF grande cancelado sai do R2', objetos.size === 0);
 {
+  const envio3 = await novoEnvio('bc-token', 3, 'BC');
   /* Pedido sem tamanho informado: recusado com mensagem clara, nada guardado. */
-  const sem = await worker.fetch(new Request('https://atlas-api.example/api/redacao/lotes?turma_id=' + bc.id + '&bimestre=3', {
+  const sem = await worker.fetch(new Request('https://atlas-api.example/api/redacao/lotes?envio=' + envio3 + '&turma_id=' + bc.id + '&paginas=1', {
     method: 'POST', headers: { Origin: origin, Authorization: 'Bearer bc-token', 'Content-Type': 'application/pdf' },
     body: new ReadableStream({ start(c) { c.enqueue(new Uint8Array(pdf)); c.close(); } }), duplex: 'half'
   }), env, { waitUntil() {} });
   ok('Envio sem tamanho informado é recusado sem erro interno', sem.status === 411 && objetos.size === 0, sem.status);
   /* Envio interrompido (chegou menos do que o informado): recusado, nada guardado nem registrado. */
-  const corte = await worker.fetch(new Request('https://atlas-api.example/api/redacao/lotes?turma_id=' + bc.id + '&bimestre=3', {
+  const corte = await worker.fetch(new Request('https://atlas-api.example/api/redacao/lotes?envio=' + envio3 + '&turma_id=' + bc.id + '&paginas=1', {
     method: 'POST', headers: { Origin: origin, Authorization: 'Bearer bc-token', 'Content-Type': 'application/pdf', 'Content-Length': String(pdf.length + 500) },
     body: new ReadableStream({ start(c) { c.enqueue(new Uint8Array(pdf)); c.close(); } }), duplex: 'half'
   }), env, { waitUntil() {} });
@@ -148,34 +166,19 @@ await page.goto(base + '/index.html');
 await page.evaluate(() => sessionStorage.setItem('atlas_user_auth', JSON.stringify({ token: 'bc-token' })));
 await page.goto(base + '/redacao.html');
 await page.locator('#upload-area').waitFor({ state: 'visible' });
-ok('Tela do digitalizador mostra seleção do lote', await page.locator('#bimestre').isVisible() && await page.locator('#unidade option').count() === 2);
-await page.locator('#unidade').selectOption('BC');
-await page.locator('#segmento').selectOption('EM');
-await page.locator('#serie').selectOption('1ª Série');
-ok('Turmas filtradas por unidade, segmento e série', await page.locator('#turma option').count() >= 2);
-await page.locator('#turma').selectOption(String(bc.id));
+ok('Tela do digitalizador pede só bimestre, unidade e PDF', await page.locator('#bimestre').isVisible() && await page.locator('#unidade option').count() === 2 && await page.locator('#turma').count() === 0);
+ok('Com uma unidade só, ela já vem escolhida', await page.locator('#unidade').inputValue() === 'BC');
 await page.locator('#bimestre').selectOption('1');
 await page.locator('#pdf-file').setInputFiles({ name: 'turma.pdf', mimeType: 'application/pdf', buffer: pdf });
-await page.waitForFunction(() => /Não foi possível conferir/.test(document.querySelector('#ra-report').textContent), null, { timeout: 20000 }).catch(() => {});
-ok('PDF que o leitor não abre: avisa e não impede o envio', /Você ainda pode enviar/.test(await page.locator('#ra-report').textContent()) && await page.locator('#send-file').isEnabled(), await page.locator('#ra-report').textContent());
+await page.waitForFunction(() => /Não foi possível ler/.test(document.querySelector('#ra-report').textContent), null, { timeout: 20000 }).catch(() => {});
+ok('PDF que o leitor não abre: avisa e não deixa enviar (não dá para separar por turma)', /Não foi possível ler as folhas/.test(await page.locator('#ra-report').textContent()) && await page.locator('#send-file').isDisabled(), await page.locator('#ra-report').textContent());
 await page.locator('#preview-file').click();
 ok('Conferência local abre o PDF antes de enviar', await page.locator('#pdf-viewer').isVisible());
 await page.locator('#viewer-close').click();
-await page.locator('#send-file').click();
-await page.waitForFunction(() => document.querySelector('#upload-status').textContent.includes('Lote recebido.'));
-ok('Tela envia lote e oferece conferência do arquivo guardado', await page.locator('#lot-list .lot:not(.cancelled)').count() === 1 && await page.getByRole('button', { name: 'Conferir PDF guardado' }).isVisible());
-await page.getByRole('button', { name: 'Conferir PDF guardado' }).click();
-await page.locator('#pdf-viewer').waitFor({ state: 'visible', timeout: 5000 }).catch(() => {});
-ok('Conferência do PDF guardado abre após upload', await page.locator('#pdf-viewer').isVisible(), await page.locator('#upload-status').textContent());
-await page.locator('#viewer-close').click();
-await page.getByRole('button', { name: 'Cancelar lote' }).click();
-ok('Cancelamento pede confirmação dentro da página', await page.getByRole('button', { name: 'Confirmar cancelamento' }).isVisible());
-await page.getByRole('button', { name: 'Confirmar cancelamento' }).click();
-await page.waitForFunction(() => document.querySelector('#upload-status').textContent.includes('Lote cancelado.'));
-ok('Tela libera slot após cancelamento', await page.locator('#send-file').isEnabled() && await page.locator('#lot-list .lot.cancelled').count() === 4);
+ok('"Seus envios" mostra que ainda não há envio neste ano', /Nenhum envio ainda/.test(await page.locator('#lot-list').textContent()), await page.locator('#lot-list').textContent());
 await page.setViewportSize({ width: 390, height: 840 });
 ok('Portal do digitalizador cabe no celular', await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
-await api('/api/redacao/lotes?turma_id=' + bc.id + '&bimestre=2', 'POST', pdf, 'bc-token', 'application/pdf');
+await subir('bc-token', bc.id, 2, 'BC', pdf);
 await page.evaluate(() => sessionStorage.setItem('atlas_adm_token', 'adm-token'));
 await page.goto(base + '/redacao-lotes-admin.html');
 await page.locator('#app').waitFor({ state: 'visible' });
