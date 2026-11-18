@@ -113,8 +113,8 @@ async function liberar(env, body, ano, quem, registrarEvento) {
   const b = inteiro(body?.bimestre, 1, 4), p = prova(body?.prova), sim = body?.liberar === true;
   const r = await env.DB.prepare(sim
     ? 'UPDATE desempenho_documentos SET liberado_em = ? WHERE ano = ? AND bimestre = ? AND prova = ? AND liberado_em IS NULL'
-    : 'UPDATE desempenho_documentos SET liberado_em = NULL WHERE ano = ? AND bimestre = ? AND prova = ? AND ? IS NOT NULL'
-  ).bind(...(sim ? [agora(), ano, b, p] : [ano, b, p, 1])).run();
+    : 'UPDATE desempenho_documentos SET liberado_em = NULL WHERE ano = ? AND bimestre = ? AND prova = ? AND liberado_em IS NOT NULL'
+  ).bind(...(sim ? [agora(), ano, b, p] : [ano, b, p])).run();
   await registrarEvento(env, sim ? 'redacao_desempenho_liberado' : 'redacao_desempenho_recolhido', { ano, bimestre: b, prova: p, por: quem, documentos: r.meta?.changes || 0 });
   return { ok: true, alterados: r.meta?.changes || 0 };
 }
