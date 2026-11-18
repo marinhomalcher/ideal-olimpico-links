@@ -30,7 +30,14 @@ export function r2Rigoroso(objetos, opcoes = {}) {
       objetos.set(key, Buffer.from(await new Response(body).arrayBuffer()));
     },
     get: async key => objetos.has(key) ? { body: objetos.get(key) } : null,
-    delete: async key => { if (opcoes.falharExclusao?.()) throw Error('Falha temporária simulada'); objetos.delete(key); },
-    list: async () => ({ objects: [], truncated: false })
+    delete: async key => { if (opcoes.falharExclusao?.()) throw Error('Falha temporária simulada'); for (const k of Array.isArray(key) ? key : [key]) objetos.delete(k); },
+    /* lista por prefixo, em páginas, como a Cloudflare (cursor = posição) */
+    list: async ({ prefix = '', cursor, limit = 1000 } = {}) => {
+      const todas = [...objetos.keys()].filter(k => k.startsWith(prefix)).sort();
+      const inicio = Number(cursor || 0), fatia = todas.slice(inicio, inicio + limit);
+      const objects = fatia.map(key => ({ key, size: objetos.get(key).length, uploaded: new Date(0) }));
+      const truncated = inicio + limit < todas.length;
+      return { objects, truncated, cursor: truncated ? String(inicio + limit) : undefined };
+    }
   };
 }
