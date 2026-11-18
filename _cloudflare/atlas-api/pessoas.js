@@ -2,7 +2,7 @@
 // banco de questões (professor da disciplina, supervisor, classificador ou digitador),
 // Redação (professor de redação com turmas, digitalizador com unidades) e coordenador
 // (unidade/segmento/série; por enquanto só recebe o Excel das notas).
-import { RedacaoError } from './redacao-cadastros.js';
+import { RedacaoError, validarTurmaDaProfessora } from './redacao-cadastros.js';
 
 const erro = (status, mensagem) => { throw new RedacaoError(status, mensagem); };
 const UNIDADES = ['BC', 'AM', 'CN'];
@@ -36,6 +36,8 @@ export async function salvarPessoa(env, id, body, h) {
   const { limparNome, limparEmail, limparAcessoAte, emailEmUso, DISCIPLINAS, registrar, sessao } = h;
   if (!body || typeof body !== 'object') erro(400, 'Dados inválidos.');
   if (id === null) {
+    const selecao = body.redacao?.professor?.turmas;
+    if (Array.isArray(selecao)) await validarTurmaDaProfessora(env, [...new Set(selecao.map(Number))]);
     const nome = limparNome(body.nome), email = limparEmail(body.email);
     if (await emailEmUso(env, email)) erro(409, 'Este e-mail já está cadastrado.');
     const r = await env.DB.prepare("INSERT INTO usuarios (nome, email, disciplina, papel, ativo, digitador, acesso_ate, classificador) VALUES (?, ?, NULL, 'professor', 1, 0, ?, 0)")
@@ -70,6 +72,7 @@ export async function salvarPessoa(env, id, body, h) {
     const prof = !!r.professor, dig = !!r.digitalizador;
     const turmas = prof ? [...new Set((Array.isArray(r.professor.turmas) ? r.professor.turmas : []).map(Number))] : [];
     if (turmas.some(t => !Number.isInteger(t) || t < 1)) erro(400, 'Turmas inválidas.');
+    await validarTurmaDaProfessora(env, turmas, id);
     if (turmas.length) {
       const ok = new Set((await env.DB.prepare(`SELECT id FROM redacao_turmas WHERE ativa = 1 AND id IN (${turmas.map(() => '?').join(',')})`).bind(...turmas).all()).results.map(x => x.id));
       if (turmas.some(t => !ok.has(t))) erro(400, 'Uma das turmas escolhidas não existe.');

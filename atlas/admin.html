@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="pt-BR">
 <head>
-<meta name="atlas-versao" content="20261117a"><script src="atlas-versao.js?v=20261117a" defer></script>
+<meta name="atlas-versao" content="20261117b"><script src="atlas-versao.js?v=20261117b" defer></script>
 <meta charset="utf-8"><meta name="robots" content="noindex, nofollow"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="referrer" content="strict-origin-when-cross-origin">
 <title>ATLAS | Administração</title>
@@ -125,7 +125,7 @@ function openNew(presetSubject='',asSupervisor=false){form.reset();$('#dialog-ti
 /* ---------- funções da pessoa: Redação e coordenação ---------- */
 let redTurmas=[];
 function montarFuncoes(){
-  const tur=$('#rp-turmas');tur.replaceChildren();for(const t of redTurmas){const l=document.createElement('label');l.dataset.u=t.unidade;l.dataset.g=t.segmento;const b=document.createElement('input');b.type='checkbox';b.name='rp-t';b.value=String(t.id);l.append(b,document.createTextNode(' '+t.codigo+' · '+t.serie));tur.append(l)}
+  const tur=$('#rp-turmas');tur.replaceChildren();for(const t of redTurmas){const l=document.createElement('label');l.dataset.u=t.unidade;l.dataset.g=t.segmento;const b=document.createElement('input');b.type='radio';b.name='rp-t';b.value=String(t.id);l.append(b,document.createTextNode(' '+t.codigo+' · '+t.serie));tur.append(l)}
   const ser=$('#co-series');ser.replaceChildren();const vistos=new Set();
   for(const t of redTurmas){const k=t.unidade+'|'+t.segmento+'|'+t.serie;if(vistos.has(k))continue;vistos.add(k);const l=document.createElement('label');l.dataset.u=t.unidade;l.dataset.g=t.segmento;const b=document.createElement('input');b.type='checkbox';b.name='co-s';b.value=k;l.append(b,document.createTextNode(' '+t.serie));ser.append(l)}
 }
@@ -136,7 +136,7 @@ function mostrarFuncoes(){
   $('#red-prof-box').hidden=!$('#f-red-prof').checked;$('#red-dig-box').hidden=!$('#f-red-dig').checked;$('#coord-box').hidden=!$('#f-coord').checked;
   filtrarCaixas('rp-turmas',$('#rp-unidade').value,$('#rp-segmento').value);filtrarCaixas('co-series',$('#co-unidade').value,$('#co-segmento').value);
   const tm=[...document.querySelectorAll('[name=rp-t]:checked')].map(x=>{const t=redTurmas.find(t=>String(t.id)===x.value);return t?t.codigo+' '+t.unidade:''});
-  $('#rp-resumo').textContent=tm.length?(tm.length===1?'1 turma marcada: ':tm.length+' turmas marcadas: ')+tm.join(', '):'Nenhuma turma marcada.';
+  $('#rp-resumo').textContent=tm.length?'Turma da professora: '+tm.join(', '):'Nenhuma turma marcada. Para retirar uma turma, desmarque a função de professora de Redação.';
   const cs=[...document.querySelectorAll('[name=co-s]:checked')].map(x=>{const [u,g,sr]=x.value.split('|');return u+' · '+g+' · '+sr});
   $('#co-resumo').textContent=cs.length?'Coordena: '+cs.join('; '):'Nenhuma série marcada.';
 }

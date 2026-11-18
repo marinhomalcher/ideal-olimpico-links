@@ -31,9 +31,14 @@ ok('Schema 16', db.prepare("SELECT valor FROM meta WHERE chave='schema_versao'")
 let r = await api('/api/adm/redacao/turmas');
 ok('15 turmas iniciais', r.status === 200 && r.data.turmas.length === 15, r.data.turmas?.length);
 const primeira = r.data.turmas.find(x => x.unidade === 'BC' && x.codigo === '1EMA');
+const segunda = r.data.turmas.find(x => x.unidade === 'BC' && x.codigo === '2EMA');
 r = await api('/api/adm/redacao/equipe', 'POST', { nome: 'Professora Exemplo', email: 'prof@grupoideal.com.br', funcao: 'professor', turmas: [primeira.id] });
 ok('Cadastro de professora e turma', r.status === 200 && r.data.equipe[0].turmas[0] === primeira.id, r.data.error);
 const profId = r.data.equipe[0].id;
+r = await api('/api/adm/redacao/equipe', 'POST', { nome: 'Outra Professora', email: 'outra@grupoideal.com.br', funcao: 'professor', turmas: [primeira.id] });
+ok('Cadastro antigo bloqueia outra professora na mesma turma', r.status === 409 && /Professora Exemplo/.test(r.data.error), r.data.error);
+r = await api('/api/adm/redacao/equipe', 'POST', { nome: 'Duas Turmas', email: 'duas@grupoideal.com.br', funcao: 'professor', turmas: [primeira.id, segunda.id] });
+ok('Cadastro antigo bloqueia duas turmas para a professora', r.status === 400 && /somente uma turma/.test(r.data.error), r.data.error);
 r = await api('/api/adm/redacao/equipe/' + profId, 'PUT', { nome: 'Professora Exemplo', email: 'prof@grupoideal.com.br', funcao: 'professor', ativo: true, turmas: [primeira.id] });
 ok('ADM edita vínculos da professora', r.status === 200 && r.data.equipe[0].turmas.includes(primeira.id), r.data.error);
 sessao('prof-token', 'usuario', 'prof@grupoideal.com.br', profId);

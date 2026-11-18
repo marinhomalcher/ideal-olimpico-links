@@ -66,11 +66,35 @@ async function turmasComLotes(env, pessoa, ano) {
       "SELECT l.id, l.bimestre, l.enviado_em, " +
       "(SELECT COUNT(*) FROM redacao_paginas p WHERE p.lote_id = l.id AND p.situacao = 'aluno') AS folhas, " +
       "(SELECT COUNT(*) FROM redacao_correcoes c JOIN redacao_paginas p ON p.lote_id = c.lote_id AND p.pagina = c.pagina AND p.situacao = 'aluno' WHERE c.lote_id = l.id AND c.condenada = 0) AS corrigidas, " +
-      "(SELECT COUNT(*) FROM redacao_correcoes c JOIN redacao_paginas p ON p.lote_id = c.lote_id AND p.pagina = c.pagina AND p.situacao = 'aluno' WHERE c.lote_id = l.id AND c.condenada = 1) AS condenadas " +
+      "(SELECT COUNT(*) FROM redacao_correcoes c JOIN redacao_paginas p ON p.lote_id = c.lote_id AND p.pagina = c.pagina AND p.situacao = 'aluno' WHERE c.lote_id = l.id AND c.condenada = 1) AS condenadas, " +
+      "(SELECT COUNT(*) FROM redacao_paginas p WHERE p.lote_id = l.id AND p.situacao IN ('avulsa','duvida')) AS pendencias " +
       'FROM redacao_lotes l WHERE l.turma_id = ? AND l.ano = ? AND l.cancelado_em IS NULL ORDER BY l.bimestre'
     ).bind(t.id, ano).all()).results;
   }
   return turmas;
+}
+
+async function notasDaTurma(env, lote) {
+  const lista = await folhas(env, lote);
+  const pendencias = await env.DB.prepare("SELECT COUNT(*) AS n FROM redacao_paginas WHERE lote_id = ? AND situacao IN ('avulsa','duvida')").bind(lote.id).first();
+  if (!lista.length || lista.some(f => f.estado !== 'corrigida') || Number(pendencias.n)) {
+    erro(409, 'O relatório fica disponível depois que todas as folhas forem corrigidas e as pendências do lote forem resolvidas.');
+  }
+  const alunos = (await env.DB.prepare('SELECT ra, nome FROM redacao_alunos WHERE turma_id = ? AND ano = ? ORDER BY nome COLLATE NOCASE, ra').bind(lote.turma_id, lote.ano).all()).results;
+  const porRa = new Map(lista.map(f => [String(f.ra), f]));
+  if (porRa.size !== lista.length) erro(409, 'Há mais de uma folha para o mesmo aluno. Peça ao ADM para conferir o lote.');
+  const linhas = alunos.map(a => {
+    const f = porRa.get(String(a.ra));
+    return { ra: a.ra, nome: a.nome, c1: f?.c1 ?? null, c2: f?.c2 ?? null, c3: f?.c3 ?? null,
+      c4: f?.c4 ?? null, c5: f?.c5 ?? null, total: f?.total ?? null,
+      situacao: !f ? 'sem_redacao' : f.zero_motivo ? 'anulada' : 'corrigida', zero_motivo: f?.zero_motivo || null };
+  });
+  /* Mantém na lista uma redação corrigida mesmo se o cadastro do aluno mudar depois. */
+  for (const f of lista) if (!alunos.some(a => String(a.ra) === String(f.ra))) linhas.push({
+    ra: f.ra, nome: f.nome || `Matrícula ${f.ra}`, c1: f.c1, c2: f.c2, c3: f.c3, c4: f.c4, c5: f.c5,
+    total: f.total, situacao: f.zero_motivo ? 'anulada' : 'corrigida', zero_motivo: f.zero_motivo || null
+  });
+  return linhas;
 }
 
 function lerMarcacoes(txt) { try { const v = JSON.parse(txt || '[]'); return Array.isArray(v) ? v : []; } catch { return []; } }
@@ -151,13 +175,19 @@ export async function rotaCorrecao(request, env, path, { sessaoAtual, hojeSP, re
   if (path === '/api/redacao/correcao/turmas' && request.method === 'GET') {
     return { ok: true, ano, turmas: await turmasComLotes(env, pessoa, ano), motivos: { zero: MOTIVOS_ZERO, c5: MOTIVOS_C5, condenar: MOTIVOS_CONDENAR } };
   }
-  const m = path.match(/^\/api\/redacao\/correcao\/lotes\/(\d+)(?:\/(pdf|paginas\/(\d+)))?$/);
+  const m = path.match(/^\/api\/redacao\/correcao\/lotes\/(\d+)(?:\/(pdf|notas|paginas\/(\d+)))?$/);
   if (m) {
     const lote = await loteDaProfessora(env, inteiro(m[1], 1, 1000000000), pessoa);
     if (!m[2] && request.method === 'GET') {
       const lista = await folhas(env, lote);
       return { ok: true, professora: pessoa.nome, lote: { id: lote.id, bimestre: lote.bimestre, ano: lote.ano, unidade: lote.unidade, segmento: lote.segmento, serie: lote.serie, codigo: lote.codigo },
         folhas: lista, progresso: progresso(lista), motivos: { zero: MOTIVOS_ZERO, c5: MOTIVOS_C5, condenar: MOTIVOS_CONDENAR } };
+    }
+    if (m[2] === 'notas' && request.method === 'GET') {
+      return { ok: true, professora: pessoa.nome,
+        lote: { id: lote.id, bimestre: lote.bimestre, ano: lote.ano, unidade: lote.unidade,
+          segmento: lote.segmento, serie: lote.serie, codigo: lote.codigo },
+        alunos: await notasDaTurma(env, lote) };
     }
     if (m[2] === 'pdf' && request.method === 'GET') {
       if (!env.IMAGENS) erro(503, 'Armazenamento de PDFs indisponível.');

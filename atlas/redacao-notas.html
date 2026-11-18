@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta name="atlas-versao" content="20261117b"><script src="atlas-versao.js?v=20261117b" defer></script>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow"><title>ATLAS | Notas de Redação</title>
+<style>
+:root{--navy:#10283e;--red:#cf1426;--ink:#233544;--pale:#edf4f7}*{box-sizing:border-box}
+body{margin:0;background:#e7edf0;color:var(--ink);font:14px Arial,Helvetica,sans-serif}
+.toolbar{position:sticky;top:0;z-index:2;background:var(--navy);color:#fff;padding:12px max(16px,calc((100% - 1050px)/2));display:flex;align-items:center;justify-content:space-between;gap:14px}
+.toolbar strong{font-size:17px}.toolbar p{margin:3px 0 0;color:#d3e0e9;font-size:12px}.toolbar-actions{display:flex;gap:9px;align-items:center}.toolbar a,.toolbar button{color:#fff;font:700 14px Arial;text-decoration:none;border:1px solid #8fa8b8;border-radius:7px;background:transparent;padding:9px 13px;cursor:pointer;white-space:nowrap}.toolbar button{background:var(--red);border-color:var(--red)}.toolbar button:disabled{opacity:.55;cursor:wait}
+#status{max-width:900px;margin:15px auto;color:#aa1930;font-weight:bold}#paginas{padding:15px 10px 30px}
+.page{width:210mm;min-height:297mm;margin:0 auto 18px;background:#fff;box-shadow:0 5px 20px #23354422;padding:14mm 12mm 10mm;display:flex;flex-direction:column;break-after:page;page-break-after:always}
+.page:last-child{break-after:auto;page-break-after:auto}
+.heading{display:flex;align-items:center;justify-content:space-between;gap:15px;border-bottom:3px solid var(--red);padding-bottom:10px}.heading img{width:126px;height:auto;display:block}.heading h1{font-size:21px;color:var(--navy);margin:0 0 4px}.heading p{margin:0;color:#5a7282;font-size:11px}
+.meta{display:grid;grid-template-columns:1.2fr 1fr 1fr 1fr;gap:8px;background:var(--pale);padding:12px 14px;margin:14px 0 12px;border-radius:7px}.meta small,.stat small{display:block;color:#5a7282;font-size:9px;font-weight:bold;text-transform:uppercase;letter-spacing:.04em}.meta strong{font-size:12px;display:block;margin-top:5px;color:var(--navy)}
+.stats{display:flex;gap:9px;margin:0 0 12px}.stat{flex:1;background:var(--pale);padding:9px 12px;border-radius:7px}.stat strong{font-size:16px;display:block;margin-top:5px;color:var(--navy)}.stat.alert{background:#fff0f1}.stat.alert strong,.stat.alert small{color:#b61425}
+.table-wrap{flex:1}table{width:100%;border-collapse:collapse;table-layout:fixed}thead{background:var(--navy);color:#fff}th{font-size:9px;font-weight:bold;padding:10px 4px;text-align:center}th.aluno{text-align:left;padding-left:10px}td{border-bottom:1px solid #dce7eb;height:39px;padding:4px;text-align:center;font-size:10px}tbody tr:nth-child(even){background:#f5f8fa}tbody tr.anulada{background:#fff0f1}tbody tr.sem-redacao{background:#fff9ed}.aluno{text-align:left;width:34%;padding-left:10px}.aluno b{display:block;font-size:11px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.aluno small{display:block;color:#597182;font-size:9px;margin-top:2px}.aluno .motivo{color:#b61425}.total{font-weight:bold;color:var(--navy)}.anulada .total{color:#b61425}.n{width:5%}.ra{width:10%}.comp{width:6.2%}.total{width:12%}
+.footer{border-top:1px solid #d7e2e8;padding-top:10px;display:flex;justify-content:space-between;gap:15px;color:#5f7380;font-size:9px}.footer strong{color:var(--navy)}
+@media(max-width:850px){.toolbar{flex-wrap:wrap}.page{width:100%;min-height:0;padding:18px}.heading h1{font-size:18px}.meta{grid-template-columns:repeat(2,1fr)}.table-wrap{overflow-x:auto}table{min-width:690px}}
+@media print{@page{size:A4 portrait;margin:0}html,body{background:#fff;print-color-adjust:exact;-webkit-print-color-adjust:exact}.toolbar,#status{display:none!important}#paginas{padding:0}.page{width:210mm;height:297mm;min-height:297mm;margin:0;box-shadow:none;padding:14mm 12mm 10mm;overflow:hidden}.table-wrap{overflow:visible}table{min-width:0}thead{display:table-header-group}}
+</style>
+</head>
+<body>
+<div class="toolbar"><div><strong>Notas da turma</strong><p>Confira o relatório antes de salvar em PDF.</p></div><div class="toolbar-actions"><a href="redacao.html">← Minhas turmas</a><button type="button" id="salvar" disabled>Salvar em PDF</button></div></div>
+<div id="status" role="status">Carregando as notas…</div><main id="paginas"></main>
+<script>
+const API='https://atlas-api.marinhomalcher.workers.dev';
+const saved=(()=>{try{return JSON.parse(sessionStorage.getItem('atlas_user_auth')||localStorage.getItem('atlas_user_auth')||'null')}catch{return null}})();
+const id=new URLSearchParams(location.search).get('lote');
+const nomes={BC:'Batista Campos',AM:'Augusto Montenegro',CN:'Cidade Nova'};
+const $=s=>document.querySelector(s);
+function el(tag,cls,text){const e=document.createElement(tag);if(cls)e.className=cls;if(text!==undefined)e.textContent=String(text);return e}
+function cabecalho(page,lote,n,total){const h=el('div','heading');const logo=el('img');logo.src='ideal-logo.png';logo.alt='Colégio Ideal 50 anos';const t=el('div');t.append(el('h1',null,'NOTAS DE REDAÇÃO'),el('p',null,`Relatório da turma · página ${n} de ${total}`));h.append(logo,t);page.append(h);
+  const m=el('div','meta');for(const [label,value] of [['Unidade',nomes[lote.unidade]||lote.unidade],['Série',lote.serie],['Turma',lote.codigo],['Bimestre',`${lote.bimestre}º / ${lote.ano}`]]){const c=el('div');c.append(el('small',null,label),el('strong',null,value));m.append(c)}page.append(m)}
+function estatisticas(page,alunos){const corrigidas=alunos.filter(a=>a.situacao!=='sem_redacao'),anuladas=alunos.filter(a=>a.situacao==='anulada');const media=corrigidas.length?Math.round(corrigidas.reduce((s,a)=>s+Number(a.total),0)/corrigidas.length):0;const s=el('div','stats');for(const [label,value,alert] of [['Redações corrigidas',`${corrigidas.length} / ${alunos.length}`,false],['Média das corrigidas',`${media} / 1000`,false],['Redações anuladas',String(anuladas.length),true]]){const c=el('div','stat'+(alert?' alert':''));c.append(el('small',null,label),el('strong',null,value));s.append(c)}page.append(s)}
+function tabela(page,alunos,inicio,fim){const wrap=el('div','table-wrap'),table=el('table'),head=el('thead'),tr=el('tr');for(const [title,cls] of [['Nº','n'],['Matrícula','ra'],['Aluno','aluno'],['C1','comp'],['C2','comp'],['C3','comp'],['C4','comp'],['C5','comp'],['Total','total']])tr.append(el('th',cls,title));head.append(tr);table.append(head);const body=el('tbody');
+  for(let i=inicio;i<fim;i++){const a=alunos[i],row=el('tr',a.situacao==='anulada'?'anulada':a.situacao==='sem_redacao'?'sem-redacao':'');row.append(el('td','n',String(i+1).padStart(2,'0')),el('td','ra',a.ra));const nome=el('td','aluno');nome.append(el('b',null,a.nome),el('small',a.situacao==='anulada'?'motivo':null,a.situacao==='anulada'?'Anulada: '+a.zero_motivo:a.situacao==='sem_redacao'?'Sem redação neste lote':'Corrigida'));row.append(nome);for(const k of ['c1','c2','c3','c4','c5'])row.append(el('td','comp',a[k]===null?'—':a[k]));row.append(el('td','total',a.total===null?'—':a.total+' / 1000'));body.append(row)}table.append(body);wrap.append(table);page.append(wrap)}
+function render(d){const alunos=d.alunos,total=Math.max(1,Math.ceil(alunos.length/15));for(let n=0;n<total;n++){const page=el('section','page');cabecalho(page,d.lote,n+1,total);estatisticas(page,alunos);tabela(page,alunos,n*15,Math.min((n+1)*15,alunos.length));const foot=el('div','footer');foot.append(el('span',null,`ATLAS · ${d.professora} · ${d.lote.codigo} · ${d.lote.bimestre}º bimestre/${d.lote.ano}`),el('strong',null,`Página ${n+1} de ${total}`));page.append(foot);$('#paginas').append(page)}$('#status').textContent='';$('#salvar').disabled=false}
+async function carregar(){if(!saved?.token){location.replace('index.html?perfil=Redação');return}if(!/^\d+$/.test(id||'')){$('#status').textContent='Lote inválido.';return}try{const r=await fetch(API+'/api/redacao/correcao/lotes/'+id+'/notas',{headers:{Authorization:'Bearer '+saved.token},cache:'no-store'});const d=await r.json();if(r.status===401){location.replace('index.html?perfil=Redação');return}if(!r.ok||!d.ok)throw Error(d.error||'Não foi possível carregar as notas.');render(d)}catch(e){$('#status').textContent=e.message}}
+$('#salvar').addEventListener('click',()=>window.print());carregar();
+</script>
+</body>
+</html>
