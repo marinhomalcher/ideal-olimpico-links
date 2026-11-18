@@ -3,16 +3,20 @@
 // Roda na madrugada de 31/12 (cron diário, 3h17 de Brasília) e apaga, do ano que termina:
 // correções e notas, índice de folhas, lotes e os PDFs no R2 (redacao/<ano>/…), envios,
 // alunos de redação, turmas e o vínculo professora ↔ turma, importações e os registros (eventos)
-// de redação do ano. Professoras, digitalizadores, coordenadores e usuários continuam cadastrados.
+// de redação do ano. Também o "Meu desempenho" do ano: os documentos no banco e a pasta <ano> no
+// SharePoint dos resultados (mapas de desempenho e espelhos). Professoras, digitalizadores, coordenadores e usuários continuam cadastrados.
 // No fim faz uma cópia de segurança nova (já sem redação), apaga as anteriores, registra o evento
 // "redacao_ano_encerrado" e manda o relatório por e-mail ao ADM.
 // Se não houver nada do ano para apagar, não faz nada (nem e-mail), então pode rodar mais de uma vez.
+import { apagarAnoSharePoint } from './desempenho.js';
 const LOTE_LINHAS = 500;      // linhas apagadas por comando
 const LOTE_R2 = 500;          // objetos apagados por vez (o R2 aceita até 1.000 chaves por delete)
 const MAX_RODADAS = 5000;     // trava de segurança do laço
 
 /* Tabelas do ano, na ordem em que podem ser apagadas (as que dependem de outras vêm primeiro). */
 const ETAPAS = [
+  { chave: 'desempenho', contar: 'SELECT COUNT(*) AS n FROM desempenho_documentos WHERE ano = ?',
+    apagar: 'DELETE FROM desempenho_documentos WHERE rowid IN (SELECT rowid FROM desempenho_documentos WHERE ano = ? LIMIT ' + LOTE_LINHAS + ')' },
   { chave: 'correcoes', contar: 'SELECT COUNT(*) AS n FROM redacao_correcoes WHERE lote_id IN (SELECT id FROM redacao_lotes WHERE ano = ?)',
     apagar: 'DELETE FROM redacao_correcoes WHERE rowid IN (SELECT rowid FROM redacao_correcoes WHERE lote_id IN (SELECT id FROM redacao_lotes WHERE ano = ?) LIMIT ' + LOTE_LINHAS + ')' },
   { chave: 'paginas', contar: 'SELECT COUNT(*) AS n FROM redacao_paginas WHERE lote_id IN (SELECT id FROM redacao_lotes WHERE ano = ?)',
@@ -34,7 +38,7 @@ const ETAPAS = [
     contar: "SELECT COUNT(*) AS n FROM eventos WHERE acao LIKE 'redacao_%' AND acao <> 'redacao_ano_encerrado' AND criado_em >= ? AND criado_em < ?",
     apagar: "DELETE FROM eventos WHERE rowid IN (SELECT rowid FROM eventos WHERE acao LIKE 'redacao_%' AND acao <> 'redacao_ano_encerrado' AND criado_em >= ? AND criado_em < ? LIMIT " + LOTE_LINHAS + ')' }
 ];
-export const NOMES = { pdfs: 'PDFs no armazenamento', correcoes: 'correções (notas)', paginas: 'folhas', lotes: 'lotes', envios: 'envios', alunos: 'alunos de redação',
+export const NOMES = { pdfs: 'PDFs no armazenamento', desempenho: 'mapas e espelhos do Meu desempenho', correcoes: 'correções (notas)', paginas: 'folhas', lotes: 'lotes', envios: 'envios', alunos: 'alunos de redação',
   vinculos: 'vínculos professora ↔ turma', turmas: 'turmas', importacoes: 'importações', eventos: 'registros de redação' };
 
 function prefixoR2(ano) { return 'redacao/' + ano + '/'; }
@@ -89,6 +93,7 @@ function textoRelatorio(relatorio) {
   const linhas = Object.keys(NOMES).map(k => `- ${NOMES[k]}: ${(relatorio.apagados[k] || 0).toLocaleString('pt-BR')}`);
   return `O ATLAS encerrou o ano ${relatorio.ano} da Redação em ${relatorio.data.split('-').reverse().join('/')}, conforme a política de privacidade.\n\n` +
     `O que foi apagado:\n${linhas.join('\n')}\n\n` +
+    (relatorio.sharepoint === false ? 'ATENÇÃO: a pasta ' + relatorio.ano + ' do SharePoint dos resultados não pôde ser apagada; apague à mão no site Resultados IDEAL OLÍMPICO.\n\n' : '') +
     (relatorio.copia ? `Cópia de segurança nova (já sem redação): ${relatorio.copia}\n` : 'Cópia de segurança nova: não foi possível fazer (armazenamento indisponível).\n') +
     `Cópias anteriores apagadas: ${relatorio.copias_removidas}\n\n` +
     'Professoras, digitalizadores e coordenadores continuam cadastrados. As turmas do ano novo entram pela planilha de alunos.\n\n' +
@@ -104,6 +109,8 @@ export async function encerrarAnoAutomatico(env, { hojeSP, registrar, fazerBacku
   if (Object.values(antes).every(n => !n)) return null;    /* nada do ano: já encerrado ou sem uso */
 
   const apagados = await apagarTudo(env, ano);
+  /* imagens do Meu desempenho: a pasta do ano no SharePoint (vai para a lixeira do site) */
+  const sharepoint = antes.desempenho ? await apagarAnoSharePoint(env, ano) : null;
   /* cópia nova (já sem redação) e as anteriores saem, como decidido em 18/11/2026 */
   let copia = null, copias_removidas = 0;
   if (env.IMAGENS) {
@@ -114,7 +121,7 @@ export async function encerrarAnoAutomatico(env, { hojeSP, registrar, fazerBacku
       copias_removidas++;
     }
   }
-  const relatorio = { ano, data: hoje, apagados, copia: copia?.nome || null, copias_removidas };
+  const relatorio = { ano, data: hoje, apagados, sharepoint, copia: copia?.nome || null, copias_removidas };
   await registrar(env, 'redacao_ano_encerrado', relatorio);
   if (env.ADMIN_EMAIL) avisar(env, env.ADMIN_EMAIL, 'ATLAS: ano ' + ano + ' da Redação encerrado', textoRelatorio(relatorio), true);
   return relatorio;
