@@ -18,7 +18,10 @@ const METHODS = Object.freeze({
   obterPixPedido: 2,
   enviarComprovantePedido: 3,
   meuDesempenho: 1,
-  paginasDesempenho: 2
+  paginasDesempenho: 2,
+  lembrarAcessoAluno: 1,
+  retomarSessaoAluno: 1,
+  minhasConquistas: 1
 });
 // Login por código no e-mail: limite por IP e por matrícula, com a mesma chave por matrícula
 // para os dois (pedir código e tentar código somam no mesmo teto).
@@ -36,7 +39,11 @@ const SESSION_ARGUMENT_INDEX = Object.freeze({
   cancelarPedidoAluno: 0,
   obterPixPedido: 0,
   meuDesempenho: 0,
-  paginasDesempenho: 0
+  paginasDesempenho: 0,
+  lembrarAcessoAluno: 0,
+  // A chave assinada de 5 dias faz o papel da sessão para o limite de pedidos.
+  retomarSessaoAluno: 0,
+  minhasConquistas: 0
 });
 
 function reply(body, status, origin, extraHeaders = {}) {

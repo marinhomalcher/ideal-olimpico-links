@@ -334,8 +334,85 @@ dialog[open] > .modal-actions {
     .visor-img.zoom-1-5{width:150%}.visor-img.zoom-2{width:200%}.visor-img.zoom-3{width:300%}
     .visor-msg{color:var(--muted);padding:30px 0}.visor-msg:empty{display:none}
     @media(max-width:1050px){.desempenho-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
-    @media(max-width:720px){.desempenho-grid{grid-template-columns:1fr}.desempenho-topo h2{font-size:26px}.abas-aluno{margin-top:-4px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px;overflow:visible}.abas-aluno .aba{padding:9px 4px;font-size:12px;line-height:1.25;white-space:normal;text-align:center}.visor{width:100vw;height:100vh;border-radius:0}.bim{flex:1 1 40%}}
+    @media(max-width:720px){.desempenho-grid{grid-template-columns:1fr}.desempenho-topo h2{font-size:26px}.abas-aluno{margin-top:-4px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px;overflow:visible}.abas-aluno .aba{padding:9px 4px;font-size:12px;line-height:1.25;white-space:normal;text-align:center}.visor{width:100vw;height:100vh;border-radius:0}.bim{flex:1 1 40%}}
 
 /* Contatos travados (18/11/2026): já confirmados no ano; EDITAR destrava. */
 .contatos-travados input[readonly],.contatos-travados select:disabled{background:var(--creme);color:var(--texto);opacity:1;cursor:default}
 .contatos-travados input[readonly]::placeholder{color:transparent}
+
+/* Manter conectado por 5 dias (18/11/2026) */
+.lembrar-check{display:flex;align-items:center;gap:10px;margin:14px 0 0;font-weight:700;color:var(--texto);cursor:pointer}
+.lembrar-check input{width:20px;height:20px;margin:0;accent-color:var(--vinho)}
+.lembrar-nota{margin:4px 0 0 30px;font-size:12px;color:var(--muted)}
+
+/* Minhas conquistas (18/11/2026): vitrine por ano e tabela de todos os anos. */
+.cq-topo{display:flex;justify-content:space-between;align-items:flex-end;gap:18px;flex-wrap:wrap;margin-bottom:12px}
+.cq-topo h2{margin:6px 0 4px;color:var(--vinho-esc);font-size:34px}.cq-topo p{margin:0;color:var(--muted)}
+.cq-anos{display:flex;gap:8px;margin:0 0 18px;flex-wrap:wrap}
+.cq-anos button{border:1px solid var(--borda);background:#fff;border-radius:999px;padding:8px 16px;font-weight:800;color:var(--muted);min-height:38px}
+.cq-anos button.ativo{background:var(--vinho);border-color:var(--vinho);color:#fff}
+.medalha{overflow:visible;flex:0 0 auto}
+.medalha.apagada{filter:grayscale(1) brightness(1.18) contrast(.55);opacity:.45}
+.cq-placar{display:flex;gap:10px}
+.cq-cont{display:flex;flex-direction:column;align-items:center;border-radius:16px;padding:8px 14px 10px;min-width:92px;background:rgba(255,255,255,.08);border:1px solid rgba(246,236,211,.3)}
+.cq-cont b{font-size:28px;line-height:1;margin-top:4px}.cq-cont span{font-size:11px;letter-spacing:.06em;text-transform:uppercase;opacity:.85;margin-top:2px}
+.cq-vitrine{background:radial-gradient(90% 120% at 50% 0%,#7d1828 0%,#4a0c16 60%,#2e070e 100%);border-radius:26px;padding:22px 26px 30px;color:#fff;box-shadow:0 22px 50px rgba(46,7,14,.35);position:relative;overflow:hidden}
+.cq-vitrine:before{content:"";position:absolute;left:50%;top:-140px;width:1000px;height:420px;transform:translateX(-50%);background:radial-gradient(closest-side,rgba(255,236,170,.25),transparent);pointer-events:none}
+.cq-vitrine-cab{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;margin-bottom:22px;position:relative}
+.cq-vit-tit{display:flex;align-items:center;gap:16px}
+.cq-ano-grande{font-size:56px;font-weight:900;line-height:1;color:#f2c94c;background:linear-gradient(180deg,#fff6c8,#f2c94c 55%,#b8860b);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+.cq-vit-tit b{display:block;font-size:24px;color:#fff}.cq-vit-tit small{color:#f6dfe3;font-size:14px}
+.cq-prateleira{display:grid;grid-template-columns:repeat(auto-fill,minmax(185px,1fr));gap:26px 14px;position:relative;padding-bottom:18px;border-bottom:12px solid #2a0509;box-shadow:0 16px 0 -4px rgba(214,173,85,.4)}
+.cq-peca{display:flex;flex-direction:column;align-items:center;text-align:center}
+.cq-peca .medalha{filter:drop-shadow(0 12px 16px rgba(0,0,0,.5))}
+.cq-peca.ouro .medalha{filter:drop-shadow(0 0 22px rgba(242,201,76,.55)) drop-shadow(0 12px 14px rgba(0,0,0,.45))}
+.cq-peca .cq-nome{color:#fff;font-weight:800;font-size:14px;line-height:1.25;margin-top:6px}
+.cq-peca .cq-nome small{display:block;font-weight:700;color:#f6dfe3;font-size:12px;margin-top:2px}
+.cq-tipo{margin-top:6px;font-size:11px;font-weight:900;letter-spacing:.08em;text-transform:uppercase;border-radius:999px;padding:3px 10px}
+.cq-tipo.ouro{background:linear-gradient(90deg,#f2c94c,#ffe27a);color:#5c3b00}.cq-tipo.prata{background:linear-gradient(90deg,#c9d1da,#f1f4f8);color:#3e4651}
+.cq-tipo.bronze{background:linear-gradient(90deg,#d98a4c,#f3be8c);color:#4a2006}.cq-tipo.mencao{background:linear-gradient(90deg,#9b2033,#d0465b);color:#fff}
+.cq-sem{position:relative;text-align:center;padding:26px 10px 34px;color:#f6dfe3;font-size:16px;font-weight:700}
+.cq-proximas{margin-top:22px;background:#fff;border:1px solid var(--borda);border-radius:20px;padding:18px 20px}
+.cq-proximas h3{margin:0 0 10px;color:var(--vinho-esc)}.cq-proximas h3 small{color:var(--muted);font-size:13px;font-weight:700;margin-left:8px}
+.cq-mini{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px}
+.cq-mini-item{display:flex;align-items:center;gap:10px;font-size:12.5px;color:var(--muted);font-weight:700}
+.cq-vazio{display:flex;align-items:center;gap:20px;background:#fff;border:1px dashed #d8cec7;border-radius:20px;padding:22px 24px}
+.cq-vazio h3{margin:0 0 6px;color:var(--vinho-esc)}.cq-vazio p{margin:0;color:var(--muted)}
+.cq-resumo{display:flex;justify-content:space-between;align-items:center;gap:18px;flex-wrap:wrap;background:radial-gradient(120% 140% at 0% 0%,#a62a3b 0%,#7a1624 45%,#4e0d17 100%);color:#fff;border-radius:22px;padding:20px 24px;margin-bottom:16px;box-shadow:0 18px 40px rgba(101,19,31,.25)}
+.cq-res-txt{display:flex;align-items:center;gap:14px}.cq-res-txt b{display:block;font-size:26px;color:#f2c94c}.cq-res-txt small{color:#f6dfe3}.cq-trofeu{font-size:40px}
+.cq-tabela-wrap{background:#fff;border:1px solid var(--borda);border-radius:20px;box-shadow:var(--sombra);overflow:hidden}
+.cq-tabela{width:100%;border-collapse:collapse}
+.cq-tabela th{background:#fbf3e6;padding:10px 8px;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--vinho-esc);border-bottom:2px solid #ead9bd}
+.cq-th-comp{text-align:left;padding-left:18px!important}.cq-th{width:13%}.cq-th .medalha{display:block;margin:0 auto 2px}.cq-th.tot{width:8%}
+.cq-tabela td{border-bottom:1px solid #f0e8df;padding:10px 8px;vertical-align:middle}
+.cq-tabela tbody tr:nth-child(even){background:#fffcf7}
+.cq-comp{display:flex;align-items:center;gap:12px;padding-left:16px!important}.cq-comp .medalha{filter:drop-shadow(0 3px 4px rgba(0,0,0,.2))}.cq-comp b{display:block;font-size:14.5px;color:var(--texto)}
+.cq-area-chip{display:inline-block;margin-top:4px;font-size:10px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#fff;border-radius:999px;padding:2px 8px;background:#8a7f78}
+.cq-area-chip.ar-mat{background:#8e1c2b}.cq-area-chip.ar-fis{background:#1f5f99}.cq-area-chip.ar-qui{background:#6a3d9a}.cq-area-chip.ar-cie{background:#1f7a7a}
+.cq-area-chip.ar-sau{background:#2f7d32}.cq-area-chip.ar-hum{background:#a2561a}.cq-area-chip.ar-lin{background:#b0306a}.cq-area-chip.ar-fin{background:#5b6b12}
+.cq-td{text-align:center}
+.cq-cel{display:inline-flex;flex-direction:column;align-items:center;min-width:64px;border-radius:12px;padding:6px 10px}.cq-cel b{font-size:20px;line-height:1.1}.cq-cel span{font-size:11px;font-weight:700;opacity:.85}
+.cq-td.ouro .cq-cel{background:linear-gradient(180deg,#fff3c4,#ffe7a0);color:#6b4a05;box-shadow:inset 0 0 0 1px #f0d27a}
+.cq-td.prata .cq-cel{background:linear-gradient(180deg,#f6f8fb,#e3e8ee);color:#3e4651;box-shadow:inset 0 0 0 1px #cdd5de}
+.cq-td.bronze .cq-cel{background:linear-gradient(180deg,#fbe7d6,#f3cfae);color:#5e3413;box-shadow:inset 0 0 0 1px #e2b48a}
+.cq-td.mencao .cq-cel{background:linear-gradient(180deg,#fbecef,#f5d5db);color:#65131f;box-shadow:inset 0 0 0 1px #e5b3bd}
+.cq-td.vazio span{color:#d9d0c7;font-weight:800}.cq-td.tot b{font-size:20px;color:var(--vinho)}
+.cq-tabela tfoot td{background:#65131f;color:#fff;font-weight:900;padding:12px 8px;border:0}
+.cq-tabela tfoot td:first-child{padding-left:18px;letter-spacing:.08em;text-transform:uppercase;font-size:13px}
+.cq-tabela tfoot .cq-td b{font-size:20px;color:#fff}.cq-tabela tfoot .cq-td.ouro b{color:#f2c94c}
+@media (max-width:720px){
+  .cq-topo h2{font-size:28px}
+  .cq-placar{width:100%;justify-content:space-between;gap:6px}.cq-cont{min-width:0;flex:1;padding:8px 4px}.cq-cont b{font-size:20px}.cq-cont span{font-size:9px}
+  .cq-anos{flex-wrap:nowrap;overflow-x:auto;padding-bottom:4px}.cq-anos button{flex:0 0 auto}
+  .cq-vitrine{padding:18px 12px 24px}.cq-prateleira{grid-template-columns:repeat(2,minmax(0,1fr))}.cq-ano-grande{font-size:42px}.cq-mini{grid-template-columns:1fr 1fr}
+  .cq-vazio{flex-direction:column;text-align:center}
+  .cq-tabela thead{display:none}
+  .cq-tabela,.cq-tabela tbody,.cq-tabela tfoot,.cq-tabela tr,.cq-tabela td{display:block;width:auto}
+  .cq-tabela tbody tr,.cq-tabela tfoot tr{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:4px;padding:12px 10px;border-bottom:1px solid #f0e8df}
+  .cq-tabela tbody td{border:0;padding:0}.cq-tabela tbody td.cq-comp{display:flex;grid-column:1/-1;padding:0 0 6px!important}
+  .cq-cel{min-width:0;width:100%;padding:5px 2px}.cq-cel b{font-size:16px}.cq-cel span{font-size:9.5px}
+  .cq-td.vazio{display:flex!important;align-items:center;justify-content:center;background:#faf7f3;border-radius:12px}
+  .cq-tabela tbody td.tot{display:flex;align-items:center;justify-content:center;flex-direction:column}
+  .cq-tabela tbody td.tot:after{content:"total";font-size:9px;color:var(--muted);text-transform:uppercase}
+  .cq-tabela tfoot tr{background:#65131f;padding:10px}.cq-tabela tfoot td{padding:4px;text-align:center}.cq-tabela tfoot td:first-child{grid-column:1/-1;text-align:left;padding:0 0 4px}
+}
