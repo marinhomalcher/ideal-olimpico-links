@@ -96,6 +96,9 @@ const casos = await page.evaluate(() => {
   roda('avulsa de cabeça para baixo', avulsa, { ang: 181, dx: 4, dy: 4, cinza: true });
   roda('sem o marcador de baixo à direita', folha, { ang: -1.3, dx: 6, tapar: 'id' });
   roda('sem o marcador de cima à esquerda, em cinza', folha, { ang: 2.2, cinza: true, tapar: 'se' });
+  const nova = window.folhaTeste({ codigoAbaixo: true });
+  roda('código ao lado do 1º DIA 0,9°', nova, { ang: 0.9, dx: 7, dy: -6 });
+  roda('código ao lado do 1º DIA de cabeça para baixo', nova, { ang: 180.6, dx: -5, dy: 8, cinza: true });
   return out;
 });
 const normais = casos.filter(c => c.nome.startsWith('folha '));
@@ -110,6 +113,8 @@ ok('Folha avulsa (sem nome nem código) também alinha', !av[0].inv && av[0].err
 ok('Avulsa de cabeça para baixo também é virada', av[1].inv && av[1].erro <= 2.5, JSON.stringify(av[1]));
 ok('RA lido em todas as folhas (inclinadas, em cinza, de cabeça para baixo)', [...normais, ...inv].every(c => c.ra === '73519'), [...normais, ...inv].map(c => c.ra).join(' '));
 ok('Folha avulsa fica sem RA', av.every(c => c.ra === null), av.map(c => c.ra).join(' '));
+const novas = casos.filter(c => c.nome.startsWith('código ao lado'));
+ok('Folha nova: código ao lado do "1º DIA", com cantos em volta, é lido (inclusive de cabeça para baixo)', novas.length === 2 && novas.every(c => c.ra === '73519' && c.erro <= 2.5), novas.map(c => c.ra + '/' + c.erro.toFixed(1)).join(' '));
 const cod = await page.evaluate(() => {
   const A = window.AtlasAlinhamento, ida = t => A.decodificar(window.code128(t).map(x => x * 3));
   const ruim = window.code128('73519').map(x => x * 3); ruim[13] += 3; ruim[14] -= 3;   /* um símbolo trocado: o dígito verificador não confere */

@@ -51,7 +51,9 @@ window.folhaTeste = function (op = {}) {
   /* linha da assinatura em vermelho, quase encostando no marcador de cima à esquerda */
   x.fillStyle = '#c8102e'; x.fillRect(0.075 * W, 0.1826 * H + 1, 0.85 * W, 2);
   /* código de barras Code 128 com o RA (como na folha real) */
-  if (!op.avulsa) { const larg = window.code128(op.ra || '73519'), mod = 3, tot = larg.reduce((a, b) => a + b, 0) * mod; let px = 0.59 * W - tot / 2; larg.forEach((l, k) => { if (k % 2 === 0) { x.fillStyle = '#000'; x.fillRect(px, 0.02 * H, l * mod, 0.03 * H); } px += l * mod; }); }
+  /* op.codigoAbaixo: posição das folhas novas (ao lado do "1º DIA", com 4 cantos em volta), no ponto mais baixo da faixa de busca */
+  if (!op.avulsa) { const larg = window.code128(op.ra || '73519'), mod = 3, tot = larg.reduce((a, b) => a + b, 0) * mod, cx = op.codigoAbaixo ? 0.655 : 0.59, y0 = op.codigoAbaixo ? 0.074 : 0.02, alt = op.codigoAbaixo ? 0.013 : 0.03; let px = cx * W - tot / 2; const ini = px; larg.forEach((l, k) => { if (k % 2 === 0) { x.fillStyle = '#000'; x.fillRect(px, y0 * H, l * mod, alt * H); } px += l * mod; });
+    if (op.codigoAbaixo) { const g = 30, b = 14, e = 3, cs = [[ini - g, y0 * H - 8, 1, 1], [px + g, y0 * H - 8, -1, 1], [ini - g, (y0 + alt) * H + 8, 1, -1], [px + g, (y0 + alt) * H + 8, -1, -1]]; x.fillStyle = '#000'; for (const [qx, qy, sx, sy] of cs) { x.fillRect(sx > 0 ? qx : qx - b, sy > 0 ? qy : qy - e, b, e); x.fillRect(sx > 0 ? qx : qx - e, sy > 0 ? qy : qy - b, e, b); } } }
   /* instruções */
   x.fillStyle = '#000'; x.font = '13px Arial';
   for (let i = 0; i < 3; i++) x.fillText((i + 1) + '. Instrução de teste para a folha fictícia de redação, linha ' + (i + 1) + '.', 0.12 * W, (0.205 + i * 0.012) * H);

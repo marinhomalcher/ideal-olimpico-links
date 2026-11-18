@@ -140,7 +140,9 @@
   const C128_IDX = new Map(C128.map((p, i) => [p, i]));
   const C128_FIM = '233111';
   /* Faixa onde a folha imprime o código (fração da folha alinhada). */
-  const FAIXA_CODIGO = { x: [0.36, 0.86], y: [0.012, 0.072] };
+  /* Faixa onde o código de barras é procurado. Vai até 9% da altura porque, desde 17/11/2026, as folhas
+     novas trazem o código ao lado do "1º DIA" (com 4 cantos em volta), mais abaixo; as antigas continuam cobertas. */
+  const FAIXA_CODIGO = { x: [0.36, 0.86], y: [0.012, 0.09] };
 
   /* Lê um símbolo de 6 larguras; devolve o índice na tabela ou -1. */
   function simbolo(r, i) {
