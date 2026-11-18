@@ -6,7 +6,7 @@
     encerrarSessaoAluno:1,getCatalogoGrupo:1,getOpcoesLiteratura:1,
     validarCompeticaoSerie:2,verificarInscricaoExistente:2,verificarCarrinhoAluno:2,
     criarPedido:2,listarPedidosAluno:1,cancelarPedidoAluno:2,obterPixPedido:2,
-    enviarComprovantePedido:3,meuDesempenho:1,paginasDesempenho:2
+    enviarComprovantePedido:3,meuDesempenho:1,paginasDesempenho:2,lembrarAcessoAluno:1,retomarSessaoAluno:1,minhasConquistas:1
   });
   const configured=window.PORTAL_PROXY_PRODUCTION_CONFIG&&window.PORTAL_PROXY_PRODUCTION_CONFIG.apiUrl;
   let url=null;

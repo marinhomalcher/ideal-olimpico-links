@@ -9,13 +9,13 @@ const esc=s=>String(s??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&
 // e este despachante único chama a função correspondente. Vale para botões fixos e para os criados por innerHTML.
 const ACOES={
   pedirCodigo:()=>pedirCodigo(),reenviarCodigo:()=>pedirCodigo(true),entrarComCodigo:()=>entrarComCodigo(),voltarParaMatricula:()=>voltarParaMatricula(),
-  abrirMeusPedidos:()=>abrirMeusPedidos(),fecharMeusPedidos:()=>fecharMeusPedidos(),trocarAluno:()=>trocarAluno(),irHome:()=>irHome(),
+  abrirMeusPedidos:()=>abrirMeusPedidos(),fecharMeusPedidos:()=>fecharMeusPedidos(),trocarAluno:()=>sairAluno(),irHome:()=>irHome(),
   abrirSolicitacaoAlteracao:()=>abrirSolicitacaoAlteracao(),fecharAlteracaoModal:()=>fecharAlteracaoModal(),enviarSolicitacaoAlteracao:()=>enviarSolicitacaoAlteracao(),
   confirmarCadastro:()=>confirmarCadastro(),editarCadastro:()=>editarCadastro(),continuarCarrinho:()=>continuarCarrinho(),confirmarPedidoCarrinho:()=>confirmarPedidoCarrinho(),
   fecharModal:()=>fecharModal(),verMeusPedidos:()=>{fecharModal();abrirMeusPedidos();},
   adicionarCarrinhoSerie:arg=>adicionarCarrinhoSerie(arg),abrirPagamentoNovo:arg=>abrirPagamentoNovo(Number(arg)),
   copiarPixAtual:()=>copiarPixAtual(),enviarComprovanteAtual:()=>enviarComprovanteAtual(),voltarPagamentosNovos:()=>voltarPagamentosNovos(),
-  abaDesempenho:()=>abrirDesempenho(),abaCompeticoes:()=>irHome(),escolherBimestre:arg=>escolherBimestre(Number(arg)),verDocumento:arg=>verDocumento(Number(arg)),
+  abaDesempenho:()=>abrirDesempenho(),abaConquistas:()=>abrirConquistas(),escolherAnoConquistas:arg=>escolherAnoConquistas(arg),abaCompeticoes:()=>irHome(),escolherBimestre:arg=>escolherBimestre(Number(arg)),verDocumento:arg=>verDocumento(Number(arg)),
   visorAnterior:()=>visorIr(-1),visorProxima:()=>visorIr(1),visorZoom:arg=>visorZoom(Number(arg)),fecharVisor:()=>fecharVisor()
 };
 document.addEventListener('click',e=>{
@@ -40,7 +40,41 @@ window.addEventListener('load',()=>{
     el.addEventListener('input',()=>{el.value=mascaraWhatsapp(el.value);limparMensagemCadastro();});
   });
   mat.focus();
+  retomarAcessoLembrado();
 });
+
+// Manter conectado por 5 dias (18/11/2026). O aparelho guarda só a chave assinada pelo servidor;
+// a matrícula sai da chave lá no servidor. "TROCAR ALUNO" apaga a chave deste aparelho.
+const LEMBRAR_CHAVE='idealPortalAcessoLembrado';
+let retomadaEm=0;
+function lerAcessoLembrado(){
+  try{
+    const x=JSON.parse(localStorage.getItem(LEMBRAR_CHAVE)||'null');
+    if(x&&/^L\d{5}[0-9a-f]{72}$/.test(String(x.chave))&&Number(x.ate)>Date.now())return x;
+    localStorage.removeItem(LEMBRAR_CHAVE);
+  }catch(e){}
+  return null;
+}
+function salvarAcessoLembrado(r){try{if(r&&r.chave)localStorage.setItem(LEMBRAR_CHAVE,JSON.stringify({chave:String(r.chave),ate:Number(r.ate)}));}catch(e){}}
+function apagarAcessoLembrado(){try{localStorage.removeItem(LEMBRAR_CHAVE);}catch(e){}}
+function retomarAcessoLembrado(){
+  const x=lerAcessoLembrado();
+  if(!x||loginOcupado||alunoAtual||Date.now()-retomadaEm<60000)return;
+  retomadaEm=Date.now();
+  bloquearLogin(true);
+  msgLogin('warn','Entrando com o seu acesso lembrado...');
+  google.script.run.withSuccessHandler(r=>{
+    bloquearLogin(false);limparMensagemLogin();
+    if(!r||r.status!=='OK')apagarAcessoLembrado();
+    processarAutenticacao(r);
+  }).withFailureHandler(e=>{
+    bloquearLogin(false);
+    const m=String(e&&e.message?e.message:e);
+    if(/expirou|não permitida|identifique-se/i.test(m)){apagarAcessoLembrado();msgLogin('warn','Seu acesso lembrado terminou. Digite a matrícula para receber um novo código.');}
+    else msgLogin('bad',esc(m));
+  }).retomarSessaoAluno(x.chave);
+}
+function sairAluno(){apagarAcessoLembrado();trocarAluno();}
 
 // Login em duas etapas: matrícula → código de 6 dígitos no e-mail institucional.
 let matriculaLogin='',reenvioTimer=null,loginOcupado=false;
@@ -69,6 +103,7 @@ function mostrarEtapaCodigo(email){
   document.getElementById('etapaCodigo').classList.remove('hidden');
   document.getElementById('codigoDestino').innerHTML=`Se a matrícula <b>${esc(matriculaLogin)}</b> estiver cadastrada, enviamos um código para <b>${esc(email)}</b>. Ele vale 10 minutos.`;
   const cod=document.getElementById('codigoInput');cod.value='';cod.focus();
+  document.getElementById('lembrarCheck').checked=false;
 }
 
 function voltarParaMatricula(){
@@ -107,7 +142,12 @@ function entrarComCodigo(){
   msgLogin('warn','Conferindo o código com segurança...');
   google.script.run.withSuccessHandler(r=>{
     bloquearLogin(false);
-    if(r&&r.status==='OK'){pararEsperaReenvio();}
+    if(r&&r.status==='OK'){
+      pararEsperaReenvio();
+      if(document.getElementById('lembrarCheck').checked){
+        google.script.run.withSuccessHandler(salvarAcessoLembrado).withFailureHandler(()=>{}).lembrarAcessoAluno(r.sessao);
+      }else apagarAcessoLembrado();
+    }
     processarAutenticacao(r);
   }).withFailureHandler(e=>{
     bloquearLogin(false);
@@ -312,7 +352,7 @@ function trocarAluno(){
   const token=alunoAtual&&alunoAtual.sessao;
   if(token){try{google.script.run.encerrarSessaoAluno(token);}catch(e){}}
   alunoAtual=null;grupos={};grupoAtual=null;catalogoAtual=[];carrinho={};pedidoPendenteIds=[];atualizarCarrinho();
-  mostrarAbas(false);desempenho=null;fecharVisor();
+  mostrarAbas(false);desempenho=null;conquistas=null;fecharVisor();
   document.getElementById('alunoBadge').classList.add('hidden');
   document.getElementById('meusPedidosBtn').classList.add('hidden');
   document.getElementById('meusPedidosCount').textContent='0';
@@ -327,6 +367,7 @@ function trocarAluno(){
   voltarParaMatricula();
   document.getElementById('matriculaInput').focus();
   window.scrollTo({top:0,behavior:'smooth'});
+  retomarAcessoLembrado();   // sessão de 30 min venceu: com acesso lembrado, entra de novo sozinho
 }
 
 function renderHome(lista){
@@ -626,7 +667,7 @@ function atualizarResumoPedidos(){
 
 function abrirMeusPedidos(){
   if(!alunoAtual||!alunoAtual.sessao){trocarAluno();return;}
-  document.getElementById('desempenhoSec').classList.add('hidden');marcarAba('abaPedidos');
+  document.getElementById('desempenhoSec').classList.add('hidden');document.getElementById('conquistasSec').classList.add('hidden');marcarAba('abaPedidos');
   document.getElementById('home').classList.add('hidden');
   document.getElementById('cadastroSec').classList.add('hidden');
   document.getElementById('grupoSec').classList.add('hidden');
@@ -870,7 +911,7 @@ function statusLegivel(s){return String(s||'').replace(/_/g,' ').replace(/\s+/g,
 function classeStatusPedido(s){const n=statusLegivel(s).toUpperCase();if(/CONFIRMADO|CONCLUID|PAGO|APROVAD/.test(n))return'ok';if(/REJEIT|CANCEL|RECUS/.test(n))return'bad';if(/AGUARD|PENDENTE|ANALISE|ANÁLISE/.test(n))return'warn';return'neutral';}
 
 function fecharModal(){const d=document.getElementById('modal');d.close();d.classList.remove('wide');pixAtualCodigo='';pedidoPixAtualId='';}function loading(on){document.getElementById('loading').classList.toggle('hidden',!on);}
-function irHome(){document.getElementById('desempenhoSec').classList.add('hidden');marcarAba('abaCompeticoes');document.getElementById('grupoSec').classList.add('hidden');document.getElementById('pedidosSec').classList.add('hidden');document.getElementById('catalogo').innerHTML='';grupoAtual=null;if(alunoAtual)document.getElementById('home').classList.remove('hidden');else trocarAluno();}
+function irHome(){document.getElementById('desempenhoSec').classList.add('hidden');document.getElementById('conquistasSec').classList.add('hidden');marcarAba('abaCompeticoes');document.getElementById('grupoSec').classList.add('hidden');document.getElementById('pedidosSec').classList.add('hidden');document.getElementById('catalogo').innerHTML='';grupoAtual=null;if(alunoAtual)document.getElementById('home').classList.remove('hidden');else trocarAluno();}
 function falha(e){
   loading(false);
   const msg=e&&e.message?e.message:String(e||'Erro inesperado.');
@@ -888,11 +929,11 @@ const PROVAS_DESEMPENHO=[
   {id:'ESPELHO',titulo:'Espelho da redação',sub:'Sua redação corrigida, com a nota de cada competência',botao:'VER ESPELHO',tipo:'espelho'}
 ];
 let desempenho=null,bimestreAtual=1,visor=null;
-function mostrarAbas(on){document.getElementById('abasAluno').classList.toggle('hidden',!on);if(!on)document.getElementById('desempenhoSec').classList.add('hidden');}
+function mostrarAbas(on){document.getElementById('abasAluno').classList.toggle('hidden',!on);if(!on){document.getElementById('desempenhoSec').classList.add('hidden');document.getElementById('conquistasSec').classList.add('hidden');}}
 function marcarAba(id){for(const b of document.querySelectorAll('#abasAluno .aba')){const on=b.id===id;b.classList.toggle('ativa',on);b.setAttribute('aria-current',on?'page':'false');}}
 function abrirDesempenho(){
   if(!alunoAtual||!alunoAtual.sessao){trocarAluno();return;}
-  ['home','grupoSec','pedidosSec','cadastroSec'].forEach(id=>document.getElementById(id).classList.add('hidden'));
+  ['home','grupoSec','pedidosSec','cadastroSec','conquistasSec'].forEach(id=>document.getElementById(id).classList.add('hidden'));
   document.getElementById('desempenhoSec').classList.remove('hidden');marcarAba('abaDesempenho');
   document.getElementById('desempenhoTurma').textContent=[alunoAtual.serie,alunoAtual.unidade].filter(Boolean).join(' · ');
   window.scrollTo({top:0,behavior:'smooth'});

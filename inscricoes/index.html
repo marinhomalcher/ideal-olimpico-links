@@ -21,7 +21,7 @@
   <meta name="twitter:title" content="Portal de Inscrições — IDEAL OLÍMPICO">
   <meta name="twitter:description" content="Inscrições em competições acadêmicas. Consulte as competições e acompanhe seus pedidos.">
   <meta name="twitter:image" content="https://idealolimpico.com.br/logo-ideal-olimpico.png?v=20261018">
-  <link rel="stylesheet" href="./portal.css?v=desempenho-20261118">
+  <link rel="stylesheet" href="./portal.css?v=conquistas-20261118">
 </head>
 
 <body>
@@ -35,6 +35,7 @@
 <main>
   <nav id="abasAluno" class="abas-aluno hidden" aria-label="Áreas do aluno">
     <button id="abaDesempenho" class="aba" data-acao="abaDesempenho">📈 MEU DESEMPENHO</button>
+    <button id="abaConquistas" class="aba" data-acao="abaConquistas">🏆 MINHAS CONQUISTAS</button>
     <button id="abaCompeticoes" class="aba" data-acao="abaCompeticoes">🏅 COMPETIÇÕES OLÍMPICAS</button>
     <button id="abaPedidos" class="aba" data-acao="abrirMeusPedidos">🛒 MEUS PEDIDOS</button>
   </nav>
@@ -58,6 +59,8 @@
             </label>
             <button id="codigoBtn" class="primary" data-acao="entrarComCodigo">ENTRAR</button>
           </div>
+          <label class="lembrar-check"><input type="checkbox" id="lembrarCheck"> Manter conectado por 5 dias neste dispositivo</label>
+          <p class="lembrar-nota">Não marque em computador da escola ou de outra pessoa.</p>
           <div class="login-actions">
             <button id="reenviarBtn" class="secondary" data-acao="reenviarCodigo">PEDIR NOVO CÓDIGO</button>
             <button class="secondary" data-acao="voltarParaMatricula">TROCAR MATRÍCULA</button>
@@ -140,6 +143,14 @@
     <div id="desempenhoGrid" class="desempenho-grid"></div>
     <p class="desempenho-nota">🔒 Só você vê os seus mapas. Eles abrem aqui no portal e não ficam salvos no seu aparelho.</p>
   </section>
+  <section id="conquistasSec" class="hidden">
+    <div class="cq-topo"><div><div id="conquistasTurma" class="eyebrow"></div><h2>Minhas conquistas</h2><p>Suas medalhas nas competições do IDEAL OLÍMPICO.</p></div></div>
+    <div id="conquistasAnos" class="cq-anos" role="group" aria-label="Ano"></div>
+    <div id="conquistasLoading" class="loading hidden">Carregando suas conquistas...</div>
+    <div id="conquistasMsg"></div>
+    <div id="conquistasConteudo"></div>
+    <p id="conquistasNota" class="desempenho-nota"></p>
+  </section>
   <section id="home" class="hidden">
     <div class="hero"><div><div class="eyebrow">IDEAL OLÍMPICO</div><h2>Escolha a competição</h2><p>Consulte edições, regras e prazos. Antes de qualquer nova inscrição, o portal verifica se esta matrícula já possui solicitação para a mesma competição.</p></div></div>
     <div id="homeGrid" class="home-grid"></div>
@@ -168,6 +179,6 @@
 <dialog id="modal"><div class="modal-head"><h3 id="modalTitle">Detalhes</h3><button class="close" data-acao="fecharModal">×</button></div><div id="modalBody" class="modal-body"></div><div id="modalActions" class="modal-actions"></div></dialog>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" integrity="sha384-3zSEDfvllQohrq0PHL1fOXJuC/jSOO34H46t6UQfobFOmxE5BpjjaIJY5F2/bMnU" crossorigin="anonymous"></script>
-<script src="./config.js?v=worker-prod-20261105"></script><script src="./worker-client.js?v=desempenho-20261118"></script><script src="./portal.js?v=desempenho-20261118" defer></script>
+<script src="./config.js?v=worker-prod-20261105"></script><script src="./worker-client.js?v=conquistas-20261118"></script><script src="./portal.js?v=conquistas-20261118" defer></script><script src="./conquistas.js?v=conquistas-20261118" defer></script>
 </body>
 </html>
