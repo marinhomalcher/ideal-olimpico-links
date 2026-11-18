@@ -43,7 +43,10 @@ globalThis.fetch = async (url, opts = {}) => {
   }
   const mi = u.match(/\/drive\/items\/([^?]+)(\?.*)?$/);
   if (mi && opts.method === 'DELETE') { ms.arquivos.delete(decodeURIComponent(mi[1])); return new Response(null, { status: 204 }); }
-  if (mi) return new Response(JSON.stringify({ id: mi[1], '@microsoft.graph.downloadUrl': 'https://download.sharepoint.test/' + decodeURIComponent(mi[1]) }));
+  /* como no SharePoint real: com $select o link não vem; /content responde 302 para o link */
+  const mc = u.match(/\/drive\/items\/([^/?]+)\/content$/);
+  if (mc) return ms.semLinkNoItem ? new Response(null, { status: 302, headers: { Location: 'https://download.sharepoint.test/' + decodeURIComponent(mc[1]) } }) : new Response('', { status: 500 });
+  if (mi) return new Response(JSON.stringify(mi[2] || ms.semLinkNoItem ? { id: mi[1] } : { id: mi[1], '@microsoft.graph.downloadUrl': 'https://download.sharepoint.test/' + decodeURIComponent(mi[1]) }));
   throw new Error('fetch inesperado: ' + u);
 };
 async function testar(token = 'adm-token') {
@@ -57,6 +60,10 @@ const etapas = r.data.teste?.etapas || [];
 ok('Teste completo passa: chave, permissão, site, gravar, link, ler e apagar', r.status === 200 && r.data.teste.ok && etapas.length === 7 && etapas.every(e => e.ok), JSON.stringify(etapas.map(e => e.etapa + ':' + e.ok)));
 ok('Mostra as permissões da chave e o nome do site', /Sites\.Selected/.test(etapas[0]?.detalhe) && /Resultados IDEAL OLÍMPICO/.test(etapas[2]?.detalhe));
 ok('Arquivo de teste é apagado no fim', ms.arquivos.size === 0);
+ms.semLinkNoItem = true;
+r = await testar();
+ok('Sem o link no item, usa o /content (302) e o teste passa', r.data.teste.ok, JSON.stringify(r.data.teste.etapas.map(e => e.etapa + ':' + e.ok)));
+ms.semLinkNoItem = false;
 ms.papeis = ['Mail.Send']; ms.pedidos = [];
 r = await testar();
 ok('Sem Sites.Selected aprovado: para e explica o que a TI precisa fazer', r.status === 200 && !r.data.teste.ok && /consentimento do administrador/.test(r.data.teste.etapas.at(-1).detalhe) && !ms.pedidos.some(p => p.includes('/drive/')), JSON.stringify(r.data.teste.etapas.at(-1)));
