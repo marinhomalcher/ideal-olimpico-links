@@ -139,7 +139,7 @@ ok('Filtro Batista Campos + EM mostra só essas turmas', await page.locator('#tu
 await page.reload();
 await page.locator('#app').waitFor({ state: 'visible' });
 ok('A escolha do filtro é lembrada', await page.locator('#f-unidade').inputValue() === 'BC' && await page.locator('#turmas-lista tr').count() === nBcEm);
-ok('Abas da Redação: Lotes, Turmas e Equipe', (await page.locator('.tabs').textContent()).replace(/\s+/g, '') === 'LotesTurmasEquipe' && await page.locator('.tabs a[href="redacao-lotes-admin.html"]').count() === 1);
+ok('Abas da Redação: Lotes, Turmas, Equipe e Encerrar ano', (await page.locator('.tabs').textContent()).replace(/\s+/g, '') === 'LotesTurmasEquipeEncerrarano' && await page.locator('.tabs a[href="redacao-lotes-admin.html"]').count() === 1);
 await page.locator('[data-tab="equipe"]').click();
 ok('Aba Equipe aponta para Cadastros e funções (equipe da Redação cadastrada lá)', await page.locator('#equipe #link-cadastros').isVisible() && await page.locator('#equipe-form').count() === 0);
 /* Alunos saiu de Redação: cadastros e virou página própria no menu do ADM. */
