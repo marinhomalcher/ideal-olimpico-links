@@ -25,13 +25,17 @@ const env = {
   DB: { prepare: sql => stmt(sql), batch: async ops => Promise.all(ops.map(x => x.run())) },
   ADMIN_EMAIL: 'adm@example.com', ATLAS_HOJE_TESTE: '2026-11-18',
   ATLAS_MAILER_URL: 'https://mailer.test/exec', ATLAS_MAILER_SECRET: 'segredo-de-teste',
-  IMAGENS: r2Rigoroso(objetos)
+  IMAGENS: r2Rigoroso(objetos),
+  MS_TENANT_ID: 'tenant-teste', MS_CLIENT_ID: 'cliente-teste', MS_CLIENT_SECRET: 'segredo-ms-teste', SHAREPOINT_SITE: 'site-teste'
 };
+const graph = [];
 /* e-mails capturados (mailer de reserva; nenhum e-mail real sai) */
 const mails = [];
 const realFetch = globalThis.fetch;
 globalThis.fetch = async (url, opts) => {
   if (String(url) === 'https://mailer.test/exec') { mails.push(JSON.parse(opts.body)); return new Response(JSON.stringify({ ok: true }), { headers: { 'Content-Type': 'application/json' } }); }
+  if (String(url).startsWith('https://login.microsoftonline.com/')) return new Response(JSON.stringify({ access_token: 'tk', expires_in: 3599 }));
+  if (String(url).startsWith('https://graph.microsoft.com/')) { graph.push((opts?.method || 'GET') + ' ' + String(url)); return new Response(null, { status: 204 }); }
   return realFetch(url, opts);
 };
 function sessao(token, tipo, email, id = null) {
@@ -47,7 +51,7 @@ async function api(path, method = 'GET', body, token = 'adm-token') {
 async function madrugada() { const ctx = { p: [], waitUntil(x) { this.p.push(x); } }; await worker.scheduled({ cron: '17 6 * * *' }, env, ctx); await Promise.all(ctx.p); }
 const conta = (sql, ...a) => db.prepare(sql).get(...a).n;
 
-ok('Schema 17', db.prepare("SELECT valor FROM meta WHERE chave='schema_versao'").get().valor === '17');
+ok('Schema 18', db.prepare("SELECT valor FROM meta WHERE chave='schema_versao'").get().valor === '18');
 
 /* ---------- dados fictícios do ano 2026 ---------- */
 let r = await api('/api/adm/redacao/turmas');
@@ -100,6 +104,8 @@ db.prepare("INSERT INTO eventos (acao, detalhe, criado_em) VALUES ('redacao_pagi
 db.prepare("INSERT INTO eventos (acao, detalhe, criado_em) VALUES ('redacao_lote_enviado', '{\"lote_id\":1}', '2026-06-02T10:00:00Z')").run();
 db.prepare("INSERT INTO eventos (acao, detalhe, criado_em) VALUES ('redacao_lote_enviado', '{\"lote_id\":9}', '2025-06-02T10:00:00Z')").run();
 db.prepare("INSERT INTO eventos (acao, detalhe, criado_em) VALUES ('adm_login', '{}', '2026-06-02T10:00:00Z')").run();
+/* Meu desempenho: 3 documentos de 2026 */
+for (const [p, ra] of [['PART', '10001'], ['ENEM1', '10001'], ['ESPELHO', '10002']]) db.prepare("INSERT INTO desempenho_documentos (ano, bimestre, prova, ra, paginas, enviado_em, enviado_por) VALUES (2026, 1, ?, ?, 2, '2026-05-01T12:00:00Z', 'adm')").run(p, ra);
 const antes = {
   usuarios: conta('SELECT COUNT(*) AS n FROM usuarios'), equipe: conta('SELECT COUNT(*) AS n FROM redacao_equipe'),
   unidades: conta('SELECT COUNT(*) AS n FROM redacao_digitalizador_unidades'), coordenadores: conta('SELECT COUNT(*) AS n FROM coordenadores'),
@@ -143,10 +149,12 @@ r = await api('/api/adm/redacao/equipe');
 ok('Professora continua cadastrada, agora sem turma', r.status === 200 && r.data.equipe.some(x => x.id === profId && x.funcao === 'professor' && x.turmas.length === 0), JSON.stringify(r.data.equipe));
 r = await api('/api/redacao/sessao', 'GET', undefined, 'prof-token');
 ok('Professora ainda entra na Redação', r.status === 200 && r.data.usuario.turmas.length === 0, r.data.error);
-ok('Schema continua 17', db.prepare("SELECT valor FROM meta WHERE chave='schema_versao'").get().valor === '17');
+ok('Schema continua 18', db.prepare("SELECT valor FROM meta WHERE chave='schema_versao'").get().valor === '18');
 
 /* ---------- rodar de novo não faz nada ---------- */
 const c1 = await contagens(env, 2026);
+ok('Meu desempenho: documentos de 2026 apagados e a pasta 2026 do SharePoint também', conta('SELECT COUNT(*) AS n FROM desempenho_documentos') === 0 && det?.apagados.desempenho === 3 && det?.sharepoint === true && graph.some(g => g === 'DELETE https://graph.microsoft.com/v1.0/sites/site-teste/drive/root:/2026'), JSON.stringify(graph));
+ok('E-mail do relatório cita os mapas e espelhos', /mapas e espelhos do Meu desempenho: 3/.test(mail?.texto || ''));
 ok('Depois, não há mais nada de 2026', Object.values(c1).every(v => v === 0), JSON.stringify(c1));
 const mailsAntes = mails.length, copiasAntes = [...objetos.keys()].filter(k => k.startsWith('backups/')).length;
 await madrugada();

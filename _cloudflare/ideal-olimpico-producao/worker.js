@@ -16,7 +16,9 @@ const METHODS = Object.freeze({
   listarPedidosAluno: 1,
   cancelarPedidoAluno: 2,
   obterPixPedido: 2,
-  enviarComprovantePedido: 3
+  enviarComprovantePedido: 3,
+  meuDesempenho: 1,
+  paginasDesempenho: 2
 });
 // Login por código no e-mail: limite por IP e por matrícula, com a mesma chave por matrícula
 // para os dois (pedir código e tentar código somam no mesmo teto).
@@ -32,7 +34,9 @@ const SESSION_ARGUMENT_INDEX = Object.freeze({
   criarPedido: 0,
   listarPedidosAluno: 0,
   cancelarPedidoAluno: 0,
-  obterPixPedido: 0
+  obterPixPedido: 0,
+  meuDesempenho: 0,
+  paginasDesempenho: 0
 });
 
 function reply(body, status, origin, extraHeaders = {}) {

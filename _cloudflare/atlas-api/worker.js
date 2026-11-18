@@ -3,6 +3,7 @@ import { rotaRedacaoAdm, rotaRedacaoUsuario, limparAlunosVirada, RedacaoError } 
 import { rotaLotesUsuario, rotaLotesAdm, limparPdfCancelados } from './redacao-lotes.js';
 import { rotaCorrecao } from './redacao-correcao.js';
 import { encerrarAnoAutomatico } from './redacao-encerrar.js';
+import { rotaDesempenhoAdm, rotaDesempenhoPortal } from './desempenho.js';
 import { listarPessoas, salvarPessoa } from './pessoas.js';
 // Administração: login "Entrar com Google", liberado SOMENTE para o e-mail em ADMIN_EMAIL.
 // Professores e Supervisores: login por código no e-mail institucional.
@@ -459,8 +460,7 @@ function destinoCodigoPortal(env, ra) {
 function portalConfigurado(env) {
   return typeof env.PORTAL_ATLAS_SECRET === 'string' && env.PORTAL_ATLAS_SECRET.length >= PORTAL_SEGREDO_MINIMO;
 }
-async function enviarCodigoPortalAluno(request, env) {
-  if (!portalConfigurado(env) || !microsoftConfigurado(env)) throw new HttpError(503, 'Envio indisponível.');
+async function conferirSegredoPortal(request, env) {
   const segredo = env.PORTAL_ATLAS_SECRET;
   const auth = request.headers.get('Authorization') || '';
   const recebido = auth.startsWith('Bearer ') ? auth.slice(7) : '';
@@ -468,6 +468,17 @@ async function enviarCodigoPortalAluno(request, env) {
   if (!secureEqual(await hmacHex(segredo, 'portal-auth:' + recebido), await hmacHex(segredo, 'portal-auth:' + segredo))) {
     throw new HttpError(401, 'Não autorizado.');
   }
+}
+// "Meu desempenho": o Apps Script já conferiu a sessão do aluno e manda só o RA dele.
+async function desempenhoPortal(request, env, path) {
+  if (!portalConfigurado(env)) throw new HttpError(503, 'Indisponível.');
+  await conferirSegredoPortal(request, env);
+  return await rotaDesempenhoPortal(env, path, await readJson(request, 1024), hojeSP);
+}
+async function enviarCodigoPortalAluno(request, env) {
+  if (!portalConfigurado(env) || !microsoftConfigurado(env)) throw new HttpError(503, 'Envio indisponível.');
+  const segredo = env.PORTAL_ATLAS_SECRET;
+  await conferirSegredoPortal(request, env);
   const body = await readJson(request, 1024);
   const ra = typeof body.ra === 'string' ? body.ra : '';
   const codigo = typeof body.codigo === 'string' ? body.codigo : '';
@@ -1960,7 +1971,7 @@ async function rotasSelecoesAdm(request, env, path, url, sessao) {
 // Guarda as tabelas de conteúdo e cadastro; não guarda sessões nem códigos de login.
 // As imagens já ficam no R2 e não são copiadas de novo.
 const TABELAS_BACKUP = ['meta', 'usuarios', 'retiradas', 'grupos', 'grupo_versoes', 'itens', 'item_versoes', 'revisoes', 'consertos', 'selecoes', 'selecao_itens', 'eventos',
-  'redacao_turmas', 'redacao_alunos', 'redacao_equipe', 'redacao_professor_turmas', 'redacao_digitalizador_unidades', 'redacao_importacoes', 'redacao_lotes', 'redacao_paginas', 'redacao_correcoes', 'coordenadores', 'redacao_envios'];
+  'redacao_turmas', 'redacao_alunos', 'redacao_equipe', 'redacao_professor_turmas', 'redacao_digitalizador_unidades', 'redacao_importacoes', 'redacao_lotes', 'redacao_paginas', 'redacao_correcoes', 'coordenadores', 'redacao_envios', 'desempenho_documentos'];
 const MANTER_BACKUPS = 60;
 
 async function fazerBackup(env, origem) {
@@ -2313,6 +2324,8 @@ async function rotasAdm(request, env, path) {
   if (path === '/api/adm/itens/enviar' && request.method === 'POST') return await enviarSemClassificacao(env, request, await admUsuarioId(env), 'adm');
   const retiradas = await rotasRetiradas(request, env, path, sessao);
   if (retiradas) return retiradas;
+  const desempenhoAdm = await rotaDesempenhoAdm(request, env, path, { hojeSP, readJson, registrar, sessao });
+  if (desempenhoAdm) return desempenhoAdm;
   const sharepointAdm = await rotaSharePointAdm(request, env, path);
   if (sharepointAdm) return sharepointAdm;
   const backupAdm = await rotasBackupAdm(request, env, path, sessao);
@@ -2430,6 +2443,10 @@ export default {
         // Só servidor a servidor: navegador (com Origin) é recusado.
         if (origin) throw new HttpError(403, 'Origem não permitida.');
         return reply(await enviarCodigoPortalAluno(request, env), 200, null);
+      }
+      if ((url.pathname === '/api/portal/desempenho' || url.pathname === '/api/portal/desempenho/paginas') && request.method === 'POST') {
+        if (origin) throw new HttpError(403, 'Origem não permitida.');
+        return reply(await desempenhoPortal(request, env, url.pathname), 200, null);
       }
       if (url.pathname === '/api/login/codigo' && request.method === 'POST') {
         if (!ALLOWED_ORIGINS.includes(origin)) throw new HttpError(403, 'Origem não permitida.');

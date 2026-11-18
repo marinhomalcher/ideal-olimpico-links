@@ -303,3 +303,33 @@ dialog[open] > .modal-actions {
 @media (max-width:760px){.auth-grid.auth-grid-2{grid-template-columns:1fr}}
 /* Cadastro: CPF (quando falta na base) e e-mail repetido */
 #cpfBox{margin-bottom:16px}.email-pessoal-field+.email-pessoal-field{margin-top:14px}
+    /* ---------- Meu desempenho ---------- */
+    .abas-aluno{display:flex;gap:6px;border-bottom:1px solid var(--borda);margin:-14px 0 26px;overflow-x:auto}
+    .abas-aluno .aba{border:1px solid transparent;border-bottom:0;background:none;color:var(--muted);font-weight:800;letter-spacing:.02em;padding:12px 18px;border-radius:12px 12px 0 0;white-space:nowrap;margin-bottom:-1px;flex:0 0 auto}
+    .abas-aluno .aba.ativa{background:#fff;color:var(--vinho-esc);border-color:var(--borda);border-bottom:3px solid var(--vinho)}
+    .desempenho-topo{display:flex;justify-content:space-between;align-items:end;gap:18px;flex-wrap:wrap;margin-bottom:18px}
+    .desempenho-topo h2{margin:6px 0 6px;color:var(--vinho-esc);font-size:32px}.desempenho-topo p{margin:0;color:var(--muted)}
+    .bimestres{display:flex;gap:8px;flex-wrap:wrap}.bim{border:1px solid var(--borda);background:#fff;color:var(--vinho-esc);border-radius:999px;padding:9px 16px;font-weight:800}
+    .bim.vazio{color:#b3aaa5}.bim.ativo{background:var(--vinho);border-color:var(--vinho);color:#fff}
+    .desempenho-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px}
+    .desempenho-card{border:1px solid var(--borda);border-radius:20px;background:#fff;overflow:hidden;box-shadow:var(--sombra);display:flex;flex-direction:column}
+    .desempenho-thumb{background:var(--creme);height:170px;display:flex;align-items:flex-end;justify-content:center;padding-top:12px}
+    .mini{width:120px;height:150px;background:#fff;border:1px solid var(--borda);border-bottom:0;border-radius:6px 6px 0 0;padding:10px;display:flex;flex-wrap:wrap;gap:6px;align-content:flex-start}
+    .mini i{display:block}.mini-faixa{width:100%;height:14px;background:#b0141f;border-radius:2px}.mini-circ{width:26px;height:26px;border:3px solid #eee;border-radius:50%}
+    .mini-linha{width:100%;height:5px;background:#eee;border-radius:3px}.mini-linha.curta{width:60%}.mini-grade{width:100%;height:22px;background:repeating-linear-gradient(90deg,#e3f3e8 0 14px,#fff 14px 16px,#f9dfe2 16px 30px,#fff 30px 32px)}
+    .mini.espelho{flex-wrap:nowrap;width:150px;padding:8px;gap:6px}.mini-folha{flex:1.4;background:repeating-linear-gradient(180deg,#fff 0 7px,#f2c6cb 7px 8px);border:1px solid #eee}.mini-painel{flex:1;background:linear-gradient(180deg,#e6ebf0 0 22px,#fff 22px 28px,#1f7a7a 28px 31px,#fff 31px 40px,#1f7a7a 40px 43px,#fff 43px 52px,#1f7a7a 52px 55px,#fff 55px)}
+    .desempenho-card.indisponivel .mini{opacity:.45}
+    .desempenho-body{padding:16px;display:flex;flex-direction:column;gap:10px;flex:1}.desempenho-body h3{margin:0;color:var(--vinho-esc);font-size:18px}
+    .desempenho-body p{margin:0;color:var(--muted);font-size:13px;line-height:1.4}.desempenho-body button{margin-top:auto;width:100%}
+    .desempenho-nota{color:var(--muted);font-size:13px;margin-top:18px}
+    .visor{width:min(1100px,96vw);height:94vh;max-width:none;max-height:none;padding:0;border:0;border-radius:16px;display:flex;flex-direction:column;overflow:hidden}
+    .visor:not([open]){display:none}.visor::backdrop{background:rgba(20,10,10,.7)}
+    .visor-head{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--borda);flex-wrap:wrap}
+    .visor-titulo b{display:block;color:var(--vinho-esc)}.visor-titulo span{font-size:13px;color:var(--muted)}
+    .visor-botoes{display:flex;gap:6px}.visor-botoes button{min-width:44px;padding:8px 12px}.visor-botoes .close{border:0;background:#f1eeeb;color:var(--vinho-esc);border-radius:12px;font-size:24px;font-weight:800;min-width:44px}
+    .visor-area{flex:1;overflow:auto;background:#eef1f4;text-align:center;padding:10px;position:relative}
+    .visor-img{width:100%;max-width:none;height:auto;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;-webkit-user-drag:none;box-shadow:0 4px 18px rgba(0,0,0,.12);background:#fff}
+    .visor-img.zoom-1-5{width:150%}.visor-img.zoom-2{width:200%}.visor-img.zoom-3{width:300%}
+    .visor-msg{color:var(--muted);padding:30px 0}.visor-msg:empty{display:none}
+    @media(max-width:1050px){.desempenho-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+    @media(max-width:720px){.desempenho-grid{grid-template-columns:1fr}.desempenho-topo h2{font-size:26px}.abas-aluno{margin-top:-4px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px;overflow:visible}.abas-aluno .aba{padding:9px 4px;font-size:12px;line-height:1.25;white-space:normal;text-align:center}.visor{width:100vw;height:100vh;border-radius:0}.bim{flex:1 1 40%}}
