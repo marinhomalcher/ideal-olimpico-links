@@ -46,6 +46,61 @@ const SESSION_ARGUMENT_INDEX = Object.freeze({
   minhasConquistas: 0
 });
 
+// Operações só de leitura: repetir não duplica pedido, pagamento, código nem e-mail.
+const RETRY_METHODS = Object.freeze([
+  'getCatalogoGrupo', 'getOpcoesLiteratura', 'validarCompeticaoSerie', 'verificarInscricaoExistente',
+  'verificarCarrinhoAluno', 'listarPedidosAluno', 'meuDesempenho', 'paginasDesempenho',
+  'minhasConquistas', 'retomarSessaoAluno'
+]);
+const RETRY_WAITS_MS = Object.freeze([800, 2000]);
+// Texto que o Apps Script devolve quando a planilha recusa o acesso (erro interno, não regra de negócio).
+const TRANSIENT_ERROR = 'Falha na operação. Tente novamente em instantes.';
+// O catálogo é público e igual para todos: fica na memória deste Worker por 60 s e, enquanto uma busca
+// está em andamento, as chamadas iguais esperam por ela em vez de ir de novo ao Apps Script.
+// (No teste de carga de 18/11/2026, acima de 100 chamadas simultâneas a planilha recusava o acesso.)
+const CATALOG_MEMO_MS = 60000;
+const catalogMemo = new Map();
+const catalogPending = new Map();
+
+const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+async function callBackend(url, body, canRetry) {
+  for (let attempt = 0; ; attempt++) {
+    const last = !canRetry || attempt >= RETRY_WAITS_MS.length;
+    try {
+      const upstream = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+        body,
+        redirect: 'follow'
+      });
+      if (!upstream.ok) throw new Error('Backend indisponível');
+      const result = await upstream.json();
+      if (!result || typeof result.ok !== 'boolean') throw new Error('Resposta inválida');
+      if (!last && result.ok === false && result.error === TRANSIENT_ERROR) { await sleep(RETRY_WAITS_MS[attempt]); continue; }
+      return result;
+    } catch (error) {
+      if (last) throw error;
+      await sleep(RETRY_WAITS_MS[attempt]);
+    }
+  }
+}
+
+async function catalogoComMemo(grupo, buscar) {
+  const chave = String(grupo ?? '').trim().toUpperCase();
+  const pronto = catalogMemo.get(chave);
+  if (pronto && pronto.expira > Date.now()) return pronto.result;
+  let pendente = catalogPending.get(chave);
+  if (!pendente) {
+    pendente = buscar().then(result => {
+      if (result.ok) catalogMemo.set(chave, { result, expira: Date.now() + CATALOG_MEMO_MS });
+      return result;
+    }).finally(() => catalogPending.delete(chave));
+    catalogPending.set(chave, pendente);
+  }
+  return pendente;
+}
+
 function reply(body, status, origin, extraHeaders = {}) {
   const headers = {
     'Content-Type': 'application/json; charset=utf-8',
@@ -221,15 +276,10 @@ export default {
           !/^\/macros\/s\/[A-Za-z0-9_-]+\/exec$/.test(target.pathname) || target.search || target.hash) {
         return reply({ ok: false, error: 'Conexão não configurada.' }, 503, origin);
       }
-      const upstream = await fetch(target.href, {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain; charset=utf-8' },
-        body: JSON.stringify({ method: parsed.method, args: parsed.args, secret }),
-        redirect: 'follow'
-      });
-      if (!upstream.ok) throw new Error('Backend indisponível');
-      const result = await upstream.json();
-      if (!result || typeof result.ok !== 'boolean') throw new Error('Resposta inválida');
+      const body = JSON.stringify({ method: parsed.method, args: parsed.args, secret });
+      const result = parsed.method === 'getCatalogoGrupo'
+        ? await catalogoComMemo(parsed.args[0], () => callBackend(target.href, body, true))
+        : await callBackend(target.href, body, RETRY_METHODS.includes(parsed.method));
       const safeResult = parsed.method === 'solicitarAlteracaoCadastral' ? sanitizeCorrectionResult(result) : result;
       return reply(safeResult, 200, origin);
     } catch {
@@ -237,5 +287,3 @@ export default {
     }
   }
 };
-
-
