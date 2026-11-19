@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' https://accounts.google.com/gsi/client; style-src 'self' 'unsafe-inline' https://accounts.google.com/gsi/style; img-src 'self' data:; connect-src 'self' https://atlas-api.marinhomalcher.workers.dev https://accounts.google.com/gsi/; frame-src https://accounts.google.com/gsi/; font-src 'self'; base-uri 'self'; form-action 'none'; object-src 'none'; manifest-src 'self'; upgrade-insecure-requests">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="theme-color" content="#8e1c2b">
+  <title>Administração — IDEAL OLÍMPICO</title>
+  <link rel="stylesheet" href="./adm.css?v=adm-20261119">
+</head>
+
+<body>
+<header>
+  <div class="head">
+    <img class="brand-logo" src="../logo-ideal-olimpico.png?v=20261018" alt="IDEAL OLÍMPICO">
+    <div class="brand"><h1>Administração – IDEAL OLÍMPICO</h1><p>Portal de Inscrições e ATLAS num só lugar</p></div>
+    <div id="admBadge" class="adm-badge hidden"><div class="who"><b>Administrador</b><span id="admEmail"></span></div><button id="sairBtn" type="button">SAIR</button></div>
+  </div>
+</header>
+
+<section id="loginSec" class="hidden">
+  <div class="login-wrap">
+    <div class="login-card">
+      <div class="eyebrow">Acesso restrito</div>
+      <h2>Entre com a conta do administrador</h2>
+      <p>É o mesmo login Google do administrador do ATLAS. As abas aparecem depois de entrar.</p>
+      <div id="googleBtn" class="google-btn"></div>
+      <p id="loginStatus" class="status" role="status" aria-live="polite"></p>
+      <p class="login-hint">Só o e-mail autorizado consegue entrar.</p>
+    </div>
+  </div>
+</section>
+
+<div id="appSec" class="hidden">
+  <div class="tabs"><nav role="tablist" aria-label="Áreas da administração">
+    <button class="tab" type="button" role="tab" id="tab-inscricoes" aria-controls="aba-inscricoes" aria-selected="true" data-aba="inscricoes">Inscrições</button>
+    <button class="tab" type="button" role="tab" id="tab-olimpiadas" aria-controls="aba-olimpiadas" aria-selected="false" data-aba="olimpiadas">Olimpíadas</button>
+    <button class="tab" type="button" role="tab" id="tab-atlas" aria-controls="aba-atlas" aria-selected="false" data-aba="atlas">ATLAS</button>
+    <button class="tab" type="button" role="tab" id="tab-redacao" aria-controls="aba-redacao" aria-selected="false" data-aba="redacao">Redação</button>
+  </nav></div>
+
+  <main>
+    <section id="aba-inscricoes" class="panel" role="tabpanel" aria-labelledby="tab-inscricoes">
+      <div class="eyebrow">Portal de Inscrições · pedidos dos alunos</div>
+      <h2>Inscrições</h2>
+      <p>Comprovantes aguardando conferência, aprovação em lote, CSV de inscritos e backup da planilha.</p>
+      <div class="aviso">A coordenação ainda pede o login Google próprio ao abrir (é separado do login do ATLAS). A unificação fica para a etapa 4.</div>
+      <div class="cards">
+        <a class="card" href="../inscricoes/coordenador/"><b>Comprovantes e aprovação</b><small>Conferir comprovantes, aprovar pagamento + inscrição oficial, rejeitar.</small><em>Abrir a coordenação →</em></a>
+        <a class="card" href="../inscricoes/coordenador/#competition"><b>Inscritos (CSV) e backup</b><small>Baixar inscritos por competição, backup completo e modelo da base de alunos.</small><em>Abrir a coordenação →</em></a>
+        <div class="card off"><b>Solicitações cadastrais</b><small>Corrigir e concluir, ou cancelar e liberar o aluno. Hoje só no menu da planilha.</small><em>Etapa 2</em></div>
+        <div class="card off"><b>Desconectar alunos lembrados</b><small>Encerrar os acessos de 5 dias. Hoje só no menu da planilha.</small><em>Etapa 2</em></div>
+      </div>
+    </section>
+
+    <section id="aba-olimpiadas" class="panel hidden" role="tabpanel" aria-labelledby="tab-olimpiadas">
+      <div class="eyebrow">Portal de Inscrições · catálogo das competições</div>
+      <h2>Olimpíadas</h2>
+      <p>O que o aluno vê no portal: olimpíadas, edições e prazos, valores, grupos e alunos elegíveis, conquistas e configurações.</p>
+      <div class="grupo"><h3>Abre hoje</h3>
+        <div class="cards">
+          <a class="card" href="../inscricoes/coordenador/#prices"><b>Valores por grupo</b><small>Literatura e SELETA com valor único; demais competições com valor individual.</small><em>Abrir a coordenação →</em></a>
+          <a class="card" href="https://docs.google.com/spreadsheets/d/1hdzPDJLZsFMW3zuvSsXH6_X-cuESety1od-WjNNcIws/edit" target="_blank" rel="noopener noreferrer"><b>Planilha do portal</b><small>Abas OLIMPIADAS, COMPETICOES, GRUPOS_PORTAL, ELEGIVEIS e CONFIGURACOES, no Google Planilhas.</small><em>Abrir a planilha ↗</em></a>
+          <a class="card" href="https://drive.google.com/drive/folders/1xLKmXk_oyVZ7xYIEPZ9ekc9pdPJgtyga" target="_blank" rel="noopener noreferrer"><b>Conquistas: planilhas de resultados</b><small>Pasta RESULTADOS OLIMPICOS no Drive. No OneDrive, a pasta HISTÓRICO DE RESULTADOS tem os RELATORIO_GERAL por ano e o ATUALIZAR_CONQUISTAS.bat.</small><em>Abrir a pasta no Drive ↗</em></a>
+        </div>
+      </div>
+      <div class="grupo"><h3>Etapa 2 · hoje só na planilha ou no menu dela</h3>
+        <div class="cards">
+          <div class="card off"><b>Olimpíadas e edições</b><small>Cadastrar edição, abrir e encerrar inscrições, prazos e regras.</small><em>Etapa 2</em></div>
+          <div class="card off"><b>Grupos e elegíveis</b><small>Quem pode se inscrever em cada competição.</small><em>Etapa 2</em></div>
+          <div class="card off"><b>Catálogo: atualizar agora</b><small>Limpar o cache de 5 min para o portal mostrar a mudança na hora.</small><em>Etapa 2</em></div>
+          <div class="card off"><b>Conquistas: enviar e atualizar</b><small>Subir o conquistas_portal.json gerado pelo script e mandar o portal reler as medalhas.</small><em>Etapa 2</em></div>
+          <div class="card off"><b>Configurações</b><small>PIX, pasta dos comprovantes e avisos ao aluno.</small><em>Etapa 2</em></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="aba-atlas" class="panel hidden" role="tabpanel" aria-labelledby="tab-atlas">
+      <div class="eyebrow">Banco de questões, pessoas e resultados</div>
+      <h2>ATLAS</h2>
+      <p>Tudo do ATLAS que é do administrador, em três grupos. As páginas abrem já conectadas com este login.</p>
+      <div class="grupo"><h3>Questões</h3>
+        <div class="cards">
+          <a class="card" href="../atlas/admin-questoes.html"><b>Questões</b><small>Busca no banco, sem disciplina, consertos e corrigir aprovadas.</small><em>Abrir →</em></a>
+          <a class="card" href="../atlas/admin-enviar.html"><b>Enviar questões</b><small>Cadastrar questões direto como ADM.</small><em>Abrir →</em></a>
+          <a class="card" href="../atlas/admin-selecoes.html"><b>Seleções recebidas</b><small>Seleções dos supervisores para as provas.</small><em>Abrir →</em></a>
+          <a class="card" href="../atlas/admin-relatorio.html"><b>Relatório de produção</b><small>Produção por professor e disciplina.</small><em>Abrir →</em></a>
+          <a class="card" href="../atlas/admin.html?secao=retiradas"><b>Questões retiradas</b><small>Professores desligados; prazo de 6 meses.</small><em>Abrir →</em></a>
+        </div>
+      </div>
+      <div class="grupo"><h3>Pessoas</h3>
+        <div class="cards">
+          <a class="card" href="../atlas/admin.html"><b>Cadastros e funções</b><small>Professores, supervisores, digitadores, coordenadores e seus acessos.</small><em>Abrir →</em></a>
+          <a class="card" href="../atlas/alunos-admin.html"><b>Alunos</b><small>Base de alunos por unidade, série e turma.</small><em>Abrir →</em></a>
+        </div>
+      </div>
+      <div class="grupo"><h3>Sistema e resultados</h3>
+        <div class="cards">
+          <a class="card" href="../atlas/admin.html?secao=copias"><b>Cópias de segurança</b><small>Backup diário, cópia agora e teste do SharePoint.</small><em>Abrir →</em></a>
+          <a class="card" id="cardDesempenho" href="../atlas/desempenho-admin.html"><b>Meu desempenho</b><small id="descDesempenho">Mapas de desempenho e espelhos da redação que o aluno vê no portal.</small><em>Abrir →</em></a>
+        </div>
+      </div>
+    </section>
+
+    <section id="aba-redacao" class="panel hidden" role="tabpanel" aria-labelledby="tab-redacao">
+      <div class="eyebrow">Módulo de redação</div>
+      <h2>Redação</h2>
+      <p>PDFs recebidos por turma e bimestre, turmas e equipe. As páginas abrem já conectadas com este login.</p>
+      <div class="cards c3">
+        <a class="card" href="../atlas/redacao-lotes-admin.html"><b>Lotes</b><small>PDFs recebidos, dúvidas e páginas condenadas.</small><em>Abrir →</em></a>
+        <a class="card" href="../atlas/redacao-admin.html#turmas"><b>Turmas</b><small>Turmas por unidade e segmento.</small><em>Abrir →</em></a>
+        <a class="card" href="../atlas/redacao-admin.html#equipe"><b>Equipe</b><small>Mapa de digitalizadores, coordenadores e professores.</small><em>Abrir →</em></a>
+      </div>
+    </section>
+  </main>
+</div>
+
+<footer>IDEAL OLÍMPICO · Grupo Ideal · área restrita do administrador</footer>
+<script src="./adm.js?v=adm-20261119" defer></script>
+</body>
+</html>

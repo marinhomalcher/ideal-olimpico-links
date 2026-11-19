@@ -1,0 +1,32 @@
+/* Hub de administração (/adm/): mesmas cores do Portal de Inscrições (vinho e dourado). */
+:root{color-scheme:light;--vinho:#8e1c2b;--vinho-esc:#65131f;--vinho-claro:#f6e9eb;--dourado:#d6ad55;--dourado-claro:#f6ecd3;--creme:#fbf8f1;--texto:#27211f;--muted:#776d67;--borda:#e6ddd5;--sombra:0 12px 30px rgba(63,31,20,.08)}
+*{box-sizing:border-box}html,body{max-width:100%;overflow-x:hidden}body{margin:0;min-height:100vh;display:flex;flex-direction:column;font-family:Arial,Helvetica,sans-serif;color:var(--texto);background:#fffdfa;-webkit-text-size-adjust:100%}
+img{max-width:100%}button{font:inherit;cursor:pointer;min-height:44px;touch-action:manipulation}.hidden{display:none!important}
+header{background:linear-gradient(135deg,var(--vinho-esc),var(--vinho));color:#fff;padding:18px clamp(16px,3vw,56px);box-shadow:0 3px 14px rgba(0,0,0,.12)}
+.head{max-width:1920px;margin:auto;display:flex;align-items:center;gap:16px}.brand-logo{width:76px;height:76px;object-fit:contain;border-radius:50%;background:#fff;padding:4px;flex:0 0 auto}
+.brand{min-width:0}.brand h1{font-size:28px;margin:0 0 4px;font-weight:800}.brand p{margin:0;color:#f5d9dd;font-size:15px}
+.adm-badge{margin-left:auto;display:flex;align-items:center;gap:12px;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.24);padding:9px 12px;border-radius:14px;max-width:520px}.adm-badge .who{min-width:0}.adm-badge b{display:block;font-size:13px}.adm-badge span{display:block;font-size:12px;color:#f8dde1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.adm-badge button{border:0;background:#fff;color:var(--vinho-esc);border-radius:9px;padding:8px 12px;font-size:11px;font-weight:800;min-height:0}
+/* Login */
+.login-wrap{max-width:720px;margin:40px auto;padding:0 16px;flex:1}.login-card{border:1px solid var(--borda);background:#fff;border-radius:24px;box-shadow:var(--sombra);padding:28px;text-align:center}.login-card h2{margin:5px 0 8px;color:var(--vinho-esc);font-size:30px}.login-card>p{margin:0 0 18px;color:var(--muted);line-height:1.5}
+.google-btn{display:flex;justify-content:center;margin:18px 0 6px;min-height:44px}.status{min-height:20px;margin:8px 0;font-size:14px;color:var(--muted)}.status.error{color:#a4262c;font-weight:800}.login-hint{font-size:13px;color:var(--muted)}
+/* Abas */
+.tabs{background:#fff;border-bottom:1px solid var(--borda);box-shadow:0 3px 14px rgba(63,31,20,.06);position:sticky;top:0;z-index:5}.tabs nav{max-width:1920px;margin:auto;padding:0 clamp(16px,3vw,56px);display:flex;gap:6px;overflow-x:auto;scrollbar-width:none}.tabs nav::-webkit-scrollbar{display:none}
+.tab{display:inline-flex;align-items:center;padding:16px 22px;border:0;border-bottom:4px solid transparent;background:transparent;color:var(--vinho-esc);font-weight:800;font-size:15px;letter-spacing:.04em;text-transform:uppercase;white-space:nowrap;border-radius:0}.tab:hover{background:var(--vinho-claro)}.tab[aria-selected="true"]{border-bottom-color:var(--dourado);color:var(--vinho)}.tab:focus-visible{outline:3px solid var(--dourado);outline-offset:-3px}
+main{max-width:1920px;width:100%;margin:0 auto;padding:30px clamp(16px,3vw,56px) 60px;flex:1}
+.panel{border:1px solid var(--borda);background:#fff;border-radius:22px;box-shadow:var(--sombra);padding:26px 28px}
+.eyebrow{font-size:12px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--vinho)}.panel h2{margin:5px 0 6px;color:var(--vinho-esc);font-size:28px}.panel>p{margin:0 0 20px;color:var(--muted);line-height:1.5;max-width:980px}
+.grupo{margin-top:18px}.grupo h3{margin:0 0 10px;font-size:14px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.cards{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}.cards.c3{grid-template-columns:repeat(3,minmax(0,1fr))}
+.card{border:1px solid var(--borda);border-radius:16px;background:var(--creme);padding:18px;display:flex;flex-direction:column;gap:8px;min-height:132px;color:var(--texto);text-decoration:none;transition:.18s transform,.18s box-shadow}a.card:hover{transform:translateY(-3px);box-shadow:0 14px 30px rgba(63,31,20,.12);border-color:#d9c6c9}a.card:focus-visible{outline:3px solid var(--dourado);outline-offset:2px}
+.card b{color:var(--vinho-esc);font-size:17px}.card small{color:var(--muted);font-size:13px;line-height:1.4;flex:1}.card em{font-style:normal;color:var(--vinho);font-weight:800;font-size:13px}.card.off{opacity:.6;border-style:dashed;background:#fff}
+.aviso{background:var(--dourado-claro);border:1px solid #e8d3a2;color:#6a4d12;border-radius:12px;padding:12px 14px;font-size:14px;margin:0 0 18px;max-width:980px}
+footer{border-top:1px solid var(--borda);padding:16px;text-align:center;color:var(--muted);font-size:12px}
+@media(max-width:1100px){.cards,.cards.c3{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:720px){
+  header{padding:12px}.head{gap:10px;flex-wrap:wrap;align-items:flex-start}.brand{flex:1}.brand-logo{width:52px;height:52px}.brand h1{font-size:18px;line-height:1.18;margin-top:2px}.brand p{font-size:12px}
+  .adm-badge{width:100%;max-width:none;margin-left:0;justify-content:space-between}.adm-badge span{white-space:normal;word-break:break-word}
+  .tabs nav{padding:0 6px;gap:0;justify-content:space-between}.tab{padding:14px 8px;font-size:12px;letter-spacing:0;flex:1;justify-content:center}
+  main{padding:16px 12px 40px}.panel{padding:18px 16px;border-radius:16px}.panel h2{font-size:23px}.panel>p{font-size:14px}
+  .cards,.cards.c3{grid-template-columns:1fr;gap:10px}.card{min-height:0}
+  .login-wrap{margin:18px auto}.login-card{padding:18px;border-radius:17px}.login-card h2{font-size:24px}
+}
