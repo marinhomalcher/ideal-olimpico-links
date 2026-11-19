@@ -79,6 +79,40 @@ for (const m of ['lembrarAcessoAluno', 'retomarSessaoAluno', 'minhasConquistas']
 const chaves = [...env.PORTAL_LOGIN_LIMITER.usos.keys()];
 ok('Chaves do limite são embaralhadas (sem matrícula visível)', chaves.length > 0 && chaves.every(k => /^[0-9a-f]{64}$/.test(k)));
 
+// --- Cache do catálogo em memória e retentativa (18/11/2026) ---
+const fetchOriginal = globalThis.fetch;
+n = enviados.length;
+r = await call('getCatalogoGrupo', ['OBF']);
+let r2 = await call('getCatalogoGrupo', ['OBF']);
+ok('Catálogo: segunda chamada vem da memória (uma ida ao Apps Script)', r.status === 200 && r2.status === 200 && enviados.length === n + 1 && r2.data.data.eco === 'getCatalogoGrupo');
+n = enviados.length;
+const paralelas = await Promise.all([1, 2, 3, 4, 5].map(() => call('getCatalogoGrupo', ['SELETA'])));
+ok('Catálogo: cinco chamadas simultâneas viram uma ida ao Apps Script', paralelas.every(x => x.status === 200) && enviados.length === n + 1);
+let falhas = 1;
+globalThis.fetch = async (url, opts) => { enviados.push(JSON.parse(opts.body)); if (falhas-- > 0) return new Response('erro', { status: 500 }); return new Response(JSON.stringify({ ok: true, data: { eco: 'ok' } })); };
+n = enviados.length;
+r = await call('verificarInscricaoExistente', ['sessao-x', 'COMP1']);
+ok('Leitura: Apps Script fora do ar uma vez, repete e responde', r.status === 200 && r.data.ok === true && enviados.length === n + 2);
+falhas = 1; n = enviados.length;
+r = await call('criarPedido', ['sessao-x', { itens: [] }]);
+ok('Gravação (criarPedido): não repete, devolve 502', r.status === 502 && enviados.length === n + 1);
+falhas = 0;
+let transitorios = 1;
+globalThis.fetch = async (url, opts) => { enviados.push(JSON.parse(opts.body)); if (transitorios-- > 0) return new Response(JSON.stringify({ ok: false, error: 'Falha na operação. Tente novamente em instantes.' })); return new Response(JSON.stringify({ ok: true, data: { eco: 'ok' } })); };
+n = enviados.length;
+r = await call('listarPedidosAluno', ['sessao-y']);
+ok('Leitura: "Falha na operação" (planilha recusou) é repetida', r.status === 200 && r.data.ok === true && enviados.length === n + 2);
+globalThis.fetch = async (url, opts) => { enviados.push(JSON.parse(opts.body)); return new Response(JSON.stringify({ ok: false, error: 'Sessão expirada.' })); };
+n = enviados.length;
+r = await call('listarPedidosAluno', ['sessao-z']);
+ok('Leitura: erro de regra de negócio não é repetido', r.status === 200 && r.data.ok === false && enviados.length === n + 1);
+globalThis.fetch = async (url, opts) => { enviados.push(JSON.parse(opts.body)); return new Response(JSON.stringify({ ok: false, error: 'Grupo inválido.' })); };
+n = enviados.length;
+await call('getCatalogoGrupo', ['LIGMAT']);
+await call('getCatalogoGrupo', ['LIGMAT']);
+ok('Catálogo: resposta com erro não fica na memória', enviados.length === n + 2);
+globalThis.fetch = fetchOriginal;
+
 for (const x of results) console.log(x.join(' | '));
 const bad = results.filter(x => x[0] !== 'OK  ').length;
 console.log(bad ? `\n${bad} FALHA(S)` : `\nTODOS OS TESTES PASSARAM (${results.length})`);

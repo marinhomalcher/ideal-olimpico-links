@@ -502,6 +502,34 @@ async function enviarCodigoPortalAluno(request, env) {
   if (!ok) throw new HttpError(502, 'Não foi possível enviar o código.');
   return { ok: true };
 }
+// Avisos do portal ao aluno (pedido registrado, pagamento aprovado, comprovante rejeitado), no e-mail
+// pessoal informado no cadastro. O texto vem pronto do Apps Script; aqui só se confere, limita e envia
+// como olimpiadas@ (18/11/2026: antes saíam pelo MailApp da conta Gmail, limitado a 100 por dia).
+const PORTAL_AVISO_EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+async function enviarAvisoPortalAluno(request, env) {
+  if (!portalConfigurado(env) || !microsoftConfigurado(env)) throw new HttpError(503, 'Envio indisponível.');
+  const segredo = env.PORTAL_ATLAS_SECRET;
+  await conferirSegredoPortal(request, env);
+  const body = await readJson(request, 8 * 1024);
+  const ra = typeof body.ra === 'string' ? body.ra : '';
+  const email = typeof body.email === 'string' ? body.email.trim().toLowerCase() : '';
+  const assunto = typeof body.assunto === 'string' ? body.assunto.replace(/\s+/g, ' ').trim() : '';
+  const texto = typeof body.texto === 'string' ? body.texto.replace(/\r\n?/g, '\n').replace(/[^\P{Cc}\n]/gu, '').trim() : '';
+  if (!/^\d{1,15}$/.test(ra) || email.length > 254 || !PORTAL_AVISO_EMAIL.test(email) ||
+      !assunto || assunto.length > 150 || !texto || texto.length > 4000) {
+    throw new HttpError(400, 'Dados inválidos.');
+  }
+  // Limites próprios (chaves embaralhadas). O teto por minuto e por hora é o mesmo dos códigos de login,
+  // porque a caixa olimpiadas@ envia no máximo 30 e-mails por minuto (Exchange Online).
+  const porRa = await consultarLimiteLogin(env, await hmacHex(segredo, 'portal-aviso-ra:' + ra), 3600, 20);
+  const porMinuto = await consultarLimiteLogin(env, await hmacHex(segredo, 'portal-total-minuto'), 60, 25);
+  const porHora = await consultarLimiteLogin(env, await hmacHex(segredo, 'portal-total-hora'), 3600, 1200);
+  if (!porRa.permitido) throw new HttpError(429, 'Muitos avisos para esta matrícula. Aguarde ' + porRa.aguardeMinutos + ' minutos.');
+  if (!porMinuto.permitido || !porHora.permitido) throw new HttpError(429, 'Muitos envios agora. Tente de novo em 1 minuto.');
+  const ok = await enviarEmail(env, email, 'IDEAL OLÍMPICO — ' + assunto, texto, null);
+  if (!ok) throw new HttpError(502, 'Não foi possível enviar o aviso.');
+  return { ok: true };
+}
 
 // ---------- questões (itens) ----------
 // Código oficial: letra da disciplina + 7 dígitos aleatórios (sem zero à esquerda, nunca todos iguais).
@@ -2447,6 +2475,10 @@ export default {
       if ((url.pathname === '/api/portal/desempenho' || url.pathname === '/api/portal/desempenho/paginas') && request.method === 'POST') {
         if (origin) throw new HttpError(403, 'Origem não permitida.');
         return reply(await desempenhoPortal(request, env, url.pathname), 200, null);
+      }
+      if (url.pathname === '/api/portal/aviso-aluno' && request.method === 'POST') {
+        if (origin) throw new HttpError(403, 'Origem não permitida.');
+        return reply(await enviarAvisoPortalAluno(request, env), 200, null);
       }
       if (url.pathname === '/api/login/codigo' && request.method === 'POST') {
         if (!ALLOWED_ORIGINS.includes(origin)) throw new HttpError(403, 'Origem não permitida.');
