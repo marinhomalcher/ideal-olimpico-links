@@ -1,4 +1,5 @@
 // Teste completo do login do administrador e das rotas de professores.
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { DatabaseSync } from 'node:sqlite';
 import fs from 'node:fs';
 import http from 'node:http';
@@ -7,8 +8,8 @@ const require = createRequire(import.meta.url);
 const { chromium } = require('playwright');
 
 const S = (process.env.ATLAS_TESTE_TMP || '/tmp/atlas-testes') + '/';   // dependências (katex, exceljs) e prints
-const REPO = new URL('../../../', import.meta.url).pathname;   // raiz do repositório
-const worker = (await import(REPO + '_cloudflare/atlas-api/worker.js?' + Date.now())).default;
+const REPO = fileURLToPath(new URL('../../../', import.meta.url));   // raiz do repositório
+const worker = (await import(pathToFileURL(REPO + '_cloudflare/atlas-api/worker.js').href + '?' + Date.now())).default;
 const results = [];
 const ok = (name, cond, extra = '') => results.push([cond ? 'OK  ' : 'FALHOU', name, String(extra).slice(0, 160)]);
 
@@ -159,7 +160,7 @@ await paste('#comando','Os textos expressam interpretações divergentes. A dive
 for(const l of 'abcde')await paste('#alt-'+l,'Alternativa '+l);
 await page.locator('.link-fonte').first().click();await page.fill('#ref-a','Disponível em: https://www.expedia.com.br. Acesso em: 14 out. 2025.');
 await page.selectOption('#assunto','Romantismo');const subs=await page.$$eval('#subtema option',o=>o.map(x=>x.value).filter(Boolean));if(subs.length)await page.selectOption('#subtema',subs[0]);
-await page.selectOption('#origem','enem');await page.selectOption('#dificuldade','Fácil');await page.selectOption('#bloom','Analisar');await page.selectOption('#gabarito','B');await page.evaluate(()=>tagsCampo.set(['guerra fria','dois textos']));
+await page.selectOption('#origem','outros');await page.selectOption('#dificuldade','Fácil');await page.selectOption('#bloom','Analisar');await page.selectOption('#gabarito','B');await page.evaluate(()=>tagsCampo.set(['guerra fria','dois textos']));
 await page.check('.layout-box input[value="pagina"]');
 await page.click('#visualizar');await page.waitForSelector('#previsao:not([hidden])');
 const prev=await page.innerHTML('#previsao');

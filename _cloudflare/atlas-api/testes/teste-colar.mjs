@@ -1,4 +1,5 @@
 // Teste completo do login do administrador e das rotas de professores.
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { DatabaseSync } from 'node:sqlite';
 import fs from 'node:fs';
 import http from 'node:http';
@@ -7,8 +8,8 @@ const require = createRequire(import.meta.url);
 const { chromium } = require('playwright');
 
 const S = (process.env.ATLAS_TESTE_TMP || '/tmp/atlas-testes') + '/';   // dependências (katex, exceljs) e prints
-const REPO = new URL('../../../', import.meta.url).pathname;   // raiz do repositório
-const worker = (await import(REPO + '_cloudflare/atlas-api/worker.js?' + Date.now())).default;
+const REPO = fileURLToPath(new URL('../../../', import.meta.url));   // raiz do repositório
+const worker = (await import(pathToFileURL(REPO + '_cloudflare/atlas-api/worker.js').href + '?' + Date.now())).default;
 const results = [];
 const ok = (name, cond, extra = '') => results.push([cond ? 'OK  ' : 'FALHOU', name, String(extra).slice(0, 160)]);
 
@@ -129,6 +130,28 @@ await colarMisto('#alt-a',{texto:'A) $x^2$\nB) $2x$\nC) $x$\nD) $1$\nE) $0$',htm
 ok('Alternativas com fórmula viram fórmula', !!(await page.$('#alt-a .atlas-equation')) && !!(await page.$('#alt-e .atlas-equation')));
 await colarMisto('#texto-base',{texto:'Leia o texto. A cidade cresceu. B. Silva disse que sim.',html:null,png:false});
 ok('Texto comum com "A." no meio não é confundido', (await page.textContent('#texto-base')).includes('B. Silva'));
+/* limpeza de espaços ao colar (pedido 5) */
+await page.evaluate(()=>{document.querySelector('#comando').innerHTML=''});
+await paste('#comando','\t\t   Igreja. Uma das   instituições\u00a0\u00a0fundamentais.   \n        Segunda linha com recuo.\n');
+ok('Colar com tab, espaços e espaços duros no início: recuo sai, espaços repetidos viram um', /^Igreja\. Uma das instituições fundamentais\.\s*Segunda linha com recuo\.$/.test((await page.textContent('#comando')).replace(/\u00a0/g,' ').trim()), JSON.stringify(await page.textContent('#comando')));
+/* poema colado vira bloco de versos; botões Versos / Centrar */
+await page.evaluate(()=>{document.querySelector('#texto-base').innerHTML=''});
+await paste('#texto-base','        Sou pastor; não te nego; os meus montados\n     São esses, que aí vês; vivo contente\n   Ao trazer entre a relva florescente\nA doce companhia dos meus gados;');
+const versos=await page.evaluate(()=>{const v=document.querySelector('#texto-base .versos');return v?{linhas:v.innerHTML.split('<br>').length,recuo:/^\s/.test(v.textContent),centro:v.classList.contains('centro'),btn:document.querySelector('#bar-texto-base .btn-versos')?.textContent}:null});
+ok('Poema colado vira bloco de versos: 4 linhas, sem recuo, à esquerda', versos && versos.linhas===4 && !versos.recuo && !versos.centro, JSON.stringify(versos));
+ok('Aviso explica o bloco e os botões', (await page.textContent('body')).includes('Colado como bloco de versos'));
+await page.evaluate(()=>{const v=document.querySelector('#texto-base .versos');const r=document.createRange();r.setStart(v.firstChild,2);r.collapse(true);const s=getSelection();s.removeAllRanges();s.addRange(r);document.dispatchEvent(new Event('selectionchange'))});
+ok('Com o cursor no bloco, os botões mostram "Desfazer versos" e "Centrar"', (await page.textContent('#bar-texto-base .btn-versos'))==='Desfazer versos' && await page.isVisible('#bar-texto-base .btn-versos-centro'));
+await page.click('#bar-texto-base .btn-versos-centro');
+if(process.env.ATLAS_PNG_DIR){await page.evaluate(()=>document.querySelector('#texto-base').scrollIntoView({block:'center'}));await page.screenshot({path:process.env.ATLAS_PNG_DIR+'/professor-versos.png'})}
+ok('Centrar põe a classe centro e o botão vira "À esquerda"', await page.$eval('#texto-base .versos',v=>v.classList.contains('centro')) && (await page.textContent('#bar-texto-base .btn-versos-centro'))==='À esquerda');
+ok('Prévia/leitura mantém o bloco de versos centrado (clean)', await page.evaluate(()=>/<div class="versos centro">Sou pastor/.test(AtlasRich.clean(document.querySelector('#texto-base').innerHTML))));
+await page.click('#bar-texto-base .btn-versos');
+ok('Desfazer versos tira o bloco e mantém o texto', !(await page.$('#texto-base .versos')) && (await page.textContent('#texto-base')).includes('Sou pastor') && (await page.textContent('#texto-base')).includes('meus gados'));
+await page.evaluate(()=>{const e=document.querySelector('#comando');e.innerHTML='<div>Primeira linha</div><div>Segunda linha</div>';const r=document.createRange();r.setStart(e.firstChild.firstChild,0);r.setEnd(e.lastChild.firstChild,5);const s=getSelection();s.removeAllRanges();s.addRange(r);document.dispatchEvent(new Event('selectionchange'))});
+await page.click('#bar-comando .btn-versos');
+ok('Botão Versos com um trecho selecionado transforma os parágrafos em linhas do bloco', await page.evaluate(()=>{const v=document.querySelector('#comando .versos');return !!v && v.innerHTML==='Primeira linha<br>Segunda linha'}), await page.innerHTML('#comando'));
+ok('Alternativas não ganham a barra de versos', !(await page.$('#bar-alt-a')));
 ok('Sem erros de JavaScript', errors.length===0, errors.join(' | '));
 await browser.close(); server.close();
 for (const x of results) console.log(x.join(' | '));
