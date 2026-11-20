@@ -19,6 +19,11 @@ main{max-width:1920px;width:100%;margin:0 auto;padding:30px clamp(16px,3vw,56px)
 .cards{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}.cards.c3{grid-template-columns:repeat(3,minmax(0,1fr))}
 .card{border:1px solid var(--borda);border-radius:16px;background:var(--creme);padding:18px;display:flex;flex-direction:column;gap:8px;min-height:132px;color:var(--texto);text-decoration:none;transition:.18s transform,.18s box-shadow}a.card:hover{transform:translateY(-3px);box-shadow:0 14px 30px rgba(63,31,20,.12);border-color:#d9c6c9}a.card:focus-visible{outline:3px solid var(--dourado);outline-offset:2px}
 .card b{color:var(--vinho-esc);font-size:17px}.card small{color:var(--muted);font-size:13px;line-height:1.4;flex:1}.card em{font-style:normal;color:var(--vinho);font-weight:800;font-size:13px}.card.off{opacity:.6;border-style:dashed;background:#fff}
+/* Cartões de ação (etapa 2): botões com a cara dos cartões; chamam a planilha pela ponte do coordenador. */
+button.card.acao{text-align:left;font:inherit;cursor:pointer;align-items:stretch}button.card.acao:hover{transform:translateY(-3px);box-shadow:0 14px 30px rgba(63,31,20,.12);border-color:#d9c6c9}button.card.acao:focus-visible{outline:3px solid var(--dourado);outline-offset:2px}
+button.card.acao[disabled]{cursor:wait;opacity:.6;transform:none;box-shadow:none}button.card.acao.confirmar{border-color:var(--vinho);background:var(--vinho-claro)}button.card.acao.confirmar em{color:#a4262c}
+.acao-msg{min-height:20px;margin:10px 0 0;font-size:14px;color:var(--muted);line-height:1.5;max-width:980px;white-space:pre-line}.acao-msg.ok{color:#1f6b3a;font-weight:700}.acao-msg.error{color:#a4262c;font-weight:800}.acao-msg a{color:var(--vinho);font-weight:800}
+iframe.ponte{position:absolute;width:1px;height:1px;left:-9999px;top:0;border:0;opacity:0;pointer-events:none}
 .aviso{background:var(--dourado-claro);border:1px solid #e8d3a2;color:#6a4d12;border-radius:12px;padding:12px 14px;font-size:14px;margin:0 0 18px;max-width:980px}
 footer{border-top:1px solid var(--borda);padding:16px;text-align:center;color:var(--muted);font-size:12px}
 @media(max-width:1100px){.cards,.cards.c3{grid-template-columns:repeat(2,minmax(0,1fr))}}

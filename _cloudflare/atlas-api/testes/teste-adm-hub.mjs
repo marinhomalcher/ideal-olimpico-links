@@ -19,6 +19,8 @@ ok('CSP: connect-src só o atlas-api, o próprio site e o Google', /connect-src 
 ok('Nenhum atributo on*= no HTML', !/\son[a-z]+="/i.test(hub));
 ok('Nenhum <script> inline no HTML', !/<script(?![^>]*\ssrc=)[^>]*>/i.test(hub));
 ok('adm.js não usa innerHTML', !/innerHTML/.test(hubJs));
+ok('ponte.js não usa innerHTML nem confirm/alert/prompt, e só aceita a ponte do Google', (() => { const p = ler('adm/ponte.js'); return !/innerHTML|\b(confirm|alert|prompt)\(/.test(p) && /script\.google\.com/.test(p) && /-script\.googleusercontent\.com/.test(p); })());
+ok('CSP: frame-src libera só o Google (login, ponte e sua janela)', /frame-src https:\/\/accounts\.google\.com\/gsi\/ https:\/\/script\.google\.com https:\/\/\*\.googleusercontent\.com;/.test(hub));
 ok('Token na mesma chave das páginas admin do ATLAS', /TOKEN_KEY = 'atlas_adm_token'/.test(hubJs) && /TOKEN_KEY='atlas_adm_token'/.test(ler('atlas/admin.html')));
 const hrefs = [...hub.matchAll(/href="(\.\.\/[^"#?]+)/g)].map(m => m[1]);
 const faltando = hrefs.filter(h => { const p = RAIZ + 'adm/' + h; return !(fs.existsSync(p) || fs.existsSync(p + 'index.html')); });
@@ -67,6 +69,21 @@ await ctx.route('https://atlas-api.marinhomalcher.workers.dev/**', route => {
 let googleCallback = null;
 await ctx.route('https://accounts.google.com/**', route => route.fulfill({ status: 200, contentType: 'application/javascript', headers: { 'access-control-allow-origin': '*' },
   body: 'window.google={accounts:{id:{initialize(o){window.__gsiInit=o},renderButton(el){const b=document.createElement("button");b.id="gsi-falso";b.textContent="Fazer login com o Google";b.addEventListener("click",()=>window.__gsiInit.callback({credential:"cred-teste"}));el.append(b)},disableAutoSelect(){window.__gsiOff=true}}}}' }));
+// Ponte do coordenador falsa (etapa 2, lote A): mesmo protocolo da implantação da coordenação (ready → authorize → connected → call/result).
+const chamadasPonte = [];
+await ctx.route('https://script.google.com/**', route => {
+  chamadasPonte.push(route.request().url());
+  route.fulfill({ status: 200, contentType: 'text/html; charset=utf-8', body: `<!doctype html><title>ponte falsa</title><script>
+(function(){const parentOrigin='https://idealolimpico.com.br';const nonce='abcdefghijklmnopqrstuvwxyz0123';let authorized=false;
+const send=m=>window.top.postMessage(m,parentOrigin);
+window.addEventListener('message',e=>{if(e.source!==window.top||e.origin!==parentOrigin||!e.data)return;const d=e.data;
+if(d.type==='ideal-coord-authorize'&&d.nonce===nonce){authorized=true;send({type:'ideal-coord-connected',nonce});return;}
+if(d.type!=='ideal-coord-call'||!authorized)return;
+if(d.method==='coordenadorTestarAviso')send({type:'ideal-coord-result',id:d.id,ok:false,error:'Acesso restrito à conta autorizada do coordenador.'});
+else send({type:'ideal-coord-result',id:d.id,ok:true,data:{mensagem:'Feito: '+d.method+' '+JSON.stringify(d.args)}});});
+send({type:'ideal-coord-ready',nonce});})();
+</script>` });
+});
 await ctx.addInitScript(() => { window.__cspv = []; document.addEventListener('securitypolicyviolation', e => window.__cspv.push(e.violatedDirective + ' ' + (e.blockedURI || ''))); });
 const page = await ctx.newPage();
 const erros = []; page.on('pageerror', e => erros.push(e.message));
@@ -92,7 +109,31 @@ await page.click('#tab-atlas');
 ok('Clicar em ATLAS troca a aba e grava #atlas no endereço', await visivel('aba-atlas') && !await visivel('aba-inscricoes') && page.url().endsWith('#atlas'));
 ok('Cartão Meu desempenho continua ativo quando a página existe (HEAD 200)', await page.evaluate(() => !document.getElementById('cardDesempenho').classList.contains('off')));
 await page.click('#tab-olimpiadas');
-ok('Aba Olimpíadas tem o aviso da etapa 2 e os links externos', await visivel('aba-olimpiadas') && await page.locator('#aba-olimpiadas .card.off').count() === 5 && await page.locator('#aba-olimpiadas a[target=_blank]').count() === 2);
+ok('Aba Olimpíadas tem o aviso da etapa 2 e os links externos', await visivel('aba-olimpiadas') && await page.locator('#aba-olimpiadas .card.off').count() === 4 && await page.locator('#aba-olimpiadas a[target=_blank]').count() === 2);
+
+// 2b2. Etapa 2, lote A: cartões que executam as rotinas do menu da planilha pela ponte do coordenador
+const acoes = await page.evaluate(() => [...document.querySelectorAll('button.card.acao')].map(b => b.dataset.acao));
+ok('Cinco cartões de ação, com os nomes que a ponte da coordenação libera', acoes.join('|') === 'coordenadorDesconectarLembrados|coordenadorAtualizarHistorico|coordenadorTestarAviso|coordenadorAtualizarCatalogo|coordenadorAtualizarConquistas', acoes.join('|'));
+ok('A ponte não é carregada ao abrir a página (só no primeiro clique)', chamadasPonte.length === 0);
+const msgOlimp = () => page.evaluate(() => { const m = document.querySelector('#aba-olimpiadas .acao-msg'); return m.className + ': ' + m.textContent; });
+await page.click('button[data-acao="coordenadorAtualizarCatalogo"]');
+await page.waitForTimeout(700);
+ok('Catálogo: primeiro clique conecta a ponte (uma carga, com ?bridge=coordenador) e executa', chamadasPonte.length === 1 && /bridge=coordenador/.test(chamadasPonte[0]) && await msgOlimp() === 'acao-msg ok: Feito: coordenadorAtualizarCatalogo []', await msgOlimp());
+await page.click('button[data-acao="coordenadorAtualizarConquistas"]');
+await page.waitForTimeout(400);
+ok('Conquistas: reaproveita a conexão (sem nova carga da ponte)', chamadasPonte.length === 1 && await msgOlimp() === 'acao-msg ok: Feito: coordenadorAtualizarConquistas []', await msgOlimp());
+await page.click('#tab-inscricoes');
+const msgInsc = () => page.evaluate(() => { const m = document.querySelector('#aba-inscricoes .acao-msg'); return m.className + ': ' + m.textContent; });
+await page.click('button[data-acao="coordenadorDesconectarLembrados"]');
+await page.waitForTimeout(200);
+ok('Desconectar: o primeiro clique só pede confirmação (sem chamada)', /Clique de novo/.test(await page.textContent('button[data-acao="coordenadorDesconectarLembrados"] em')) && /Tem certeza/.test(await msgInsc()));
+await page.click('button[data-acao="coordenadorDesconectarLembrados"]');
+await page.waitForTimeout(400);
+ok('Desconectar: o segundo clique executa', await msgInsc() === 'acao-msg ok: Feito: coordenadorDesconectarLembrados []' && await page.textContent('button[data-acao="coordenadorDesconectarLembrados"] em') === 'Executar', await msgInsc());
+await page.click('button[data-acao="coordenadorTestarAviso"]');
+await page.waitForTimeout(400);
+ok('Erro da planilha aparece em vermelho, sem alert()', /^acao-msg error: Acesso restrito/.test(await msgInsc()), await msgInsc());
+ok('Cartões voltam a ficar habilitados e sem erro de JavaScript ou CSP', await page.evaluate(() => [...document.querySelectorAll('button.card.acao')].every(b => !b.disabled)) && erros.length === 0 && (await violacoes()).length === 0, erros.join('|'));
 
 // 2c. Recarregar com token válido entra direto na aba do endereço (o ?r= força a recarga: só mudar o # não recarrega)
 await page.goto(ORIGEM + '/adm/?r=1#redacao');
