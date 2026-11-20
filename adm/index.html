@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
   <meta charset="utf-8">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' https://accounts.google.com/gsi/client; style-src 'self' 'unsafe-inline' https://accounts.google.com/gsi/style; img-src 'self' data:; connect-src 'self' https://atlas-api.marinhomalcher.workers.dev https://accounts.google.com/gsi/; frame-src https://accounts.google.com/gsi/; font-src 'self'; base-uri 'self'; form-action 'none'; object-src 'none'; manifest-src 'self'; upgrade-insecure-requests">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' https://accounts.google.com/gsi/client; style-src 'self' 'unsafe-inline' https://accounts.google.com/gsi/style; img-src 'self' data:; connect-src 'self' https://atlas-api.marinhomalcher.workers.dev https://accounts.google.com/gsi/; frame-src https://accounts.google.com/gsi/ https://script.google.com https://*.googleusercontent.com; font-src 'self'; base-uri 'self'; form-action 'none'; object-src 'none'; manifest-src 'self'; upgrade-insecure-requests">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="referrer" content="strict-origin-when-cross-origin">
   <meta name="robots" content="noindex, nofollow">
@@ -49,7 +49,14 @@
         <a class="card" href="../inscricoes/coordenador/"><b>Comprovantes e aprovação</b><small>Conferir comprovantes, aprovar pagamento + inscrição oficial, rejeitar.</small><em>Abrir a coordenação →</em></a>
         <a class="card" href="../inscricoes/coordenador/#competition"><b>Inscritos (CSV) e backup</b><small>Baixar inscritos por competição, backup completo e modelo da base de alunos.</small><em>Abrir a coordenação →</em></a>
         <div class="card off"><b>Solicitações cadastrais</b><small>Corrigir e concluir, ou cancelar e liberar o aluno. Hoje só no menu da planilha.</small><em>Etapa 2</em></div>
-        <div class="card off"><b>Desconectar alunos lembrados</b><small>Encerrar os acessos de 5 dias. Hoje só no menu da planilha.</small><em>Etapa 2</em></div>
+      </div>
+      <div class="grupo"><h3>Ações na planilha · pela sua conta Google</h3>
+        <div class="cards">
+          <button class="card acao" type="button" data-acao="coordenadorDesconectarLembrados" data-confirmar="1"><b>Desconectar alunos lembrados</b><small>Encerra os acessos de 5 dias: todos vão precisar pedir um novo código no próximo acesso.</small><em>Executar</em></button>
+          <button class="card acao" type="button" data-acao="coordenadorAtualizarHistorico" data-lento="1"><b>Histórico de alunos: atualizar agora</b><small>Relê a base ALUNOS, marca quem saiu e confere RA × nome. Garante o gatilho diário.</small><em>Executar</em></button>
+          <button class="card acao" type="button" data-acao="coordenadorTestarAviso"><b>Avisos ao aluno: enviar um teste</b><small>Manda um aviso de teste para o e-mail da coordenação e diz por qual canal saiu.</small><em>Executar</em></button>
+        </div>
+        <p class="acao-msg" role="status" aria-live="polite"></p>
       </div>
     </section>
 
@@ -64,12 +71,18 @@
           <a class="card" href="https://drive.google.com/drive/folders/1xLKmXk_oyVZ7xYIEPZ9ekc9pdPJgtyga" target="_blank" rel="noopener noreferrer"><b>Conquistas: planilhas de resultados</b><small>Pasta RESULTADOS OLIMPICOS no Drive. No OneDrive, a pasta HISTÓRICO DE RESULTADOS tem os RELATORIO_GERAL por ano e o ATUALIZAR_CONQUISTAS.bat.</small><em>Abrir a pasta no Drive ↗</em></a>
         </div>
       </div>
-      <div class="grupo"><h3>Etapa 2 · hoje só na planilha ou no menu dela</h3>
+      <div class="grupo"><h3>Ações na planilha · pela sua conta Google</h3>
+        <div class="cards">
+          <button class="card acao" type="button" data-acao="coordenadorAtualizarCatalogo"><b>Catálogo: atualizar agora</b><small>Limpa o cache de 5 min para o portal mostrar na hora o que mudou na planilha.</small><em>Executar</em></button>
+          <button class="card acao" type="button" data-acao="coordenadorAtualizarConquistas" data-lento="1"><b>Conquistas: atualizar agora</b><small>Relê o conquistas_portal.json da pasta do Drive e atualiza as medalhas do portal. Garante o gatilho de hora em hora.</small><em>Executar</em></button>
+        </div>
+        <p class="acao-msg" role="status" aria-live="polite"></p>
+      </div>
+      <div class="grupo"><h3>Etapa 2 · hoje só na planilha</h3>
         <div class="cards">
           <div class="card off"><b>Olimpíadas e edições</b><small>Cadastrar edição, abrir e encerrar inscrições, prazos e regras.</small><em>Etapa 2</em></div>
           <div class="card off"><b>Grupos e elegíveis</b><small>Quem pode se inscrever em cada competição.</small><em>Etapa 2</em></div>
-          <div class="card off"><b>Catálogo: atualizar agora</b><small>Limpar o cache de 5 min para o portal mostrar a mudança na hora.</small><em>Etapa 2</em></div>
-          <div class="card off"><b>Conquistas: enviar e atualizar</b><small>Subir o conquistas_portal.json gerado pelo script e mandar o portal reler as medalhas.</small><em>Etapa 2</em></div>
+          <div class="card off"><b>Conquistas: enviar o JSON pelo site</b><small>Subir o conquistas_portal.json gerado pelo script sem passar pelo Drive.</small><em>Etapa 2</em></div>
           <div class="card off"><b>Configurações</b><small>PIX, pasta dos comprovantes e avisos ao aluno.</small><em>Etapa 2</em></div>
         </div>
       </div>
@@ -116,6 +129,9 @@
 </div>
 
 <footer>IDEAL OLÍMPICO · Grupo Ideal · área restrita do administrador</footer>
+<iframe id="ponteCoordenador" class="ponte" title="Conexão privada com a planilha do portal" aria-hidden="true" tabindex="-1"></iframe>
 <script src="./adm.js?v=adm-20261119" defer></script>
+<script src="../inscricoes/coordenador/config.js?v=adm-20261120" defer></script>
+<script src="./ponte.js?v=adm-20261120" defer></script>
 </body>
 </html>
