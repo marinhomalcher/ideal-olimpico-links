@@ -97,6 +97,10 @@ const casos = await page.evaluate(() => {
   roda('avulsa de cabeça para baixo', avulsa, { ang: 181, dx: 4, dy: 4, cinza: true });
   roda('sem o marcador de baixo à direita', folha, { ang: -1.3, dx: 6, tapar: 'id' });
   roda('sem o marcador de cima à esquerda, em cinza', folha, { ang: 2.2, cinza: true, tapar: 'se' });
+  const fracos = window.folhaTeste({ fracos: ['sd', 'id'] }), fracos3 = window.folhaTeste({ fracos: ['sd', 'id', 'ie'] });
+  roda('marcadores fracos à direita 0,7°', fracos, { ang: 0.7, dx: 4, dy: -3 });
+  roda('marcadores fracos à direita, em cinza, de cabeça para baixo', fracos, { ang: 180.9, dx: -6, dy: 5, cinza: true });
+  roda('três marcadores fracos −1,1°', fracos3, { ang: -1.1, dx: 9, dy: 2 });
   const nova = window.folhaTeste({ codigoAbaixo: true });
   roda('código ao lado do 1º DIA 0,9°', nova, { ang: 0.9, dx: 7, dy: -6 });
   roda('código ao lado do 1º DIA de cabeça para baixo', nova, { ang: 180.6, dx: -5, dy: 8, cinza: true });
@@ -123,6 +127,8 @@ const cod = await page.evaluate(() => {
 });
 ok('Code 128 decodifica conjuntos B e C, com troca', cod.par === '123456' && cod.impar === '73519' && cod.texto === 'AB-12', JSON.stringify(cod));
 ok('Código com dígito verificador errado é descartado', cod.ruim === null, cod.ruim);
+const fracos = casos.filter(c => c.nome.includes('marcadores fracos'));
+ok('Marcadores impressos fracos (traço fino, pontilhado) são achados na segunda busca: 4 de 4, alinhamento certo', fracos.length === 3 && fracos.every(c => c.marc === 4 && !c.avisos.some(a => /marcadores/.test(a)) && c.erro <= 2.5 && Math.abs(c.incl - esperado(c)) <= 0.1), fracos.map(c => c.marc + '/' + c.erro.toFixed(1) + '/' + c.incl + '/' + c.avisos.join('|')).join(' '));
 const tres = casos.filter(c => c.nome.startsWith('sem o marcador'));
 ok('Com só 3 marcadores, alinha e avisa', tres.every(c => c.marc === 3 && c.erro <= 3 && c.avisos.some(a => a.includes('3 dos 4'))), tres.map(c => c.marc + '/' + c.erro.toFixed(1)).join(' '));
 ok('Análise rápida (< 1,5 s por página)', casos.every(c => c.ms < 1500), Math.max(...casos.map(c => c.ms)).toFixed(0) + ' ms');
