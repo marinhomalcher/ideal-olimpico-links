@@ -1,10 +1,10 @@
 <!doctype html>
 <html lang="pt-BR">
 <head>
-<meta name="atlas-versao" content="20261120a"><script src="atlas-versao.js?v=20261120a" defer></script>
+<meta name="atlas-versao" content="20261120b"><script src="atlas-versao.js?v=20261120b" defer></script>
 <meta charset="utf-8"><meta name="robots" content="noindex, nofollow"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>ATLAS | Seleções para provas</title>
-<script src="auth.js?v=20261120a"></script>
+<script src="auth.js?v=20261120b"></script>
 <style>
 .question img{display:block;max-width:100%;max-height:380px;height:auto;margin:10px 0}.question table{border-collapse:collapse;margin:12px 0;max-width:100%;width:auto}.question td,.question th{border:1px solid #a99498;padding:7px 10px;min-width:64px}.question .atlas-equation{display:inline-block;vertical-align:middle;max-width:100%;overflow-x:auto}
 
@@ -58,9 +58,16 @@ aside a+a{margin-top:6px}aside a:not(.atual){background:transparent}
 
 /* Editor de seleção: três colunas com a questão no centro da tela. */
 body.modo-editor .shell{grid-template-columns:1fr}body.modo-editor .shell>aside,body.modo-editor .crumb,body.modo-editor h1,body.modo-editor .lead{display:none}
-.sel-topo{display:flex;align-items:center;gap:22px;flex-wrap:wrap;padding:14px 22px}.sel-topo .back{padding:0}.sel-topo h2{margin:0;font-size:20px}.sel-topo #sel-info .hint{margin:2px 0 0}
-.tres{display:grid;grid-template-columns:300px minmax(0,1fr) 300px;gap:20px;align-items:start}
-.tres>aside.col{background:transparent;border:0;padding:0 0 4px}.col{position:sticky;top:12px;max-height:calc(100vh - 24px);overflow:auto;display:flex;flex-direction:column;gap:12px;padding-bottom:4px}
+/* Pedido 9 (19/11/2026): laterais de 230 px com botão para recolher; a faixa da seleção virou parte da barra de navegação;
+   cabeçalho do site e barra ficam travados no topo (só a questão rola); o aviso de "só contam como usadas" virou dica no botão. */
+.navq .voltar-sel{border:0;background:none;color:var(--red);font-weight:bold;padding:0 6px 0 0;white-space:nowrap;cursor:pointer}
+.navq .sel-nome{display:inline-flex;align-items:center;gap:8px;font-size:14px;font-weight:bold;color:#6e2026;min-width:0;white-space:nowrap}.navq .sel-nome #sel-info{display:none}
+.navq .nav-sep{width:1px;height:26px;background:var(--line);margin:0 6px}
+.navq .laterais{margin-left:8px;border:1px solid var(--line);background:#fff;border-radius:8px;padding:5px 9px;font-size:12px;color:var(--red);font-weight:bold;white-space:nowrap}
+body.modo-editor header{position:sticky;top:0;z-index:7}
+#notice:empty{display:none}
+.tres{display:grid;grid-template-columns:230px minmax(0,1fr) 230px;gap:16px;align-items:start}.tres.sem-laterais{grid-template-columns:minmax(0,1fr)}.tres.sem-laterais>aside.col{display:none}
+.tres>aside.col{background:transparent;border:0;padding:0 0 4px}.col{position:sticky;top:calc(var(--topo,0px) + 12px);max-height:calc(100vh - var(--topo,0px) - 24px);overflow:auto;display:flex;flex-direction:column;gap:12px;padding-bottom:4px}
 .caixa{background:#fff;border:1px solid var(--line);border-radius:12px;padding:14px 16px}.caixa.leve{background:transparent;border-style:dashed}
 .caixa h3{margin:0 0 10px;color:#6e2026;font-size:17px}.caixa h4{margin:0 0 8px;color:#6e2026;font-size:14px}
 .campos{display:grid;grid-template-columns:auto 1fr;gap:6px 8px;align-items:center;margin-bottom:8px}.campos label{font-weight:bold;font-size:13px}
@@ -70,7 +77,7 @@ body.modo-editor .shell{grid-template-columns:1fr}body.modo-editor .shell>aside,
 .botoes{display:flex;gap:8px;flex-wrap:wrap}.botoes button{flex:1 1 auto}
 .confirma{margin-top:10px;padding:10px;border:1px solid #eed7ae;background:#fff8eb;border-radius:9px;font-size:13px}.confirma p{margin:0 0 8px}
 .link-perigo{border:0;background:none;color:#a21923;font-weight:bold;padding:0;font-size:13px}.link-perigo:hover{text-decoration:underline}
-.navq{display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:#fff;border:1px solid var(--line);border-radius:12px;padding:8px 12px}
+.navq{display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:#fff;border:1px solid var(--line);border-radius:12px;padding:8px 12px;position:sticky;top:var(--topo,0px);z-index:5;margin-bottom:10px}.navq .atalhos{margin-left:auto}
 .navq .setas{display:inline-flex}.navq .setas button{display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--line);background:#fff;color:var(--red);width:40px;height:36px;padding:0}.navq .setas button:hover:not(:disabled){background:var(--soft)}
 .navq .setas button:first-child{border-radius:8px 0 0 8px}.navq .setas button:last-child{border-radius:0 8px 8px 0;border-left:0}.navq .setas button:disabled{color:#c9b9bd;cursor:not-allowed}
 .navq select{border:1px solid #d8cdd0;border-radius:8px;padding:7px 9px;font:inherit;background:#fff;min-width:84px}.navq label{color:var(--muted)}.navq .atalhos{margin-left:auto;font-size:12px;color:var(--muted)}
@@ -100,7 +107,7 @@ body.modo-editor .shell{grid-template-columns:1fr}body.modo-editor .shell>aside,
 <header><div class="brand"><img src="ideal-logo.png" alt="Ideal 50 anos"><span>ATLAS</span></div><div class="role"><a class="back-link" href="index.html">← Voltar ao início</a>Área do Supervisor <button type="button" onclick="ATLAS_SAIR()" style="margin-left:12px;border:1px solid #cbaeb2;background:#fff;color:#98151d;border-radius:8px;padding:6px 10px;cursor:pointer">Sair</button></div></header>
 <div class="shell"><aside><small>ÁREA DO SUPERVISOR</small><a href="supervisor.html">Fila de análise</a><a href="supervisor-selecoes.html" class="atual">Seleções para provas</a></aside><main>
 <div class="crumb">Supervisor / Seleções para provas</div><h1>Seleções para provas</h1><p class="lead" id="lead">Escolha a série e o tipo, selecione questões aprovadas e envie ao administrador.</p>
-<div class="notice" id="notice" role="status">As questões só contam como usadas quando o administrador envia a prova aos alunos.</div>
+<div class="notice" id="notice" role="status"></div>
 
 <section class="panel" id="lista-view">
   <div class="actions" style="margin-top:0;padding-top:0;border:0"><button type="button" class="primary" id="nova">+ Nova seleção</button></div>
@@ -115,10 +122,6 @@ body.modo-editor .shell{grid-template-columns:1fr}body.modo-editor .shell>aside,
 </section>
 
 <section id="sel-view" hidden>
-  <div class="panel sel-topo">
-    <button type="button" class="back" id="voltar">← Voltar às seleções</button>
-    <div><h2 id="sel-titulo">Seleção</h2><div id="sel-info"></div></div>
-  </div>
   <div id="devolvida" class="adjust-form" hidden></div>
   <div id="editor-bloco" class="tres">
     <aside class="col col-prova" aria-label="A prova">
@@ -128,7 +131,7 @@ body.modo-editor .shell{grid-template-columns:1fr}body.modo-editor .shell>aside,
           <label for="sel-tipo">Tipo</label><select id="sel-tipo"><option>REG</option><option>MED</option></select></div>
         <input id="sel-nome" class="campo" maxlength="120" placeholder="Título (opcional)" aria-label="Título da seleção">
         <p class="total"><strong id="qtd">0</strong> <span id="qtd-txt">questões escolhidas</span><span class="savestate" id="savestate"></span></p>
-        <div class="botoes"><button type="button" class="secondary" id="ver-escolhidas">Ver escolhidas</button><button type="button" class="primary" id="enviar">Finalizar prova</button></div>
+        <div class="botoes"><button type="button" class="secondary" id="ver-escolhidas">Ver escolhidas</button><button type="button" class="primary" id="enviar" title="As questões só contam como usadas quando o administrador envia a prova aos alunos.">Finalizar prova</button></div>
         <div id="enviar-confirm" class="confirma" hidden role="alertdialog"><p><strong id="enviar-texto">Enviar ao administrador?</strong> Depois de enviada, a seleção só volta a ser editada se o administrador devolver.</p><div class="botoes"><button type="button" class="secondary" id="cancelar-envio">Cancelar</button><button type="button" class="primary" id="confirmar-envio">Confirmar envio</button></div></div>
       </div>
       <div class="caixa"><h4>Dificuldade</h4><div id="r-dif"></div></div>
@@ -140,10 +143,11 @@ body.modo-editor .shell{grid-template-columns:1fr}body.modo-editor .shell>aside,
     </aside>
     <section class="col-centro" aria-label="Questão">
       <div class="navq">
+        <button type="button" class="voltar-sel" id="voltar" title="Voltar à lista de seleções">← Seleções</button><span class="sel-nome"><span id="sel-titulo">Seleção</span><span id="sel-info"></span></span><span class="nav-sep" aria-hidden="true"></span>
         <div class="setas"><button type="button" id="nav-primeira" title="Primeira questão" aria-label="Primeira questão"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M6 5v14M18 6l-7 6 7 6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></button><button type="button" id="nav-ant" title="Anterior (seta ←)" aria-label="Questão anterior"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M19 12H5M11 6l-6 6 6 6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></button></div>
         <label for="nav-num">Questão</label><select id="nav-num"></select><span>de <span id="nav-total">0</span></span>
         <div class="setas"><button type="button" id="nav-prox" title="Próxima (seta →)" aria-label="Próxima questão"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></button><button type="button" id="nav-ultima" title="Última questão" aria-label="Última questão"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M18 5v14M6 6l7 6-7 6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></button></div>
-        <span class="atalhos">Teclado: ← → navegam · A adiciona ou remove</span>
+        <span class="atalhos">Teclado: ← → navegam · A adiciona ou remove</span><button type="button" class="laterais" id="laterais" aria-pressed="false">Recolher laterais</button>
       </div>
       <div class="acao-q"><button type="button" class="primary" id="add">+ Adicionar questão</button><span id="q-status"></span></div>
       <article id="q-corpo" class="q-corpo"></article>
@@ -153,7 +157,6 @@ body.modo-editor .shell{grid-template-columns:1fr}body.modo-editor .shell>aside,
         <div class="filtros-col"><input id="f-q" type="search" placeholder="Buscar código, texto ou tag" aria-label="Buscar">
           <select id="f-assunto" aria-label="Assunto"><option value="">Todos os assuntos</option></select>
           <select id="f-dificuldade" aria-label="Dificuldade"><option value="">Todas as dificuldades</option><option>Fácil</option><option>Média</option><option>Difícil</option></select>
-          <select id="f-origem" aria-label="Origem"><option value="">Todas as origens</option><option value="autoral">Autoral</option><option value="enem">ENEM</option><option value="outros">Outros</option><option value="acervo">Acervo Ideal</option></select>
           <select id="f-bloom" aria-label="Bloom"><option value="">Todos os níveis de Bloom</option><option>Lembrar</option><option>Compreender</option><option>Aplicar</option><option>Analisar</option><option>Avaliar</option></select></div>
         <p class="hint" id="banco-info"></p></div>
       <div class="caixa"><h3>Dados da questão</h3><div id="q-dados"><p class="hint">Nenhuma questão na tela.</p></div></div>
@@ -165,8 +168,8 @@ body.modo-editor .shell{grid-template-columns:1fr}body.modo-editor .shell>aside,
 <dialog id="escolhidas-dialog" class="preview-dialog" aria-labelledby="esc-titulo"><h2 id="esc-titulo">Questões escolhidas (<span id="qtd-d">0</span>)</h2><p class="hint">Use ↑ ↓ para mudar a ordem da prova.</p><div id="escolhidas"></div><div class="modal-actions"><button type="button" class="secondary" onclick="this.closest('dialog').close()">Fechar</button></div></dialog>
 <dialog id="preview" class="preview-dialog" aria-labelledby="preview-titulo"><h2 id="preview-titulo">Questão</h2><div id="preview-corpo"></div><div class="modal-actions"><button type="button" class="secondary" onclick="this.closest('dialog').close()">Fechar</button></div></dialog>
 <script src="https://cdn.jsdelivr.net/npm/katex@0.19.1/dist/katex.min.js" integrity="sha384-a1WQdjRj162i159OYq041X6I4K8NenkrI09LlPmiHg0YOb7CR+wJOraXwK9abpnE" crossorigin="anonymous"></script>
-<script src="atlas-editor.js?v=20261120a"></script>
-<script src="atlas-tags.js?v=20261120a"></script>
+<script src="atlas-editor.js?v=20261120b"></script>
+<script src="atlas-tags.js?v=20261120b"></script>
 <script>
 
 const originLabel={autoral:'Autoral',enem:'ENEM',outros:'Outros',adaptada:'Adaptada',acervo:'Acervo Ideal'};
@@ -191,7 +194,13 @@ let atual=null,escolhidas=[],cacheBanco=new Map(),salvando=Promise.resolve();
 let ultimoBanco=[],nav=[],pos=0;const completos=new Map();
 function msg(t,erro=false){notice.textContent=t;notice.style.borderColor=erro?'#e2a1a7':'';notice.style.color=erro?'#8c2028':''}
 const sitNome=s=>s.situacao==='rascunho'?(s.motivo_devolucao?'Devolvida para ajustes':'Rascunho'):s.situacao==='enviada'?'Enviada ao ADM':'Aplicada em '+s.ano;
-function modoEditor(on){document.body.classList.toggle('modo-editor',!!on)}
+function modoEditor(on){document.body.classList.toggle('modo-editor',!!on);topoFixo()}
+/* Altura do cabeçalho travado: a barra de navegação e as laterais ficam logo abaixo dele. */
+function topoFixo(){document.documentElement.style.setProperty('--topo',(document.body.classList.contains('modo-editor')?document.querySelector('header').offsetHeight:0)+'px')}
+addEventListener('resize',topoFixo);
+function laterais(recolher){$('#editor-bloco').classList.toggle('sem-laterais',recolher);const b=$('#laterais');b.textContent=recolher?'Mostrar laterais':'Recolher laterais';b.setAttribute('aria-pressed',String(recolher));try{localStorage.setItem('atlas_selecoes_laterais',recolher?'recolhidas':'abertas')}catch{}}
+$('#laterais').addEventListener('click',()=>laterais(!$('#editor-bloco').classList.contains('sem-laterais')));
+try{if(localStorage.getItem('atlas_selecoes_laterais')==='recolhidas')laterais(true)}catch{}
 async function carregarLista(){const box=$('#lista');box.innerHTML='<div class="empty">Carregando…</div>';let data;
   try{data=await ATLAS_API('/api/supervisor/selecoes')}catch(e){box.innerHTML='';msg(e.message,true);return}
   $('#lead').textContent='Disciplina: '+data.disciplina+'. Escolha a série e o tipo, selecione questões aprovadas e envie ao administrador.';
@@ -309,7 +318,7 @@ document.addEventListener('keydown',e=>{if($('#sel-view').hidden||$('#editor-blo
   if(e.key==='ArrowRight'){e.preventDefault();ir(pos+1)}else if(e.key==='ArrowLeft'){e.preventDefault();ir(pos-1)}else if(e.key==='a'||e.key==='A'){e.preventDefault();alternar()}});
 
 async function buscar(){if(!atual||atual.situacao!=='rascunho')return;const p=new URLSearchParams({selecao:atual.id});
-  for(const [k,id] of [['assunto','#f-assunto'],['dificuldade','#f-dificuldade'],['origem','#f-origem'],['bloom','#f-bloom'],['q','#f-q']]){const v=$(id).value.trim();if(v)p.set(k,v)}
+  for(const [k,id] of [['assunto','#f-assunto'],['dificuldade','#f-dificuldade'],['bloom','#f-bloom'],['q','#f-q']]){const v=$(id).value.trim();if(v)p.set(k,v)}
   $('#banco-info').textContent='Carregando…';let data;try{data=await ATLAS_API('/api/supervisor/banco?'+p)}catch(e){$('#banco-info').textContent=e.message;return}
   const sel=$('#f-assunto'),cur=sel.value;sel.replaceChildren(new Option('Todos os assuntos',''),...data.assuntos.map(a=>new Option(a,a)));sel.value=data.assuntos.includes(cur)?cur:'';
   ultimoBanco=data.itens;for(const i of data.itens)cacheBanco.set(i.codigo,{...cacheBanco.get(i.codigo),...i});montarNav();
@@ -322,7 +331,7 @@ async function salvar(extra={}){desenharEscolhidas();desenharResumo();atualizarA
 $('#sel-serie').addEventListener('change',async()=>{if(await salvar())await abrir(atual.id)});
 $('#sel-tipo').addEventListener('change',async()=>{if(await salvar())await abrir(atual.id)});
 let tNome;$('#sel-nome').addEventListener('input',()=>{clearTimeout(tNome);tNome=setTimeout(()=>salvar(),700)});
-for(const id of ['#f-assunto','#f-dificuldade','#f-origem','#f-bloom'])$(id).addEventListener('change',buscar);
+for(const id of ['#f-assunto','#f-dificuldade','#f-bloom'])$(id).addEventListener('change',buscar);
 let tq;$('#f-q').addEventListener('input',()=>{clearTimeout(tq);tq=setTimeout(buscar,400)});
 async function verQuestao(codigo){let item;try{item=await carregarCompleto(codigo)}catch(e){msg(e.message,true);return}
   const d=item.dados||{};$('#preview-titulo').textContent='Questão '+item.codigo;

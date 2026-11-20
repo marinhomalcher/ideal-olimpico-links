@@ -284,7 +284,7 @@ ok('Tela Sup: origem aparece como Acervo Ideal', (await page.textContent('#item-
 await page.screenshot({path:S+'sup-classificar.png',fullPage:false});
 await page.evaluate(()=>{sessionStorage.clear();localStorage.removeItem('atlas_user_auth')});
 db.exec('DELETE FROM login_rate_limits');await page.goto('https://idealolimpico.com.br/atlas/');await page.click('[data-role="Professor"]');await page.fill('#email','edi.franco');await page.click('#loginButton');await page.waitForSelector('#code-step:not([hidden])');await page.fill('#code',lastCode());await page.click('#verifyButton');
-await page.waitForURL(/professor\.html/);await page.waitForFunction(()=>document.querySelector('#resumo-mes').textContent!=='–');
+await page.waitForURL(/professor\.html/);await page.click('#aba-resumo');await page.waitForFunction(()=>document.querySelector('#resumo-mes').textContent!=='–');
 ok('Tela Prof: quadro Meu resumo com 12 meses e o mês atual', (await page.textContent('#resumo-mes-rot')).includes('em ')&&(await page.textContent('#resumo-cartoes')).includes('aprovadas'), await page.textContent('#meu-resumo'));
 await page.locator('#meu-resumo').screenshot({path:S+'resumo-prof.png'});
 ok('Sem erros de JavaScript nas telas', errors.length===0, errors.join(' | '));
