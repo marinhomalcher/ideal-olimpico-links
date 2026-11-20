@@ -131,7 +131,7 @@ const page=await ctx.newPage(); const errors=[]; page.on('pageerror',e=>errors.p
 // aberto: resumo com tabela
 env.ATLAS_HOJE_TESTE='2026-11-13';
 db.exec('DELETE FROM login_rate_limits');await page.goto('https://idealolimpico.com.br/atlas/');await page.click('[data-role="Professor"]');await page.fill('#email','edi.franco');await page.click('#loginButton');await page.waitForSelector('#code-step:not([hidden])');await page.fill('#code',lastCode());await page.click('#verifyButton');
-await page.waitForURL(/professor\.html/);await page.waitForFunction(()=>document.querySelector('#resumo-mes-sel').options.length>0&&document.querySelector('#resumo-mes').textContent!=='–');
+await page.waitForURL(/professor\.html/);await page.click('#aba-resumo');await page.waitForFunction(()=>document.querySelector('#resumo-mes-sel').options.length>0&&document.querySelector('#resumo-mes').textContent!=='–');
 ok('Tela: sem tabela de meses (só o resumo)', !(await page.$('#resumo-tabela')));
 const opts=await page.$$eval('#resumo-mes-sel option',o=>o.map(x=>x.textContent));
 ok('Tela: filtro tem Ano todo e janeiro a dezembro, sem julho (reabre em 10/01)', opts[0]==='Ano todo'&&opts[1]==='Janeiro'&&opts[2]==='Fevereiro'&&opts.at(-1)==='Dezembro'&&!opts.includes('Julho')&&opts.length===12, opts.join('|'));
