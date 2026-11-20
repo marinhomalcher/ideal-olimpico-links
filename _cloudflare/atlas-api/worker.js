@@ -546,6 +546,31 @@ function formatarReferencia(v) {
 const CAMPOS_TEXTO = Object.freeze(['etapa', 'ano', 'origem', 'fonte', 'dificuldade', 'assunto', 'subtema',
   'nivel4', 'nivel5', 'bloom', 'referencia', 'gabarito']);
 const CAMPOS_RICOS = Object.freeze(['texto-base', 'comando', 'alt-a', 'alt-b', 'alt-c', 'alt-d', 'alt-e', 'resolucao']);
+/* Limpeza do texto colado pelo professor (19/11/2026): espaços, tabs e espaços duros no início de cada parágrafo ou linha
+   saem; espaços repetidos viram um; sobras no fim da linha saem. Quebras de parágrafo e de linha ficam. Fórmulas (.atlas-equation)
+   e imagens não são tocadas. Dentro de um bloco de versos (div.versos) vale a mesma regra: o alinhamento vem do bloco, não de espaços. */
+const BLOCO_RE = '(?:div|p|li|td|th|h[1-6]|blockquote)';
+function limparEspacos(html) {
+  if (!html) return html;
+  const guardados = [];
+  let s = '', i = 0;
+  const abre = /<span\b[^>]*class="[^"]*atlas-equation[^"]*"[^>]*>|<img\b[^>]*>/gi;
+  let m;
+  while ((m = abre.exec(html))) {
+    s += html.slice(i, m.index);
+    let fim = m.index + m[0].length;
+    if (m[0].startsWith('<span')) {   /* fecha o span da fórmula, com os spans aninhados do KaTeX */
+      const tag = /<span\b[^>]*>|<\/span>/gi; tag.lastIndex = fim; let nivel = 1, t;
+      while (nivel > 0 && (t = tag.exec(html))) { nivel += t[0][1] === '/' ? -1 : 1; fim = t.index + t[0].length; }
+    }
+    guardados.push(html.slice(m.index, fim)); s += '\u0001' + (guardados.length - 1) + '\u0001'; i = fim; abre.lastIndex = fim;
+  }
+  s += html.slice(i);
+  s = s.replace(new RegExp('(^|<' + BLOCO_RE + '\\b[^>]*>|<br\\s*/?>)(?:\\s|&nbsp;|\u00a0)+', 'gi'), '$1');
+  s = s.replace(new RegExp('(?:\\s|&nbsp;|\u00a0)+(?=</' + BLOCO_RE + '>|<br\\s*/?>|$)', 'gi'), '');
+  s = s.replace(/(?:[ \t\u00a0]|&nbsp;){2,}/g, ' ');
+  return s.replace(/\u0001(\d+)\u0001/g, (_, n) => guardados[Number(n)]);
+}
 function validarRico(nome, v) {
   if (typeof v !== 'string') throw new HttpError(400, 'Campo inválido: ' + nome + '.');
   if (HTML_PROIBIDO.test(v)) throw new HttpError(400, 'O campo "' + nome + '" contém conteúdo não permitido.');
@@ -555,7 +580,7 @@ function validarRico(nome, v) {
       throw new HttpError(400, 'O campo "' + nome + '" tem uma imagem de origem não permitida. Cole a imagem de novo.');
     }
   }
-  return v;
+  return limparEspacos(v);
 }
 // Textos de apoio além do primeiro (Texto II, III, IV): cada um com texto (rico) e referência.
 const MAX_TEXTOS_EXTRAS = 3;
@@ -623,7 +648,7 @@ function validarDados(input, opcoes = {}) {
         throw new HttpError(400, 'O campo "' + campo + '" tem uma imagem de origem não permitida. Cole a imagem de novo.');
       }
     }
-    d[campo] = v;
+    d[campo] = limparEspacos(v);
   }
   d.textos_extras = limparTextosExtras(input.textos_extras);
   // Fonte (referência) da imagem de cada alternativa — opcional; sai em letra pequena.
@@ -650,7 +675,8 @@ function validarDados(input, opcoes = {}) {
   d.tags = tags;
   const vazio = v => !String(v).replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim() && !/<img\b/i.test(v);
   if (!['em', 'ef2'].includes(d.etapa)) throw new HttpError(400, 'Escolha a etapa.');
-  // 'acervo' = prova antiga da escola, enviada pelo ADM ou pelo digitador (sem fonte conhecida).
+  // 'acervo' = prova antiga da escola, enviada pelo ADM ou pelo digitador. O professor só escolhe 'autoral' ou 'outros'
+  // (19/11/2026); 'enem' continua aceito só para as questões de demonstração que ainda estão no banco.
   if (!['autoral', 'enem', 'outros', 'acervo'].includes(d.origem)) throw new HttpError(400, 'Escolha a origem da questão.');
   // Questões enviadas pelo ADM ou pelo digitador chegam sem classificação: o Supervisor classifica.
   const semClassificacao = opcoes.importacao === true;
@@ -660,7 +686,7 @@ function validarDados(input, opcoes = {}) {
   if (!['A', 'B', 'C', 'D', 'E'].includes(d.gabarito)) throw new HttpError(400, 'Escolha o gabarito (A a E).');
   if (vazio(d.comando)) throw new HttpError(400, 'Preencha o comando da questão.');
   for (const l of 'abcde') if (vazio(d['alt-' + l])) throw new HttpError(400, 'Preencha a alternativa ' + l.toUpperCase() + '.');
-  d.fonte = d.origem === 'outros' ? d.fonte.toLocaleUpperCase('pt-BR') : '';
+  d.fonte = '';   /* campo retirado (19/11/2026): a prova de origem vai na tag */
   const json = JSON.stringify(d);
   if (new TextEncoder().encode(json).length > MAX_ITEM_BYTES) {
     throw new HttpError(413, 'A questão ficou grande demais (imagens pesadas). Use imagens menores ou recortes.');

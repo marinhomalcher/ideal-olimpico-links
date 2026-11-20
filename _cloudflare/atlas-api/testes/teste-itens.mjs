@@ -1,4 +1,5 @@
 // Teste completo do login do administrador e das rotas de professores.
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { DatabaseSync } from 'node:sqlite';
 import fs from 'node:fs';
 import http from 'node:http';
@@ -7,8 +8,8 @@ const require = createRequire(import.meta.url);
 const { chromium } = require('playwright');
 
 const S = (process.env.ATLAS_TESTE_TMP || '/tmp/atlas-testes') + '/';   // dependências (katex, exceljs) e prints
-const REPO = new URL('../../../', import.meta.url).pathname;   // raiz do repositório
-const worker = (await import(REPO + '_cloudflare/atlas-api/worker.js?' + Date.now())).default;
+const REPO = fileURLToPath(new URL('../../../', import.meta.url));   // raiz do repositório
+const worker = (await import(pathToFileURL(REPO + '_cloudflare/atlas-api/worker.js').href + '?' + Date.now())).default;
 const results = [];
 const ok = (name, cond, extra = '') => results.push([cond ? 'OK  ' : 'FALHOU', name, String(extra).slice(0, 160)]);
 
@@ -90,7 +91,16 @@ ok('Sem login não envia questão', r.status===401);
 r=await call('/api/itens',{method:'POST',token:tEdi,body:{dados}});
 const cod=r.data?.item?.codigo;
 ok('Professor envia: código L + 7 dígitos', r.status===200 && /^L[1-9]\d{6}$/.test(cod||''), cod||r.data?.error);
-ok('Fonte salva em caixa alta', JSON.parse(db.prepare('SELECT dados FROM item_versoes').get().dados).fonte==='FUVEST 2024');
+ok('Fonte não é mais guardada (a prova de origem vai na tag)', JSON.parse(db.prepare('SELECT dados FROM item_versoes').get().dados).fonte==='');
+r=await call('/api/itens',{method:'POST',token:tEdi,body:{dados:{...dados,comando:'<div>&nbsp;&nbsp; \t Igreja. Uma   instituição  <span class="atlas-equation" data-latex="a  b"><span class="k">a&nbsp;&nbsp;b</span></span> fim.&nbsp; </div><div>   </div><div><br>\u00a0\u00a0Segundo parágrafo.  </div>','alt-a':'  <b>  Alternativa</b> com  espaços  '}}});
+const cLimpo=r.data.item.codigo;
+{const d=JSON.parse(db.prepare('SELECT v.dados FROM item_versoes v JOIN itens i ON i.id=v.item_id WHERE i.codigo=? ORDER BY v.versao DESC LIMIT 1').get(cLimpo).dados);
+ok('Espaços, tabs e espaços duros no início do parágrafo saem; repetidos viram um; sobras no fim saem; fórmula intocada', d.comando==='<div>Igreja. Uma instituição <span class="atlas-equation" data-latex="a  b"><span class="k">a&nbsp;&nbsp;b</span></span> fim.</div><div></div><div><br>Segundo parágrafo.</div>', d.comando);
+ok('Alternativa também é limpa, sem perder a formatação', d['alt-a']==='<b> Alternativa</b> com espaços', d['alt-a']);}
+r=await call('/api/itens',{method:'POST',token:tEdi,body:{dados:{...dados,'texto-base':'<div class="versos centro">  Sou pastor; não te nego;<br>   São esses, que aí vês;<br>Ao trazer entre a relva</div><p>Ref.</p>'}}});
+ok('Bloco de versos: a classe fica, as linhas ficam e o recuo por espaços sai', r.status===200 && JSON.parse(db.prepare('SELECT v.dados FROM item_versoes v JOIN itens i ON i.id=v.item_id WHERE i.codigo=? ORDER BY v.versao DESC LIMIT 1').get(r.data.item.codigo).dados)['texto-base']==='<div class="versos centro">Sou pastor; não te nego;<br>São esses, que aí vês;<br>Ao trazer entre a relva</div><p>Ref.</p>');
+/* as duas questões de limpeza saem para não mudar as contagens que vêm a seguir */
+db.exec('PRAGMA foreign_keys = OFF');for(const c of [cLimpo,r.data.item.codigo]){db.prepare('DELETE FROM item_versoes WHERE item_id IN (SELECT id FROM itens WHERE codigo=?)').run(c);db.prepare('DELETE FROM itens WHERE codigo=?').run(c)}db.exec('PRAGMA foreign_keys = ON');
 r=await call('/api/itens',{method:'POST',token:tEdi,body:{dados:{...dados,comando:'<img src=x onerror=alert(1)>'}}});
 ok('HTML perigoso recusado', r.status===400, r.data?.error);
 r=await call('/api/itens',{method:'POST',token:tEdi,body:{dados:{...dados,'alt-c':'  '}}});
@@ -139,7 +149,7 @@ ok('Aba Aprovadas mostra a questão', r.data.itens.some(i=>i.codigo===cod));
 const ev=db.prepare("SELECT acao FROM eventos WHERE acao LIKE 'item_%'").all().map(e=>e.acao);
 ok('Eventos registrados', ['item_enviado','item_ajuste_solicitado','item_reenviado','item_aprovado'].every(a=>ev.includes(a)), ev.join(','));
 // código: formato em 2000 sorteios
-const seen=new Set(); let okf=true; for(let i=0;i<2000;i++){const c=(await import(REPO+'_cloudflare/atlas-api/worker.js?x')).default; break}
+const seen=new Set(); let okf=true; for(let i=0;i<2000;i++){const c=(await import(pathToFileURL(REPO+'_cloudflare/atlas-api/worker.js').href+'?x')).default; break}
 ok('Saúde continua', (await call('/api/saude')).status===200);
 
 // ===== navegador: fluxo completo nas telas =====
@@ -187,7 +197,7 @@ ok('Tela Professor: reenvio (versão 2)', (await page.textContent('#status')).in
 // rascunho quando o login vence
 await page.selectOption('#assunto','Romantismo');await paste('#comando','Texto que não pode se perder');
 db.exec('DELETE FROM sessoes');
-await page.selectOption('#origem','enem');await page.selectOption('#dificuldade','Fácil');await page.selectOption('#bloom','Lembrar');for(const l of 'abcde')await paste('#alt-'+l,'X'+l);await page.selectOption('#gabarito','A');
+await page.selectOption('#origem','outros');await page.selectOption('#dificuldade','Fácil');await page.selectOption('#bloom','Lembrar');for(const l of 'abcde')await paste('#alt-'+l,'X'+l);await page.selectOption('#gabarito','A');
 if(subs.length) await page.selectOption('#subtema',subs[0]);
 await page.evaluate(()=>{try{if(typeof tagsCampo!=='undefined'&&tagsCampo.get().length<2)tagsCampo.set(['teste','ui'])}catch{}});await page.click('#enviar');await page.evaluate(()=>{try{if(typeof tagsCampo!=='undefined'&&tagsCampo.get().length<2)tagsCampo.set(['teste','ui'])}catch{}});await page.click('#enviar');
 await page.waitForURL(/index\.html|atlas\/(\?|$)/,{timeout:8000}).catch(()=>{});

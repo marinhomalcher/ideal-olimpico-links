@@ -1,4 +1,5 @@
 // Teste completo do login do administrador e das rotas de professores.
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { DatabaseSync } from 'node:sqlite';
 import fs from 'node:fs';
 import http from 'node:http';
@@ -7,8 +8,8 @@ const require = createRequire(import.meta.url);
 const { chromium } = require('playwright');
 
 const S = (process.env.ATLAS_TESTE_TMP || '/tmp/atlas-testes') + '/';   // dependências (katex, exceljs) e prints
-const REPO = new URL('../../../', import.meta.url).pathname;   // raiz do repositório
-const worker = (await import(REPO + '_cloudflare/atlas-api/worker.js?' + Date.now())).default;
+const REPO = fileURLToPath(new URL('../../../', import.meta.url));   // raiz do repositório
+const worker = (await import(pathToFileURL(REPO + '_cloudflare/atlas-api/worker.js').href + '?' + Date.now())).default;
 const results = [];
 const ok = (name, cond, extra = '') => results.push([cond ? 'OK  ' : 'FALHOU', name, String(extra).slice(0, 160)]);
 
@@ -128,7 +129,7 @@ await page.fill('#referencia','');await page.focus('#referencia');await page.eva
 ok('Referência: ao colar, já quebra a linha', (await page.inputValue('#referencia')).includes('.\nAcesso em:'));
 // prévia
 await page.selectOption('#assunto','Romantismo');const subs=await page.$$eval('#subtema option',o=>o.map(x=>x.value).filter(Boolean));if(subs.length)await page.selectOption('#subtema',subs[0]);
-await page.selectOption('#origem','enem');await page.selectOption('#dificuldade','Fácil');await page.selectOption('#bloom','Analisar');await page.selectOption('#gabarito','D');
+await page.selectOption('#origem','outros');await page.selectOption('#dificuldade','Fácil');await page.selectOption('#bloom','Analisar');await page.selectOption('#gabarito','D');
 await paste('#texto-base','Uma boa ética não se baseia em regras e normas.');await page.evaluate(()=>tagsCampo.set(['argumentação','ética']));
 for(const l of 'bcde')await page.evaluate(id=>{if(!document.getElementById(id).textContent.trim())document.getElementById(id).textContent='x'},'alt-'+l);
 await page.click('#visualizar');await page.waitForSelector('#previsao:not([hidden])');

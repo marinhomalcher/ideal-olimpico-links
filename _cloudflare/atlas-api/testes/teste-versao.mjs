@@ -1,5 +1,6 @@
 import fs from 'node:fs';import { createRequire } from 'node:module';const require=createRequire(import.meta.url);const {chromium}=require('playwright');
-const R=new URL('../../../atlas/', import.meta.url).pathname;
+import { fileURLToPath } from 'node:url';
+const R=fileURLToPath(new URL('../../../atlas/', import.meta.url));
 const results=[];const ok=(n,c,e='')=>results.push([c?'OK  ':'FALHOU',n,String(e).slice(0,160)]);
 let servidor='20261113f';let paginaVersao='20261113f';const pedidos=[];
 const browser=await chromium.launch();const ctx=await browser.newContext();

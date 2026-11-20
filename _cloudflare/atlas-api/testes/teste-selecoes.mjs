@@ -1,4 +1,5 @@
 // Teste completo do login do administrador e das rotas de professores.
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { DatabaseSync } from 'node:sqlite';
 import fs from 'node:fs';
 import http from 'node:http';
@@ -7,8 +8,8 @@ const require = createRequire(import.meta.url);
 const { chromium } = require('playwright');
 
 const S = (process.env.ATLAS_TESTE_TMP || '/tmp/atlas-testes') + '/';   // dependências (katex, exceljs) e prints
-const REPO = new URL('../../../', import.meta.url).pathname;   // raiz do repositório
-const worker = (await import(REPO + '_cloudflare/atlas-api/worker.js?' + Date.now())).default;
+const REPO = fileURLToPath(new URL('../../../', import.meta.url));   // raiz do repositório
+const worker = (await import(pathToFileURL(REPO + '_cloudflare/atlas-api/worker.js').href + '?' + Date.now())).default;
 const results = [];
 const ok = (name, cond, extra = '') => results.push([cond ? 'OK  ' : 'FALHOU', name, String(extra).slice(0, 160)]);
 const ANO = Number(new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo', year: 'numeric' }).format(new Date()));   // ano atual (os relatórios usam o relógio real)
