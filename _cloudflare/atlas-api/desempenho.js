@@ -29,12 +29,12 @@ async function tokenGraph(env) {
   token = { valor: d.access_token, cliente: env.MS_CLIENT_ID, expira: Date.now() + Number(d.expires_in || 3000) * 1000 };
   return token.valor;
 }
-function base(env) {
+export function base(env) {
   if (!env.SHAREPOINT_SITE) erro(503, 'SharePoint dos resultados não configurado.');
   return 'https://graph.microsoft.com/v1.0/sites/' + encodeURIComponent(env.SHAREPOINT_SITE) + '/drive';
 }
 const caminho = (ano, bimestre, p, ra, n) => `${ano}/B${bimestre}/${p}/${ra}/p${n}.jpg`;
-async function graph(env, url, op = {}) {
+export async function graph(env, url, op = {}) {
   const t = await tokenGraph(env);
   const r = await fetch(url, { ...op, headers: { Authorization: 'Bearer ' + t, ...(op.headers || {}) } });
   if (r.status === 401) token = null;

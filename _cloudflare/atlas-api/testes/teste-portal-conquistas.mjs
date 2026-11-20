@@ -147,11 +147,11 @@ await page.goto(ORIGEM + '/inscricoes/');
 await loginCodigo(page, false);
 await page.click('#confirmarCadastroBtn');
 await page.waitForSelector('#abasAluno:not(.hidden)');
-ok('Abas na ordem: Desempenho, Conquistas, Competições, Pedidos', JSON.stringify(await page.evaluate(() => [...document.querySelectorAll('#abasAluno .aba')].map(b => b.textContent.trim()))) === JSON.stringify(['📈 MEU DESEMPENHO', '🏆 MINHAS CONQUISTAS', '🏅 COMPETIÇÕES OLÍMPICAS', '🛒 MEUS PEDIDOS']));
+ok('Abas na ordem: Desempenho, Conquistas, Certificados, Competições, Pedidos', JSON.stringify(await page.evaluate(() => [...document.querySelectorAll('#abasAluno .aba')].map(b => b.textContent.trim()))) === JSON.stringify(['📈 MEU DESEMPENHO', '🏆 MINHAS CONQUISTAS', '📜 CERTIFICADOS', '🏅 COMPETIÇÕES OLÍMPICAS', '🛒 MEUS PEDIDOS']));
 await page.click('#abaConquistas');
 await page.waitForSelector('#conquistasConteudo .cq-vitrine');
 let e = await page.evaluate(() => ({
-  ativa: document.querySelector('#abasAluno .aba.ativa')?.id, outras: ['desempenhoSec', 'home', 'pedidosSec'].every(id => document.getElementById(id).classList.contains('hidden')),
+  ativa: document.querySelector('#abasAluno .aba.ativa')?.id, outras: ['desempenhoSec', 'home', 'pedidosSec', 'certificadosSec'].every(id => document.getElementById(id).classList.contains('hidden')),
   anos: [...document.querySelectorAll('#conquistasAnos button')].map(b => b.textContent + (b.classList.contains('ativo') ? '*' : '')),
   ano: document.querySelector('.cq-ano-grande')?.textContent, tit: document.querySelector('.cq-vit-tit b')?.textContent,
   placar: [...document.querySelectorAll('.cq-vitrine .cq-cont b')].map(b => b.textContent).join(','),
@@ -264,7 +264,7 @@ await loginCodigo(page, false);
 await page.click('#confirmarCadastroBtn');
 await page.waitForSelector('#abasAluno:not(.hidden)');
 const abas = await page.evaluate(() => { const b = [...document.querySelectorAll('#abasAluno .aba')].map(x => x.getBoundingClientRect()); return { linhas: new Set(b.map(r => Math.round(r.top))).size, colunas: new Set(b.map(r => Math.round(r.left))).size }; });
-ok('Celular: 4 abas em 2 linhas de 2', abas.linhas === 2 && abas.colunas === 2, JSON.stringify(abas));
+ok('Celular: 5 abas em 3 linhas de 2', abas.linhas === 3 && abas.colunas === 2, JSON.stringify(abas));
 await page.click('#abaConquistas');
 await page.waitForSelector('.cq-vitrine');
 let larg = await page.evaluate(() => [document.documentElement.scrollWidth, innerWidth]);

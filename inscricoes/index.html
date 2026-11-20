@@ -21,7 +21,7 @@
   <meta name="twitter:title" content="IDEAL OLÍMPICO">
   <meta name="twitter:description" content="Inscrições em competições acadêmicas. Consulte as competições e acompanhe seus pedidos.">
   <meta name="twitter:image" content="https://idealolimpico.com.br/logo-ideal-olimpico.png?v=20261018">
-  <link rel="stylesheet" href="./portal.css?v=conquistas-20261118">
+  <link rel="stylesheet" href="./portal.css?v=certificados-20261120">
 </head>
 
 <body>
@@ -36,6 +36,7 @@
   <nav id="abasAluno" class="abas-aluno hidden" aria-label="Áreas do aluno">
     <button id="abaDesempenho" class="aba" data-acao="abaDesempenho">📈 MEU DESEMPENHO</button>
     <button id="abaConquistas" class="aba" data-acao="abaConquistas">🏆 MINHAS CONQUISTAS</button>
+    <button id="abaCertificados" class="aba" data-acao="abaCertificados">📜 CERTIFICADOS</button>
     <button id="abaCompeticoes" class="aba" data-acao="abaCompeticoes">🏅 COMPETIÇÕES OLÍMPICAS</button>
     <button id="abaPedidos" class="aba" data-acao="abrirMeusPedidos">🛒 MEUS PEDIDOS</button>
   </nav>
@@ -151,6 +152,13 @@
     <div id="conquistasConteudo"></div>
     <p id="conquistasNota" class="desempenho-nota"></p>
   </section>
+  <section id="certificadosSec" class="hidden">
+    <div class="cq-topo"><div><div id="certificadosTurma" class="eyebrow"></div><h2>Certificados</h2><p>Os certificados das competições que você participou, por ano. Toque em "Baixar PDF" para guardar no seu aparelho.</p></div></div>
+    <div id="certificadosLoading" class="loading hidden">Carregando seus certificados...</div>
+    <div id="certificadosMsg"></div>
+    <div id="certificadosConteudo"></div>
+    <p class="desempenho-nota">🔒 Só você vê os seus certificados. Os links de download valem por cerca de uma hora; depois disso a aba busca links novos sozinha.</p>
+  </section>
   <section id="home" class="hidden">
     <div class="hero"><div><div class="eyebrow">IDEAL OLÍMPICO</div><h2>Escolha a competição</h2><p>Consulte edições, regras e prazos. Antes de qualquer nova inscrição, o portal verifica se esta matrícula já possui solicitação para a mesma competição.</p></div></div>
     <div id="homeGrid" class="home-grid"></div>
@@ -179,6 +187,6 @@
 <dialog id="modal"><div class="modal-head"><h3 id="modalTitle">Detalhes</h3><button class="close" data-acao="fecharModal">×</button></div><div id="modalBody" class="modal-body"></div><div id="modalActions" class="modal-actions"></div></dialog>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" integrity="sha384-3zSEDfvllQohrq0PHL1fOXJuC/jSOO34H46t6UQfobFOmxE5BpjjaIJY5F2/bMnU" crossorigin="anonymous"></script>
-<script src="./config.js?v=worker-prod-20261105"></script><script src="./worker-client.js?v=conquistas-20261118"></script><script src="./portal.js?v=conquistas-20261118" defer></script><script src="./conquistas.js?v=conquistas-20261119" defer></script>
+<script src="./config.js?v=worker-prod-20261105"></script><script src="./worker-client.js?v=certificados-20261120"></script><script src="./portal.js?v=certificados-20261120" defer></script><script src="./conquistas.js?v=certificados-20261120" defer></script><script src="./certificados.js?v=certificados-20261120" defer></script>
 </body>
 </html>

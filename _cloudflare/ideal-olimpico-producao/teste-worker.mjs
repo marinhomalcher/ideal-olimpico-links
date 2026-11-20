@@ -68,7 +68,7 @@ r = await call('paginasDesempenho', ['a'.repeat(64), 7]);
 ok('paginasDesempenho é repassado ao Apps Script', r.status === 200 && r.data.data.eco === 'paginasDesempenho');
 r = await call('paginasDesempenho', ['a'.repeat(64)]);
 ok('paginasDesempenho sem o documento: recusado', r.status === 400);
-for (const m of ['lembrarAcessoAluno', 'retomarSessaoAluno', 'minhasConquistas']) {
+for (const m of ['lembrarAcessoAluno', 'retomarSessaoAluno', 'minhasConquistas', 'meusCertificados']) {
   r = await call(m, ['L' + 'a'.repeat(77)]);
   ok(m + ' é repassado ao Apps Script', r.status === 200 && r.data.data.eco === m);
   r = await call(m, []);
