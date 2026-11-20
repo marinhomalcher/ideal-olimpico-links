@@ -4,6 +4,7 @@ import { rotaLotesUsuario, rotaLotesAdm, limparPdfCancelados } from './redacao-l
 import { rotaCorrecao } from './redacao-correcao.js';
 import { encerrarAnoAutomatico } from './redacao-encerrar.js';
 import { rotaDesempenhoAdm, rotaDesempenhoPortal } from './desempenho.js';
+import { rotaCertificadosPortal } from './certificados.js';
 import { listarPessoas, salvarPessoa } from './pessoas.js';
 // Administração: login "Entrar com Google", liberado SOMENTE para o e-mail em ADMIN_EMAIL.
 // Professores e Supervisores: login por código no e-mail institucional.
@@ -474,6 +475,12 @@ async function desempenhoPortal(request, env, path) {
   if (!portalConfigurado(env)) throw new HttpError(503, 'Indisponível.');
   await conferirSegredoPortal(request, env);
   return await rotaDesempenhoPortal(env, path, await readJson(request, 1024), hojeSP);
+}
+// "Certificados": o Apps Script já conferiu a sessão do aluno e manda só o RA dele; os PDFs ficam no SharePoint.
+async function certificadosPortal(request, env) {
+  if (!portalConfigurado(env)) throw new HttpError(503, 'Indisponível.');
+  await conferirSegredoPortal(request, env);
+  return await rotaCertificadosPortal(env, await readJson(request, 1024));
 }
 async function enviarCodigoPortalAluno(request, env) {
   if (!portalConfigurado(env) || !microsoftConfigurado(env)) throw new HttpError(503, 'Envio indisponível.');
@@ -2501,6 +2508,10 @@ export default {
       if ((url.pathname === '/api/portal/desempenho' || url.pathname === '/api/portal/desempenho/paginas') && request.method === 'POST') {
         if (origin) throw new HttpError(403, 'Origem não permitida.');
         return reply(await desempenhoPortal(request, env, url.pathname), 200, null);
+      }
+      if (url.pathname === '/api/portal/certificados' && request.method === 'POST') {
+        if (origin) throw new HttpError(403, 'Origem não permitida.');
+        return reply(await certificadosPortal(request, env), 200, null);
       }
       if (url.pathname === '/api/portal/aviso-aluno' && request.method === 'POST') {
         if (origin) throw new HttpError(403, 'Origem não permitida.');

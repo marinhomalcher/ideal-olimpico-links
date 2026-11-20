@@ -21,7 +21,8 @@ const METHODS = Object.freeze({
   paginasDesempenho: 2,
   lembrarAcessoAluno: 1,
   retomarSessaoAluno: 1,
-  minhasConquistas: 1
+  minhasConquistas: 1,
+  meusCertificados: 1
 });
 // Login por código no e-mail: limite por IP e por matrícula, com a mesma chave por matrícula
 // para os dois (pedir código e tentar código somam no mesmo teto).
@@ -43,14 +44,15 @@ const SESSION_ARGUMENT_INDEX = Object.freeze({
   lembrarAcessoAluno: 0,
   // A chave assinada de 5 dias faz o papel da sessão para o limite de pedidos.
   retomarSessaoAluno: 0,
-  minhasConquistas: 0
+  minhasConquistas: 0,
+  meusCertificados: 0
 });
 
 // Operações só de leitura: repetir não duplica pedido, pagamento, código nem e-mail.
 const RETRY_METHODS = Object.freeze([
   'getCatalogoGrupo', 'getOpcoesLiteratura', 'validarCompeticaoSerie', 'verificarInscricaoExistente',
   'verificarCarrinhoAluno', 'listarPedidosAluno', 'meuDesempenho', 'paginasDesempenho',
-  'minhasConquistas', 'retomarSessaoAluno'
+  'minhasConquistas', 'retomarSessaoAluno', 'meusCertificados'
 ]);
 const RETRY_WAITS_MS = Object.freeze([800, 2000]);
 // Texto que o Apps Script devolve quando a planilha recusa o acesso (erro interno, não regra de negócio).

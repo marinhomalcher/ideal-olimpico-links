@@ -87,7 +87,7 @@ const estado = await page.evaluate(() => ({
   bim: document.querySelector('.bim.ativo')?.textContent, vazios: [...document.querySelectorAll('.bim.vazio')].map(b => b.textContent),
   cards: [...document.querySelectorAll('.desempenho-card')].map(c => [c.querySelector('h3').textContent, c.querySelector('.status-chip').textContent, c.querySelector('button').textContent, c.querySelector('button').disabled])
 }));
-ok('Depois de confirmar: abas na ordem e "Meu desempenho" aberto primeiro', JSON.stringify(estado.abas) === JSON.stringify(['📈 MEU DESEMPENHO', '🏆 MINHAS CONQUISTAS', '🏅 COMPETIÇÕES OLÍMPICAS', '🛒 MEUS PEDIDOS']) && estado.ativa === 'abaDesempenho' && !estado.home, JSON.stringify(estado));
+ok('Depois de confirmar: abas na ordem e "Meu desempenho" aberto primeiro', JSON.stringify(estado.abas) === JSON.stringify(['📈 MEU DESEMPENHO', '🏆 MINHAS CONQUISTAS', '📜 CERTIFICADOS', '🏅 COMPETIÇÕES OLÍMPICAS', '🛒 MEUS PEDIDOS']) && estado.ativa === 'abaDesempenho' && !estado.home, JSON.stringify(estado));
 ok('Mostra série e unidade do aluno', estado.turma === '3ª SÉRIE · BATISTA CAMPOS', estado.turma);
 ok('Abre no último bimestre com documento; 3º e 4º aparecem apagados', estado.bim === '2º bimestre' && JSON.stringify(estado.vazios) === JSON.stringify(['3º bimestre', '4º bimestre']), JSON.stringify(estado));
 ok('Quatro cartões: Particulares, ENEM 1º dia, ENEM 2º dia e Espelho', estado.cards.map(c => c[0]).join('|') === 'Simulado Particulares|Simulado ENEM · 1º dia|Simulado ENEM · 2º dia|Espelho da redação', JSON.stringify(estado.cards));

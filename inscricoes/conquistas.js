@@ -18,7 +18,7 @@ let cqUid=0;
 
 function abrirConquistas(){
   if(!alunoAtual||!alunoAtual.sessao){trocarAluno();return;}
-  ['home','grupoSec','pedidosSec','cadastroSec','desempenhoSec'].forEach(id=>document.getElementById(id).classList.add('hidden'));
+  ['home','grupoSec','pedidosSec','cadastroSec','desempenhoSec','certificadosSec'].forEach(id=>document.getElementById(id).classList.add('hidden'));
   document.getElementById('conquistasSec').classList.remove('hidden');marcarAba('abaConquistas');
   document.getElementById('conquistasTurma').textContent=[alunoAtual.serie,alunoAtual.unidade].filter(Boolean).join(' · ');
   window.scrollTo({top:0,behavior:'smooth'});

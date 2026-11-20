@@ -15,7 +15,7 @@ const ACOES={
   fecharModal:()=>fecharModal(),verMeusPedidos:()=>{fecharModal();abrirMeusPedidos();},
   adicionarCarrinhoSerie:arg=>adicionarCarrinhoSerie(arg),abrirPagamentoNovo:arg=>abrirPagamentoNovo(Number(arg)),
   copiarPixAtual:()=>copiarPixAtual(),enviarComprovanteAtual:()=>enviarComprovanteAtual(),voltarPagamentosNovos:()=>voltarPagamentosNovos(),
-  abaDesempenho:()=>abrirDesempenho(),abaConquistas:()=>abrirConquistas(),escolherAnoConquistas:arg=>escolherAnoConquistas(arg),abaCompeticoes:()=>irHome(),escolherBimestre:arg=>escolherBimestre(Number(arg)),verDocumento:arg=>verDocumento(Number(arg)),
+  abaDesempenho:()=>abrirDesempenho(),abaConquistas:()=>abrirConquistas(),abaCertificados:()=>abrirCertificados(),escolherAnoConquistas:arg=>escolherAnoConquistas(arg),abaCompeticoes:()=>irHome(),escolherBimestre:arg=>escolherBimestre(Number(arg)),verDocumento:arg=>verDocumento(Number(arg)),
   visorAnterior:()=>visorIr(-1),visorProxima:()=>visorIr(1),visorZoom:arg=>visorZoom(Number(arg)),fecharVisor:()=>fecharVisor()
 };
 document.addEventListener('click',e=>{
@@ -667,7 +667,7 @@ function atualizarResumoPedidos(){
 
 function abrirMeusPedidos(){
   if(!alunoAtual||!alunoAtual.sessao){trocarAluno();return;}
-  document.getElementById('desempenhoSec').classList.add('hidden');document.getElementById('conquistasSec').classList.add('hidden');marcarAba('abaPedidos');
+  document.getElementById('desempenhoSec').classList.add('hidden');document.getElementById('conquistasSec').classList.add('hidden');document.getElementById('certificadosSec').classList.add('hidden');marcarAba('abaPedidos');
   document.getElementById('home').classList.add('hidden');
   document.getElementById('cadastroSec').classList.add('hidden');
   document.getElementById('grupoSec').classList.add('hidden');
@@ -911,7 +911,7 @@ function statusLegivel(s){return String(s||'').replace(/_/g,' ').replace(/\s+/g,
 function classeStatusPedido(s){const n=statusLegivel(s).toUpperCase();if(/CONFIRMADO|CONCLUID|PAGO|APROVAD/.test(n))return'ok';if(/REJEIT|CANCEL|RECUS/.test(n))return'bad';if(/AGUARD|PENDENTE|ANALISE|ANÁLISE/.test(n))return'warn';return'neutral';}
 
 function fecharModal(){const d=document.getElementById('modal');d.close();d.classList.remove('wide');pixAtualCodigo='';pedidoPixAtualId='';}function loading(on){document.getElementById('loading').classList.toggle('hidden',!on);}
-function irHome(){document.getElementById('desempenhoSec').classList.add('hidden');document.getElementById('conquistasSec').classList.add('hidden');marcarAba('abaCompeticoes');document.getElementById('grupoSec').classList.add('hidden');document.getElementById('pedidosSec').classList.add('hidden');document.getElementById('catalogo').innerHTML='';grupoAtual=null;if(alunoAtual)document.getElementById('home').classList.remove('hidden');else trocarAluno();}
+function irHome(){document.getElementById('desempenhoSec').classList.add('hidden');document.getElementById('conquistasSec').classList.add('hidden');document.getElementById('certificadosSec').classList.add('hidden');marcarAba('abaCompeticoes');document.getElementById('grupoSec').classList.add('hidden');document.getElementById('pedidosSec').classList.add('hidden');document.getElementById('catalogo').innerHTML='';grupoAtual=null;if(alunoAtual)document.getElementById('home').classList.remove('hidden');else trocarAluno();}
 function falha(e){
   loading(false);
   const msg=e&&e.message?e.message:String(e||'Erro inesperado.');
@@ -929,11 +929,11 @@ const PROVAS_DESEMPENHO=[
   {id:'ESPELHO',titulo:'Espelho da redação',sub:'Sua redação corrigida, com a nota de cada competência',botao:'VER ESPELHO',tipo:'espelho'}
 ];
 let desempenho=null,bimestreAtual=1,visor=null;
-function mostrarAbas(on){document.getElementById('abasAluno').classList.toggle('hidden',!on);if(!on){document.getElementById('desempenhoSec').classList.add('hidden');document.getElementById('conquistasSec').classList.add('hidden');}}
+function mostrarAbas(on){document.getElementById('abasAluno').classList.toggle('hidden',!on);if(!on){document.getElementById('desempenhoSec').classList.add('hidden');document.getElementById('conquistasSec').classList.add('hidden');document.getElementById('certificadosSec').classList.add('hidden');}}
 function marcarAba(id){for(const b of document.querySelectorAll('#abasAluno .aba')){const on=b.id===id;b.classList.toggle('ativa',on);b.setAttribute('aria-current',on?'page':'false');}}
 function abrirDesempenho(){
   if(!alunoAtual||!alunoAtual.sessao){trocarAluno();return;}
-  ['home','grupoSec','pedidosSec','cadastroSec','conquistasSec'].forEach(id=>document.getElementById(id).classList.add('hidden'));
+  ['home','grupoSec','pedidosSec','cadastroSec','conquistasSec','certificadosSec'].forEach(id=>document.getElementById(id).classList.add('hidden'));
   document.getElementById('desempenhoSec').classList.remove('hidden');marcarAba('abaDesempenho');
   document.getElementById('desempenhoTurma').textContent=[alunoAtual.serie,alunoAtual.unidade].filter(Boolean).join(' · ');
   window.scrollTo({top:0,behavior:'smooth'});
