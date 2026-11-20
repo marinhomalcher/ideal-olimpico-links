@@ -1,5 +1,5 @@
-// Portal do aluno: "Manter conectado por 5 dias" e aba "Minhas conquistas" (18/11/2026),
-// com o Worker do portal simulado. Alunos e medalhas fictícios (matrícula 99999), sem dado real.
+// Portal do aluno: "Manter conectado por 5 dias" e aba "Minhas conquistas" (18/11/2026; anos do aluno e
+// cadastro bloqueado em 19/11/2026), com o Worker do portal simulado. Alunos e medalhas fictícios (matrícula 99999), sem dado real.
 import fs from 'node:fs';
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
@@ -23,8 +23,9 @@ const CAT = {
   ONFIL: { s: 'ONFIL', n: 'Olimpíada Nacional de Filosofia', a: 'Outras' }
 };
 let CONQ = {
-  atualizadoEm: '18/11/2026 às 21:00', anos: [2025, 2024], catalogo: CAT,
-  participou: { 2025: ['OBMEP', 'OBA', 'MATIFIC', 'OBR', 'OP', 'OBF', 'ONFIL'], 2024: ['OBMEP', 'OBA'] },
+  // Resultados publicados de 2023 a 2025; o aluno participa desde 2024 e o ano corrente é 2026 (v61: anosAluno).
+  atualizadoEm: '18/11/2026 às 21:00', anos: [2025, 2024, 2023], catalogo: CAT, anoAtual: 2026, primeiroAno: 2024, anosAluno: [2026, 2025, 2024],
+  participou: { 2025: ['OBMEP', 'OBA', 'MATIFIC', 'OBR', 'OP', 'OBF', 'ONFIL'], 2024: ['OBMEP', 'OBA'], 2023: ['OBMEP'] },
   conquistas: [[2025, 'OBMEP', 'ouro', '', ''], [2025, 'MATIFIC', 'ouro', 'Ruby', ''], [2025, 'OBR', 'bronze', '', 'Regional'], [2025, 'OBR', 'mencao', '', 'Nacional'],
     [2025, 'OP', 'prata', '', ''], [2024, 'OBMEP', 'bronze', '', ''], [2024, 'OBA', 'ouro', '', ''], [2025, 'XSS', 'ouro<script>', '', '']]
 };
@@ -159,7 +160,7 @@ let e = await page.evaluate(() => ({
   nota: document.getElementById('conquistasNota').textContent, turma: document.getElementById('conquistasTurma').textContent
 }));
 ok('Aba Conquistas ativa e as outras seções escondidas', e.ativa === 'abaConquistas' && e.outras, JSON.stringify(e));
-ok('Anos: Todos + 2025 + 2024, abre no ano mais recente com medalha', JSON.stringify(e.anos) === JSON.stringify(['Todos os anos', '2025*', '2024']) && e.ano === '2025', JSON.stringify(e.anos));
+ok('Chips: só os anos do aluno (2026 a 2024; 2023 tem resultados mas ele não estava), abre no ano mais recente com medalha', JSON.stringify(e.anos) === JSON.stringify(['Todos os anos', '2026', '2025*', '2024']) && e.ano === '2025', JSON.stringify(e.anos));
 ok('Vitrine 2025: 5 conquistas, placar 2 ouros, 1 prata, 1 bronze, 1 menção', e.tit === '5 conquistas' && e.placar === '2,1,1,1', JSON.stringify(e));
 ok('Vitrine: ouro primeiro, Ruby com o nome original, fase da OBR', e.pecas[0].startsWith('ouro:') && e.pecas.some(p => p === 'ouro:Matific:Ruby') && e.pecas.some(p => p === 'bronze:Olimpíada Brasileira de RobóticaRegional:Bronze') && e.pecas.at(-1).startsWith('mencao:'), JSON.stringify(e.pecas));
 ok('Tipo desconhecido vindo do servidor é descartado', !e.pecas.some(p => /script|XSS/.test(p)));
@@ -171,6 +172,9 @@ if (process.env.ATLAS_PNG_DIR) await page.screenshot({ path: process.env.ATLAS_P
 await page.click('[data-acao=escolherAnoConquistas][data-arg="2024"]');
 e = await page.evaluate(() => ({ ano: document.querySelector('.cq-ano-grande').textContent, n: document.querySelectorAll('.cq-peca').length, falta: document.querySelectorAll('.cq-mini-item').length }));
 ok('2024: 2 medalhas e nada por conquistar', e.ano === '2024' && e.n === 2 && e.falta === 0, JSON.stringify(e));
+await page.click('[data-acao=escolherAnoConquistas][data-arg="2026"]');
+e = await page.evaluate(() => ({ ano: document.querySelector('.cq-ano-grande').textContent, n: document.querySelectorAll('.cq-peca').length, sem: (document.querySelector('.cq-sem') || {}).textContent || '', falta: document.querySelectorAll('.cq-mini-item').length }));
+ok('2026 (ano corrente, sem resultados ainda): vitrine vazia com "ainda não há medalhas", nada por conquistar', e.ano === '2026' && e.n === 0 && /ainda não há medalhas/.test(e.sem) && e.falta === 0, JSON.stringify(e));
 
 await page.click('[data-acao=escolherAnoConquistas][data-arg="todos"]');
 await page.waitForSelector('.cq-tabela');
@@ -211,6 +215,39 @@ await page.waitForSelector('#abasAluno:not(.hidden)');
 await page.click('#abaConquistas');
 await page.waitForSelector('.cq-vazio');
 ok('Servidor ainda sem a função: mostra "vão aparecer aqui", sem erro', await page.evaluate(() => /vão aparecer aqui/.test(document.querySelector('.cq-vazio').textContent) && !document.getElementById('conquistasMsg').textContent));
+
+/* cadastro bloqueado (RA/nome divergente no histórico): recado no lugar das medalhas */
+await page.click('text=TROCAR ALUNO');
+CONQ = { atualizadoEm: '19/11/2026 às 17:48', anos: [2025, 2024], catalogo: CAT, anoAtual: 2026, primeiroAno: 2024, anosAluno: [2026, 2025, 2024], participou: { 2025: ['OBMEP'] },
+  conquistas: [], bloqueado: true, mensagem: 'Encontramos uma divergência no seu cadastro (RA ou nome). Procure o Prof. Marinho <b>x</b>.' };
+await loginCodigo(page, false);
+await page.click('#confirmarCadastroBtn');
+await page.waitForSelector('#abasAluno:not(.hidden)');
+await page.click('#abaConquistas');
+await page.waitForSelector('.cq-bloqueado');
+e = await page.evaluate(() => ({ txt: document.querySelector('.cq-bloqueado').textContent, html: document.querySelector('.cq-bloqueado').innerHTML, chips: document.getElementById('conquistasAnos').children.length, pecas: document.querySelectorAll('.cq-peca, .cq-tabela').length, nota: document.getElementById('conquistasNota').textContent }));
+ok('Bloqueado: recado do servidor no lugar das medalhas, sem chips de ano', /conferir o seu cadastro/.test(e.txt) && /divergência no seu cadastro/.test(e.txt) && e.chips === 0 && e.pecas === 0, JSON.stringify(e));
+ok('Bloqueado: recado escapado (sem HTML do servidor) e nota de privacidade mantida', !/<b>/.test(e.html) && /&lt;b&gt;/.test(e.html) && /Só você vê/.test(e.nota), e.html.slice(-120));
+
+/* servidor anterior à v61 (sem anosAluno): chips com todos os anos de resultados; medalha fora de anosAluno nunca some */
+await page.click('text=TROCAR ALUNO');
+CONQ = { atualizadoEm: '18/11/2026 às 21:00', anos: [2025, 2024], catalogo: CAT, participou: { 2025: ['OBMEP'], 2024: ['OBA'] }, conquistas: [[2024, 'OBA', 'ouro', '', '']] };
+await loginCodigo(page, false);
+await page.click('#confirmarCadastroBtn');
+await page.waitForSelector('#abasAluno:not(.hidden)');
+await page.click('#abaConquistas');
+await page.waitForSelector('.cq-vitrine');
+e = await page.evaluate(() => [...document.querySelectorAll('#conquistasAnos button')].map(b => b.textContent + (b.classList.contains('ativo') ? '*' : '')));
+ok('Sem anosAluno (servidor antigo): chips com os anos de resultados, abre no ano da medalha', JSON.stringify(e) === JSON.stringify(['Todos os anos', '2025', '2024*']), JSON.stringify(e));
+await page.click('text=TROCAR ALUNO');
+CONQ = { atualizadoEm: '18/11/2026 às 21:00', anos: [2025, 2024], catalogo: CAT, anoAtual: 2026, anosAluno: [2026], participou: { 2025: ['OBMEP'], 2024: ['OBA'] }, conquistas: [[2024, 'OBA', 'ouro', '', '']] };
+await loginCodigo(page, false);
+await page.click('#confirmarCadastroBtn');
+await page.waitForSelector('#abasAluno:not(.hidden)');
+await page.click('#abaConquistas');
+await page.waitForSelector('.cq-vitrine');
+e = await page.evaluate(() => [...document.querySelectorAll('#conquistasAnos button')].map(b => b.textContent + (b.classList.contains('ativo') ? '*' : '')));
+ok('anosAluno sem o ano da medalha (cache antigo no servidor): o ano da medalha entra mesmo assim', JSON.stringify(e) === JSON.stringify(['Todos os anos', '2026', '2024*']), JSON.stringify(e));
 await page.close();
 await ctx.close();
 

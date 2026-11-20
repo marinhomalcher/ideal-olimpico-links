@@ -1,6 +1,8 @@
 /* Minhas conquistas (18/11/2026): medalhas do aluno em todas as competições, por ano.
-   Os dados vêm do Apps Script (minhasConquistas), que lê as planilhas de resultados de cada ano.
+   Os dados vêm do Apps Script (minhasConquistas), que lê o conquistas_portal.json dos resultados de cada ano.
    Um ano: vitrine com as medalhas grandes + "ainda por conquistar". Todos os anos: tabela.
+   Os chips de ano são os anos do aluno (anosAluno: da 1ª participação dele até o ano corrente), não todos
+   os anos com resultados; com o cadastro bloqueado (RA/nome divergente), o recado do servidor fica no lugar das medalhas.
    A CSP do portal proíbe style="" no HTML: cores de área são classes (ar-mat, ar-fis...). */
 let conquistas=null,anoConquistas=null;
 const CQ_TIPOS=['ouro','prata','bronze','mencao'];
@@ -27,7 +29,7 @@ function abrirConquistas(){
     document.getElementById('conquistasLoading').classList.add('hidden');
     conquistas=normalizarConquistas(r);
     const comMedalha=conquistas.lista.map(x=>x.ano);
-    anoConquistas=comMedalha.length?Math.max(...comMedalha):(conquistas.anos[0]||null);
+    anoConquistas=comMedalha.length?Math.max(...comMedalha):(conquistas.anosAluno[0]||null);
     renderConquistas();
   }).withFailureHandler(e=>{
     document.getElementById('conquistasLoading').classList.add('hidden');
@@ -50,7 +52,12 @@ function normalizarConquistas(r){
   const anos=(Array.isArray(r.anos)?r.anos:[]).map(Number).filter(Number.isInteger).sort((a,b)=>b-a);
   const participou={};
   for(const a of anos)participou[a]=(r.participou&&Array.isArray(r.participou[a])?r.participou[a]:[]).map(String);
-  return{lista,anos,participou,comp,atualizadoEm:String(r.atualizadoEm||'')};
+  // Anos do aluno (v61): da 1ª participação ao ano corrente. Sempre inclui os anos em que ele tem medalha;
+  // servidor sem o campo (versão anterior): todos os anos com resultados.
+  const doServidor=(Array.isArray(r.anosAluno)?r.anosAluno:[]).map(Number).filter(Number.isInteger);
+  const anosAluno=[...new Set([...(doServidor.length?doServidor:anos),...lista.map(x=>x.ano)])].sort((a,b)=>b-a);
+  const bloqueado=r.bloqueado===true;
+  return{lista:bloqueado?[]:lista,anos,anosAluno,participou,comp,atualizadoEm:String(r.atualizadoEm||''),bloqueado,mensagem:String(r.mensagem||'')};
 }
 
 function escolherAnoConquistas(arg){
@@ -64,13 +71,19 @@ function renderConquistas(){
   const anos=document.getElementById('conquistasAnos'),cont=document.getElementById('conquistasConteudo');
   document.getElementById('conquistasMsg').innerHTML='';
   document.getElementById('conquistasNota').textContent=(d.atualizadoEm?'Resultados atualizados em '+d.atualizadoEm+'. ':'')+'🔒 Só você vê as suas conquistas.';
-  if(!d.anos.length){
+  if(d.bloqueado){
+    anos.innerHTML='';
+    cont.innerHTML=`<div class="cq-vazio cq-bloqueado">${medalhaSvg('apagada','!',90)}<div><h3>Precisamos conferir o seu cadastro</h3><p>${esc(d.mensagem||'Encontramos uma divergência no seu cadastro. Procure a coordenação de olimpíadas para regularizar; suas conquistas voltam a aparecer em seguida.')}</p></div></div>`;
+    return;
+  }
+  if(!d.anos.length||!d.anosAluno.length){
     anos.innerHTML='';
     cont.innerHTML=`<div class="cq-vazio">${medalhaSvg('apagada','?',90)}<div><h3>Suas medalhas vão aparecer aqui</h3><p>Assim que a equipe do Ideal Olímpico lançar os resultados das competições, cada conquista sua acende nesta aba.</p></div></div>`;
     return;
   }
+  if(anoConquistas!=='todos'&&!d.anosAluno.includes(anoConquistas))anoConquistas=d.anosAluno[0];
   anos.innerHTML=`<button class="${anoConquistas==='todos'?'ativo':''}" data-acao="escolherAnoConquistas" data-arg="todos" aria-pressed="${anoConquistas==='todos'}">Todos os anos</button>`+
-    d.anos.map(a=>`<button class="${anoConquistas===a?'ativo':''}" data-acao="escolherAnoConquistas" data-arg="${a}" aria-pressed="${anoConquistas===a}">${a}</button>`).join('');
+    d.anosAluno.map(a=>`<button class="${anoConquistas===a?'ativo':''}" data-acao="escolherAnoConquistas" data-arg="${a}" aria-pressed="${anoConquistas===a}">${a}</button>`).join('');
   cont.innerHTML=anoConquistas==='todos'?tabelaConquistas():vitrineConquistas(anoConquistas);
 }
 
