@@ -160,6 +160,7 @@ cd _cloudflare/atlas-api/testes && ./rodar.sh            # todas
   - filtros por função e disciplina;
   - selos de cada função.
 - **Banco:** `redacao_equipe` ganhou os campos `professor` e `digitalizador` (0/1); há a tabela `coordenadores`. Quem sai do banco ou muda de disciplina deixa de ser supervisor.
+- **Pessoas pela planilha** (`pessoas-planilha.js`, 20/11/2026): o quadro "Pessoas pela planilha" em `admin.html` baixa um .xlsx com todas as pessoas atuais (abas PESSOAS, LISTAS e INSTRUÇÕES, montado no navegador com ExcelJS) e recebe a planilha editada: `POST /api/adm/pessoas/previa` só confere (erros por linha, novos/atualizados/iguais, supervisores) e `POST /api/adm/pessoas/importar` grava pelo mesmo `salvarPessoa` da tela e define os supervisores (um por disciplina). A pessoa é reconhecida pelo e-mail; quem não está na planilha não é apagado (ATIVO = NÃO para desligar). Serve também de backup e de recadastro depois de zerar o banco. Teste: `teste-pessoas-planilha.mjs`.
 
 ### Alunos (`alunos-admin.html`)
 - Importação da planilha `NOME COMPLETO, RA, FILIAL, SÉRIE, CODTURMA, SEGMENTO`, com prévia. Linhas do EF1 são ignoradas (`ignorados_ef1`).

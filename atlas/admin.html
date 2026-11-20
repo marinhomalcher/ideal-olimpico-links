@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="pt-BR">
 <head>
-<meta name="atlas-versao" content="20261120c"><script src="atlas-versao.js?v=20261120c" defer></script>
+<meta name="atlas-versao" content="20261120d"><script src="atlas-versao.js?v=20261120d" defer></script>
 <meta charset="utf-8"><meta name="robots" content="noindex, nofollow"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="referrer" content="strict-origin-when-cross-origin">
 <title>ATLAS | Administração</title>
@@ -26,6 +26,7 @@ fieldset.funcoes{border:1px solid #ead7da;border-radius:10px;padding:8px 12px 10
 <div id="ret-alertas"></div>
 <section class="panel" id="sec-supervisores"><h2>Supervisores por disciplina</h2><p class="hint">Escolha um professor da disciplina ou cadastre um novo. Cada disciplina tem um supervisor.</p><div class="sup-grid" id="supervisors"></div></section>
 <section class="panel" id="sec-professores"><h2>Pessoas cadastradas</h2><p class="hint">Todos os cadastros num lugar só. Cada pessoa pode ter várias funções: banco de questões (a disciplina definida aqui vai para o cadastro de questões), professor de redação, digitalizador e coordenador.</p><div class="summary" id="summary"></div><div class="toolbar"><input id="search" type="search" placeholder="Buscar por nome" aria-label="Buscar por nome"><select id="f-funcao" aria-label="Filtrar por função"><option value="">Todas as funções</option><option value="professor">Professor (banco de questões)</option><option value="supervisor">Supervisor</option><option value="classificador">Classificador</option><option value="digitador">Digitador</option><option value="red-prof">Professor de redação</option><option value="red-dig">Digitalizador</option><option value="coord">Coordenador</option></select><select id="f-disciplina" aria-label="Filtrar por disciplina"><option value="">Todas as disciplinas</option></select><button class="primary" id="add">Novo cadastro</button></div><div class="table-wrap" id="list"></div></section>
+<section class="panel" id="sec-planilha"><h2>Pessoas pela planilha</h2><p class="hint">Baixe a planilha com todas as pessoas cadastradas, edite no Excel (corrija, inclua, desative, troque funções) e mande de volta. Colunas: NOME COMPLETO, E-MAIL, BANCO DE QUESTÕES (PROFESSOR, SUPERVISOR, DIGITADOR ou vazio), DISCIPLINA, CLASSIFICADOR (SIM), PROFESSOR DE REDAÇÃO (TURMA), DIGITALIZADOR (UNIDADES), COORDENADOR (UNIDADE SEGMENTO SÉRIE), ACESSO ATÉ e ATIVO. Quem não estiver na planilha não é apagado. A aba LISTAS traz os valores aceitos.</p><div class="toolbar"><button type="button" class="secondary" id="pl-baixar">Baixar planilha com as pessoas atuais</button></div><label for="pl-arquivo" style="display:block;font-weight:bold;font-size:13px;margin:12px 0 5px">Planilha preenchida (.xlsx)</label><input id="pl-arquivo" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" style="max-width:520px"><div class="toolbar" style="margin-top:10px"><button type="button" class="secondary" id="pl-previa">Conferir planilha</button><button type="button" class="primary" id="pl-importar" disabled>Importar pessoas</button></div><p class="status" id="pl-status" role="status"></p><div id="pl-resultado" hidden style="font-size:13px"></div></section>
 <section class="panel" id="ret-painel"><h2>Questões retiradas (professores desligados)</h2><p class="hint">Quando um professor é desligado, desative o cadastro dele e use <strong>Retirar questões autorais</strong> na linha dele. As questões saem do banco, mas podem voltar durante 6 meses. Vencido o prazo, o ATLAS pergunta a você (aqui e por e-mail) se exclui definitivamente.</p><div class="table-wrap" id="ret-lista"><div class="empty">Nenhuma retirada.</div></div></section>
 <section class="panel" id="sec-copias"><h2>Cópias de segurança</h2><p class="hint">O banco do ATLAS é copiado automaticamente todo dia às 3h17 (horário de Brasília) para o armazenamento R2. Ficam guardadas as 60 cópias mais recentes. As imagens já ficam guardadas no R2.</p><p id="backup-ultimo"></p><div class="toolbar"><button type="button" class="secondary" id="backup-agora">Fazer cópia agora</button><button type="button" class="secondary" id="backup-ver">Ver cópias guardadas</button></div><p class="status" id="backup-status" role="status"></p><div class="table-wrap" id="backup-lista" hidden style="max-height:320px;overflow:auto"></div><h3 style="margin:22px 0 6px">SharePoint dos resultados</h3><p class="hint">Mapas de desempenho e espelhos de redação ficarão no site "Resultados IDEAL OLÍMPICO". O teste grava um arquivo, lê pelo link temporário (como o aluno fará) e apaga.</p><div class="toolbar"><button type="button" class="secondary" id="sp-testar">Testar conexão com o SharePoint</button></div><div id="sp-resultado" role="status"></div></section>
 </main></div>
@@ -80,7 +81,7 @@ async function showApp(email){
 function aplicarSecao(){
   const SEC={retiradas:{id:'ret-painel',titulo:'Questões retiradas',lead:'Questões autorais de professores desligados: devolver, adiar ou excluir definitivamente.'},copias:{id:'sec-copias',titulo:'Cópias de segurança',lead:'Cópias diárias do banco do ATLAS no armazenamento R2.'}};
   const k=new URLSearchParams(location.search).get('secao'),alvo=SEC[k];
-  const main=$('#app-view main'),paineis=['sec-supervisores','sec-professores','ret-painel','sec-copias'].map(id=>document.getElementById(id));
+  const main=$('#app-view main'),paineis=['sec-supervisores','sec-professores','sec-planilha','ret-painel','sec-copias'].map(id=>document.getElementById(id));
   if(!alvo){$('#ret-painel').hidden=true;$('#sec-copias').hidden=true;return}
   for(const el of paineis)el.hidden=el.id!==alvo.id;
   main.querySelector('h1').textContent=alvo.titulo;main.querySelector('.lead').textContent=alvo.lead;main.querySelector('.crumb').textContent='Administrador / '+alvo.titulo;
@@ -178,6 +179,49 @@ form.addEventListener('submit',async event=>{event.preventDefault();const id=$('
     dialog.close();render();status($('#app-status'),id?'Cadastro atualizado.':dig?'Digitador cadastrado. Ele entra pela página inicial, como Professor, com o código enviado ao e-mail.':asSup?`Professor cadastrado e definido como supervisor de ${asSup}.`:banco?'Professor cadastrado.':'Pessoa cadastrada.');
   }catch(e){if(e.message!=='__sessao__')erro(e.message)}
   finally{$('#save').disabled=false}});
+
+// ---------- pessoas pela planilha (baixar com as atuais; conferir e importar) ----------
+const PL_COLUNAS=['NOME COMPLETO','E-MAIL','BANCO DE QUESTÕES','DISCIPLINA','CLASSIFICADOR','PROFESSOR DE REDAÇÃO (TURMA)','DIGITALIZADOR (UNIDADES)','COORDENADOR (UNIDADE SEGMENTO SÉRIE)','ACESSO ATÉ','ATIVO'];
+const plNormal=s=>String(s??'').normalize('NFD').replace(/[̀-ͯ]/g,'').trim().toUpperCase().replace(/\s+/g,' ');
+let plLinhas=null;
+function excel(){return new Promise((resolve,reject)=>{if(window.ExcelJS)return resolve();const s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js';s.integrity='sha384-Pqp51FUN2/qzfxZxBCtF0stpc9ONI6MYZpVqmo8m20SoaQCzf+arZvACkLkirlPz';s.crossOrigin='anonymous';s.onload=resolve;s.onerror=()=>reject(Error('Não foi possível carregar o leitor de Excel.'));document.head.append(s)})}
+function plLinhaDe(t){const tur=redTurmas.find(x=>(t.redacao?.turmas||[]).includes(x.id));
+  return [t.nome,t.email,t.digitador?'DIGITADOR':t.disciplina?(t.papel==='supervisor'?'SUPERVISOR':'PROFESSOR'):'',t.disciplina||'',t.classificador?'SIM':'',tur?tur.unidade+' '+tur.codigo:'',(t.redacao?.unidades||[]).join('; '),(t.coordenacao||[]).map(c=>c.unidade+' '+c.segmento+' '+c.serie).join('; '),t.acesso_ate||'',t.ativo?'SIM':'NÃO']}
+async function plBaixar(){const b=$('#pl-baixar');b.disabled=true;status($('#pl-status'),'Montando a planilha…');
+  try{await excel();const wb=new ExcelJS.Workbook();wb.creator='ATLAS';
+    const ws=wb.addWorksheet('PESSOAS');ws.addRow(PL_COLUNAS);ws.getRow(1).font={bold:true};ws.views=[{state:'frozen',ySplit:1}];
+    ws.columns=[{width:34},{width:34},{width:20},{width:16},{width:14},{width:26},{width:24},{width:40},{width:14},{width:8}];
+    for(const t of [...teachers].sort(byName))ws.addRow(plLinhaDe(t));
+    const li=wb.addWorksheet('LISTAS');li.addRow(['BANCO DE QUESTÕES','DISCIPLINA','TURMAS DE REDAÇÃO (UNIDADE CÓDIGO)','UNIDADES','COORDENAÇÃO (UNIDADE SEGMENTO SÉRIE)','SIM/NÃO']);li.getRow(1).font={bold:true};
+    const turmas=[...redTurmas].sort((a,b)=>(a.unidade+a.codigo).localeCompare(b.unidade+b.codigo)).map(t=>t.unidade+' '+t.codigo);
+    const series=[...new Set(redTurmas.filter(t=>t.segmento!=='EF1').map(t=>t.unidade+' '+t.segmento+' '+t.serie))].sort();
+    const cols=[['PROFESSOR','SUPERVISOR','DIGITADOR'],subjects,turmas,['BC','AM','CN'],series,['SIM','NÃO']];
+    for(let i=0;i<Math.max(...cols.map(c=>c.length));i++)li.addRow(cols.map(c=>c[i]||''));
+    li.columns=[{width:20},{width:16},{width:34},{width:10},{width:40},{width:10}];
+    const n=Math.max(teachers.length+200,300),ref=(c,len)=>`LISTAS!$${c}$2:$${c}$${len+1}`;
+    const val=(col,formula)=>{for(let r=2;r<=n;r++)ws.getCell(col+r).dataValidation={type:'list',allowBlank:true,formulae:[formula]}};
+    val('C',ref('A',3));val('D',ref('B',subjects.length));val('E','"SIM"');val('F',ref('C',turmas.length||1));val('J',ref('F',2));
+    const ins=wb.addWorksheet('INSTRUÇÕES');ins.columns=[{width:120}];
+    for(const l of ['Uma linha por pessoa, na aba PESSOAS. Não mude os títulos das colunas.','E-MAIL: institucional; pode digitar só a parte antes do @ (completamos com @grupoideal.com.br). É pelo e-mail que a pessoa é reconhecida: para renomear alguém, mantenha o e-mail.','BANCO DE QUESTÕES: PROFESSOR, SUPERVISOR ou DIGITADOR (ou vazio se a pessoa não mexe no banco). Professor e supervisor precisam da DISCIPLINA; só um supervisor por disciplina.','CLASSIFICADOR: SIM para o professor da força-tarefa que classifica as questões do digitador/ADM da disciplina dele.','PROFESSOR DE REDAÇÃO (TURMA): "UNIDADE CÓDIGO", como BC 1EMA (uma turma por professor; ver aba LISTAS). Vazio = não é professor de redação.','DIGITALIZADOR (UNIDADES): BC, AM ou CN, separadas por ponto e vírgula. Vazio = não é digitalizador.','COORDENADOR (UNIDADE SEGMENTO SÉRIE): como "BC EM 1ª Série; BC EM 2ª Série" (ver aba LISTAS). Vazio = não é coordenador.','ACESSO ATÉ: AAAA-MM-DD ou DD/MM/AAAA; vazio = sem prazo. ATIVO: SIM ou NÃO (vazio = SIM).','Quem não estiver na planilha não é apagado. Para desligar alguém, deixe na planilha com ATIVO = NÃO.','Depois de salvar: Cadastros e funções → Pessoas pela planilha → escolha o arquivo → Conferir planilha → Importar pessoas.'])ins.addRow([l]);
+    const buf=await wb.xlsx.writeBuffer();const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}));a.download='pessoas-atlas-'+hojeSP()+'.xlsx';document.body.append(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},2000);
+    status($('#pl-status'),'Planilha baixada com '+teachers.length+' pessoa(s).')}
+  catch(e){status($('#pl-status'),e.message,true)}finally{b.disabled=false}}
+async function plLer(file){await excel();const wb=new ExcelJS.Workbook();await wb.xlsx.load(await file.arrayBuffer());const ws=wb.getWorksheet('PESSOAS')||wb.worksheets[0];if(!ws)throw Error('A planilha não tem a aba PESSOAS.');
+  const cab=PL_COLUNAS.map((_,i)=>plNormal(ws.getRow(1).getCell(i+1).text));if(cab.join('|')!==PL_COLUNAS.map(plNormal).join('|'))throw Error('As colunas não correspondem ao modelo. Baixe a planilha de novo e preencha nela.');
+  const rows=[];ws.eachRow((row,n)=>{if(n===1)return;const v=i=>{const c=row.getCell(i).value;if(c instanceof Date)return c.toISOString().slice(0,10);return String(row.getCell(i).text??'').trim()};if(!v(1)&&!v(2))return;rows.push({linha:n,nome:v(1),email:v(2),banco:v(3),disciplina:v(4),classificador:v(5),turma:v(6),unidades:v(7),coordenacao:v(8),acesso_ate:v(9),ativo:v(10)})});return rows}
+function plMostrar(d){const box=$('#pl-resultado');box.replaceChildren();const b=document.createElement('strong');b.textContent=`${d.linhas} linha(s) · ${d.novos} nova(s) · ${d.atualizados} atualizada(s) · ${d.iguais} sem mudança`;box.append(b);
+  if(d.supervisores.length){const p=document.createElement('p');p.textContent='Supervisores: '+d.supervisores.map(s=>s.disciplina+' = '+s.nome).join('; ');box.append(p)}
+  if(d.erros.length){const p=document.createElement('p');p.className='status error';p.textContent=`${d.erros.length} linha(s) com problema. Corrija a planilha e confira de novo.`;box.append(p)}
+  const ul=document.createElement('ul');for(const e of d.erros.slice(0,60)){const li=document.createElement('li');li.textContent=`Linha ${e.linha} (${e.nome||e.email}): ${e.motivo}`;ul.append(li)}
+  for(const x of (d.detalhes||[]).slice(0,60)){const li=document.createElement('li');li.textContent=`Linha ${x.linha}: ${x.nome} — ${x.situacao==='novo'?'nova':'atualizada'}`;ul.append(li)}box.append(ul);box.hidden=false}
+$('#pl-baixar').addEventListener('click',plBaixar);
+$('#pl-arquivo').addEventListener('change',()=>{plLinhas=null;$('#pl-importar').disabled=true;$('#pl-resultado').hidden=true;status($('#pl-status'),'')});
+$('#pl-previa').addEventListener('click',async()=>{const f=$('#pl-arquivo').files[0];if(!f){status($('#pl-status'),'Escolha a planilha preenchida.',true);return}$('#pl-previa').disabled=true;status($('#pl-status'),'Lendo e conferindo a planilha…');
+  try{plLinhas=await plLer(f);const d=await api('/api/adm/pessoas/previa',{method:'POST',body:{pessoas:plLinhas}});plMostrar(d);$('#pl-importar').disabled=!!d.erros.length||!plLinhas.length;status($('#pl-status'),d.erros.length?'Há linhas com problema.':'Prévia pronta. Confira e clique em Importar pessoas.',!!d.erros.length)}
+  catch(e){plLinhas=null;if(e.message!=='__sessao__')status($('#pl-status'),e.message,true)}finally{$('#pl-previa').disabled=false}});
+$('#pl-importar').addEventListener('click',async()=>{if(!plLinhas)return;$('#pl-importar').disabled=true;status($('#pl-status'),'Importando as pessoas…');
+  try{const d=await api('/api/adm/pessoas/importar',{method:'POST',body:{pessoas:plLinhas}});teachers=d.pessoas||teachers;render();plMostrar(d);status($('#pl-status'),`Importação concluída: ${d.novos} nova(s), ${d.atualizados} atualizada(s), ${d.iguais} sem mudança.`);plLinhas=null}
+  catch(e){if(e.message!=='__sessao__')status($('#pl-status'),e.message,true);$('#pl-importar').disabled=false}});
 
 // ---------- retirada das questões autorais (professor desligado) ----------
 let retiradas=[];const retDialog=$('#ret-dialog'),retCorpo=$('#ret-corpo');
