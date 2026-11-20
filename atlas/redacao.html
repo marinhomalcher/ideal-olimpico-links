@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="pt-BR">
 <head>
-<meta name="atlas-versao" content="20261119a"><script src="atlas-versao.js?v=20261119a" defer></script><script src="atlas-alinhamento.js?v=20261119a"></script>
+<meta name="atlas-versao" content="20261119b"><script src="atlas-versao.js?v=20261119b" defer></script><script src="atlas-alinhamento.js?v=20261119b"></script>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="robots" content="noindex,nofollow"><title>ATLAS | Redação</title>
 <style>
@@ -217,7 +217,7 @@ async function carregar(){
     let dados={turmas:[]};try{dados=await api('/api/redacao/correcao/turmas')}catch(e){status.textContent=e.message;status.className='error'}
     for(const t of dados.turmas){const item=document.createElement('div');item.className='turma';const strong=document.createElement('strong');strong.textContent=t.codigo;const small=document.createElement('small');small.textContent=`${{BC:'Batista Campos',AM:'Augusto Montenegro',CN:'Cidade Nova'}[t.unidade]} · ${t.segmento} · ${t.serie}`;item.append(strong,small);
       if(!t.lotes.length){const p=document.createElement('p');p.className='sem-lote';p.textContent='Nenhum lote de redações recebido ainda.';item.append(p)}
-      for(const l of t.lotes){const linha=document.createElement('div');linha.className='lote-prof';const info=document.createElement('span');const feitas=l.corrigidas+l.condenadas;info.textContent=`${l.bimestre}º bimestre · ${l.corrigidas} corrigidas / ${l.folhas} folhas`+(l.condenadas?` · ${l.condenadas} condenadas`:'');const a=document.createElement('a');a.className='primary';a.href='redacao-corrigir.html?lote='+l.id;a.textContent=!l.folhas?'Ver lote':feitas>=l.folhas?'Revisar':feitas?'Continuar correção':'Corrigir';const notas=document.createElement('a');notas.className='secondary';notas.textContent='Ver notas';if(l.folhas>0&&l.corrigidas===l.folhas&&!l.condenadas&&!l.pendencias){notas.href='redacao-notas.html?lote='+l.id}else{notas.setAttribute('aria-disabled','true');notas.title='Disponível após corrigir todas as folhas e resolver as pendências do lote.'}const acoes=document.createElement('div');acoes.className='lote-acoes';acoes.append(a,notas);linha.append(info,acoes);item.append(linha)}
+      for(const l of t.lotes){const linha=document.createElement('div');linha.className='lote-prof';const info=document.createElement('span');const feitas=l.corrigidas+l.condenadas;info.textContent=`${l.bimestre}º bimestre · ${l.corrigidas} corrigidas / ${l.folhas} folhas`+(l.condenadas?` · ${l.condenadas} para digitalizar de novo`:'');const a=document.createElement('a');a.className='primary';a.href='redacao-corrigir.html?lote='+l.id;a.textContent=!l.folhas?'Ver lote':feitas>=l.folhas?'Revisar':feitas?'Continuar correção':'Corrigir';const notas=document.createElement('a');notas.className='secondary';notas.textContent='Ver notas';if(l.folhas>0&&l.corrigidas===l.folhas&&!l.condenadas&&!l.pendencias){notas.href='redacao-notas.html?lote='+l.id}else{notas.setAttribute('aria-disabled','true');notas.title='Disponível após corrigir todas as folhas e resolver as pendências do lote.'}const acoes=document.createElement('div');acoes.className='lote-acoes';acoes.append(a,notas);linha.append(info,acoes);item.append(linha)}
       list.append(item)}
     if(!list.children.length){const p=document.createElement('p');p.textContent='Ainda não há turmas vinculadas. Peça ao administrador para cadastrá-las.';list.append(p)}
   }else{

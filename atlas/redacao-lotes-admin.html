@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="pt-BR">
 <head>
-<meta name="atlas-versao" content="20261119a"><script src="atlas-versao.js?v=20261119a" defer></script><script src="atlas-alinhamento.js?v=20261119a"></script>
+<meta name="atlas-versao" content="20261119b"><script src="atlas-versao.js?v=20261119b" defer></script><script src="atlas-alinhamento.js?v=20261119b"></script>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow">
 <title>ATLAS | Lotes de Redação</title>
 <style>
@@ -11,7 +11,7 @@
 </head>
 <body>
 <header><div class="brand"><img src="ideal-logo.png" alt="Ideal 50 anos"><span>ATLAS · Redação</span></div><a class="back" href="admin.html">← Voltar à área do ADM</a></header>
-<main class="shell"><h1>Redação</h1><p class="lead">Confira os PDFs recebidos por turma e bimestre, resolva as dúvidas e as páginas condenadas. O ADM pode cancelar um envio equivocado mesmo depois das 2 horas do digitalizador.</p><div class="tabs" role="tablist" aria-label="Redação"><span class="tab-on" aria-current="page">Lotes</span><a href="redacao-admin.html#turmas">Turmas</a><a href="redacao-admin.html#equipe">Equipe</a></div>
+<main class="shell"><h1>Redação</h1><p class="lead">Confira os PDFs recebidos por turma e bimestre, resolva as dúvidas e os pedidos de nova digitalização da professora (páginas condenadas). O ADM pode cancelar um envio equivocado mesmo depois das 2 horas do digitalizador.</p><div class="tabs" role="tablist" aria-label="Redação"><span class="tab-on" aria-current="page">Lotes</span><a href="redacao-admin.html#turmas">Turmas</a><a href="redacao-admin.html#equipe">Equipe</a></div>
 <div id="auth-error" class="panel" hidden>Entre primeiro na <a class="back" href="admin.html?volta=redacao-lotes-admin.html">área do ADM</a>.</div>
 <section id="app" class="panel" hidden><div class="filters"><label for="filter-unit">Unidade<select id="filter-unit"><option value="">Todas</option><option value="BC">Batista Campos</option><option value="AM">Augusto Montenegro</option><option value="CN">Cidade Nova</option></select></label><label for="filter-term">Bimestre<select id="filter-term"><option value="">Todos</option><option value="1">1º</option><option value="2">2º</option><option value="3">3º</option><option value="4">4º</option></select></label><label for="filter-state">Situação<select id="filter-state"><option value="ativos">Ativos</option><option value="todos">Todos</option><option value="cancelados">Cancelados</option></select></label></div><p id="status" class="status" role="status"></p><div class="table"><table><thead><tr><th>Bimestre</th><th>Unidade</th><th>Série e turma</th><th>Digitalizador</th><th>Enviado</th><th>Situação</th><th>Folhas</th><th>Ações</th></tr></thead><tbody id="rows"></tbody></table></div></section></main>
 <div id="pdf-viewer" class="viewer" hidden role="dialog" aria-modal="true" aria-label="Conferir PDF"><div class="viewer-box"><div class="viewer-bar"><strong id="viewer-title">Conferir PDF</strong><div class="actions"><a id="viewer-download" href="#" download="lote.pdf">Baixar PDF</a><button id="viewer-close" class="secondary" type="button">Fechar</button></div></div><iframe id="viewer-frame" title="Páginas do PDF"></iframe></div></div>
@@ -100,7 +100,7 @@ function renderFolhas(){
     const tr=document.createElement('tr');tr.dataset.pagina=p.pagina;const td=t=>{const c=document.createElement('td');if(t instanceof Node)c.append(t);else c.textContent=t??'';tr.append(c);return c};
     td(String(p.pagina));td(p.ra_lido||'—');
     const sit=p.situacao==='duvida'?'Dúvida: '+(MOTIVO[p.motivo]||'')+(p.lido_turma&&p.motivo==='outra_turma'?' ('+p.lido_turma+')':''):p.situacao==='avulsa'?'Avulsa (sem código)':p.situacao==='aluno'?(p.resolvido_por?'Atribuída pelo ADM':'Identificada pelo código'):'Descartada';
-    const cs=td(p.condenada?'Condenada pela professora: '+(p.condenada_motivo||'')+(p.condenada_obs?' — '+p.condenada_obs:''):sit+(p.corrigida?' · corrigida pela professora':''));cs.className=p.condenada?'fl-duvida':{duvida:'fl-duvida',avulsa:'fl-avulsa',aluno:'fl-ok',descartada:'fl-desc'}[p.situacao];
+    const cs=td(p.condenada?'Nova digitalização pedida pela professora: '+(p.condenada_motivo||'')+(p.condenada_obs?' — '+p.condenada_obs:''):sit+(p.corrigida?' · corrigida pela professora':''));cs.className=p.condenada?'fl-duvida':{duvida:'fl-duvida',avulsa:'fl-avulsa',aluno:'fl-ok',descartada:'fl-desc'}[p.situacao];
     td(p.situacao==='aluno'?(p.aluno_nome||p.aluno_ra):(p.motivo==='outra_turma'&&p.lido_nome?p.lido_nome:''));
     const box=document.createElement('div');box.className='fl-acoes';
     const ver=document.createElement('button');ver.type='button';ver.className='secondary';ver.textContent='Ver folha';ver.addEventListener('click',()=>{const l=fl.lote;$('#pages-viewer').hidden=true;alinhar(l,p.pagina);$('#align-close').addEventListener('click',()=>{if(fl)$('#pages-viewer').hidden=false},{once:true})});box.append(ver);

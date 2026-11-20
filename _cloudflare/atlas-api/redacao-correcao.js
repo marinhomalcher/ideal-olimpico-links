@@ -99,7 +99,9 @@ async function notasDaTurma(env, lote) {
 
 function lerMarcacoes(txt) { try { const v = JSON.parse(txt || '[]'); return Array.isArray(v) ? v : []; } catch { return []; } }
 
-/* Marca-texto: faixas retas na folha alinhada, em frações da largura/altura (0 a 1). Devolve o JSON a gravar ou null. */
+/* Marca-texto: faixas retas na folha alinhada, em frações da largura/altura (0 a 1). Devolve o JSON a gravar ou null.
+   c = cor (am amarelo, vd verde, az azul, rs rosa); sem c = amarelo. */
+const CORES_MARCA = ['am', 'vd', 'az', 'rs'];
 export function conferirMarcacoes(lista) {
   if (lista === undefined || lista === null) return null;
   if (!Array.isArray(lista) || lista.length > 400) erro(400, 'Marcações inválidas.');
@@ -107,7 +109,9 @@ export function conferirMarcacoes(lista) {
   const out = lista.map(m => {
     const x = Number(m?.x), y = Number(m?.y), w = Number(m?.w), h = Number(m?.h);
     if (![x, y, w, h].every(Number.isFinite) || x < 0 || y < 0 || w <= 0 || h <= 0 || x + w > 1.0001 || y + h > 1.0001 || h > 0.1) erro(400, 'Marcações inválidas.');
-    return { x: r4(x), y: r4(y), w: r4(w), h: r4(h) };
+    const c = m?.c === undefined || m?.c === null || m?.c === 'am' ? null : String(m.c);
+    if (c !== null && !CORES_MARCA.includes(c)) erro(400, 'Marcações inválidas.');
+    return c ? { x: r4(x), y: r4(y), w: r4(w), h: r4(h), c } : { x: r4(x), y: r4(y), w: r4(w), h: r4(h) };
   });
   return out.length ? JSON.stringify(out) : null;
 }
