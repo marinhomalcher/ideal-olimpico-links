@@ -22,7 +22,7 @@ ATLAS = banco de questões (BQI) do Grupo Ideal + módulo de **Redação** (corr
 | Banco | Cloudflare D1 `atlas-teste` (será o oficial). **Schema v16** |
 | Arquivos | R2 `atlas-imagens`: `img/` (imagens das questões), `redacao/` (PDFs originais, privados), `backups/` (cópia diária do D1 às 3h17 de Brasília, guarda 60) |
 | E-mails | Microsoft Graph como `olimpiadas@grupoideal.com.br`; reserva: Apps Script (`ATLAS_MAILER_URL`) |
-| Portal de inscrições | mesmo repositório (`index.html`, `inscricoes/`, `teste-inscricoes/`) — **NÃO MEXER** (exceção futura: só o "MEU DESEMPENHO", §7) |
+| Portal de inscrições | mesmo repositório (`index.html`, `inscricoes/`; `teste-inscricoes/` é só a página "Ambiente de teste encerrado") — **NÃO MEXER** (exceção futura: só o "MEU DESEMPENHO", §7) |
 
 O repositório é **público**: nada de segredo no código, **nenhuma planilha nem PDF real de aluno**. PDFs e planilhas reais só podem ser usados localmente, fora do repositório, e apagados depois.
 
@@ -241,5 +241,5 @@ cd _cloudflare/atlas-api/testes && ./rodar.sh            # todas
   - integrar só **depois que houver notas**;
   - o **servidor do portal** confirma a sessão do aluno e pede ao ATLAS as notas daquela matrícula, com um segredo entre servidores guardado só na Cloudflare (o ATLAS **nunca** aceita uma matrícula vinda do navegador);
   - a planilha importada no ATLAS é a lista oficial;
-  - "NÃO MEXER no portal" fica liberado **só para o "MEU DESEMPENHO"**, com autorização e teste na homologação (`teste-inscricoes/`).
+  - "NÃO MEXER no portal" fica liberado **só para o "MEU DESEMPENHO"**, com autorização e teste (a homologação `teste-inscricoes/` foi encerrada; testar com a matrícula fictícia 00000).
 - A decidir na época: reforço do login do portal (matrícula + nascimento é fraco para notas de menores); LGPD e retenção das notas e dos espelhos entre anos.
