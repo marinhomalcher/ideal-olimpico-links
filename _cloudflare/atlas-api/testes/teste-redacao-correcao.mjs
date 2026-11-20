@@ -141,6 +141,12 @@ r = await nota(1, { ...notas200, marcacoes: 'x' });
 ok('Marcações que não são lista são recusadas', r.status === 400, r.data.error);
 r = await nota(1, { ...notas200, marcacoes: [{ x: 0.123456, y: 0.4, w: 0.3, h: 0.018 }] });
 ok('Destaques válidos são guardados (arredondados)', r.status === 200 && r.data.folha.marcacoes.length === 1 && r.data.folha.marcacoes[0].x === 0.1235, JSON.stringify(r.data.folha.marcacoes));
+r = await nota(1, { ...notas200, marcacoes: [{ x: 0.1, y: 0.4, w: 0.3, h: 0.018, c: 'vd' }, { x: 0.1, y: 0.5, w: 0.3, h: 0.018, c: 'am' }, { x: 0.1, y: 0.6, w: 0.3, h: 0.018 }] });
+ok('Cor do destaque é guardada (amarelo, a padrão, fica sem o campo)', r.status === 200 && r.data.folha.marcacoes.length === 3 && r.data.folha.marcacoes[0].c === 'vd' && !('c' in r.data.folha.marcacoes[1]) && !('c' in r.data.folha.marcacoes[2]), JSON.stringify(r.data.folha.marcacoes));
+r = await nota(1, { ...notas200, marcacoes: [{ x: 0.1, y: 0.4, w: 0.3, h: 0.018, c: 'roxo' }] });
+ok('Cor fora da paleta é recusada', r.status === 400 && /Marcações/.test(r.data.error), r.data.error);
+r = await nota(1, { ...notas200, marcacoes: [{ x: 0.123456, y: 0.4, w: 0.3, h: 0.018 }] });
+ok('Volta a um destaque só para os próximos passos', r.status === 200 && r.data.folha.marcacoes.length === 1);
 r = await nota(1, notas200);
 ok('Revisão sem o campo mantém os destaques', r.status === 200 && r.data.folha.marcacoes.length === 1);
 r = await nota(1, { ...notas200, marcacoes: [] });
@@ -189,29 +195,54 @@ ok('Cabeçalho mostra unidade, série, turma e bimestre', /Batista Campos/.test(
 const layout = await page.evaluate(() => {
   const folha = document.querySelector('#folha').getBoundingClientRect();
   const area = document.querySelector('#area').getBoundingClientRect();
-  const notas = document.querySelector('#painel').getBoundingClientRect();
-  return { largura: folha.width / area.width, notasAbaixo: notas.top >= area.bottom - 1,
+  return { largura: folha.width / area.width, notasAbaixo: document.querySelector('#painel').hidden && !!document.querySelector('#lateral .bottom #btn-concluir'),
     cabecalho: document.querySelector('header').getBoundingClientRect().height,
     grupos: [...document.querySelectorAll('.tool-group label')].map(x => x.textContent.trim()) };
 });
-ok('Folha usa a largura e notas ficam abaixo, com topo fino e controles separados',
+ok('Folha usa a largura; em tela larga a avaliação inteira fica na faixa e o painel de baixo some; topo fino e controles separados',
   layout.largura > 0.9 && layout.notasAbaixo && layout.cabecalho <= 60 &&
   JSON.stringify(layout.grupos) === JSON.stringify(['ZOOM', 'ROTAÇÃO']), JSON.stringify(layout));
+/* tela larga (1280): só a faixa lateral tem os botões de nota; o painel de baixo fica com o resto */
+const lat = await page.evaluate(() => {
+  const l = document.querySelector('#lateral').getBoundingClientRect(), a = document.querySelector('#area').getBoundingClientRect();
+  return { visivel: l.width > 0, largura: l.width, aDireita: l.left >= a.right - 1, comps: getComputedStyle(document.querySelector('#comps')).display,
+    colunas: [...document.querySelectorAll('#lat-cols .tag')].map(t => t.textContent), botoes: document.querySelectorAll('#lat-c1 button').length,
+    voltar: document.querySelector('#voltar')?.getAttribute('href'), paleta: [...document.querySelectorAll('.mt-cor')].map(b => b.dataset.c) };
+});
+ok('Tela larga: faixa lateral estreita à direita da folha, com C1 a C5, e sem os botões no painel de baixo', lat.visivel && lat.largura <= 270 && lat.aDireita && lat.comps === 'none' && JSON.stringify(lat.colunas) === JSON.stringify(['C1', 'C2', 'C3', 'C4', 'C5']) && lat.botoes === 6, JSON.stringify(lat));
+if (process.env.ATLAS_PNG_DIR) await page.screenshot({ path: process.env.ATLAS_PNG_DIR + '/redacao-corrigir-lateral.png' });
+ok('Botão Voltar no alto, para as turmas, e paleta com 4 cores', lat.voltar === 'redacao.html' && JSON.stringify(lat.paleta) === JSON.stringify(['am', 'vd', 'az', 'rs']), JSON.stringify(lat));
+await page.locator('#lat-fechar').click();
+ok('Recolher a faixa devolve tudo ao painel de baixo (notas, motivo da C5, zerar, observações, botões)', await page.evaluate(() => document.querySelector('#lateral').getBoundingClientRect().width < 60 && !document.querySelector('#painel').hidden && getComputedStyle(document.querySelector('#comps')).display !== 'none' && !!document.querySelector('.bottom #c5-motivo-box') && !!document.querySelector('#painel-corpo .bottom #btn-concluir')));
+await page.locator('#lat-fechar').click();
+ok('Abrir de novo esconde os de baixo', await page.evaluate(() => getComputedStyle(document.querySelector('#comps')).display === 'none'));
+await page.setViewportSize({ width: 900, height: 800 });
+await page.waitForFunction(() => !document.querySelector('#painel').hidden, null, { timeout: 3000 }).catch(() => {});
+ok('Tela estreita: sem faixa lateral, avaliação no painel de baixo', await page.evaluate(() => getComputedStyle(document.querySelector('#lateral')).display === 'none' && !document.querySelector('#painel').hidden && getComputedStyle(document.querySelector('#comps')).display !== 'none' && !!document.querySelector('#painel-corpo .bottom #btn-concluir')));
+ok('Botão de pedir nova digitalização com esse nome (por dentro continua condenar)', (await page.locator('#btn-condenar').textContent()) === 'Pedir nova digitalização' && /digitalizada de novo/.test(await page.locator('#btn-condenar').getAttribute('title')));
+await page.setViewportSize({ width: 1280, height: 720 });
 await page.waitForFunction(() => document.querySelector('#timer').textContent !== '00:00', null, { timeout: 4000 }).catch(() => {});
 ok('Cronômetro anda', /^00:0[1-9]$/.test(await page.locator('#timer').textContent()), await page.locator('#timer').textContent());
-const clicarNota = (k, v) => page.locator('#sel-' + k + ' button[data-v="' + v + '"]').click();
+const clicarNota = (k, v) => page.locator('.notas[data-k="' + k + '"] button[data-v="' + v + '"]:visible').first().click();
 const valorDe = k => page.locator('#sel-' + k).getAttribute('data-valor');
-ok('C2 não mostra o botão 0', await page.locator('#sel-c2 button[data-v="0"]').isHidden() && await page.locator('#sel-c1 button[data-v="0"]').isVisible());
+ok('C2 não mostra o botão 0', (await page.locator('.notas[data-k="c2"] button[data-v="0"]:visible').count()) === 0 && (await page.locator('.notas[data-k="c1"] button[data-v="0"]:visible').count()) === 1);
 await clicarNota('c1', '160');await clicarNota('c1', '160');
 ok('Clicar de novo no mesmo botão desmarca', (await valorDe('c1')) === '' && !(await page.locator('#sel-c1 button.on').count()));
 await clicarNota('c1', '120');await clicarNota('c1', '160');
 ok('Clicar em outro botão troca a nota', (await valorDe('c1')) === '160' && (await page.locator('#sel-c1 button.on').count()) === 1 && (await page.locator('#sel-c1 button.on').textContent()) === '160');
+ok('Faixa lateral e painel de baixo mostram a mesma nota', (await page.locator('#lat-c1').getAttribute('data-valor')) === '160' && (await page.locator('#lat-c1 button.on').textContent()) === '160' && (await page.locator('#lat-c1').locator('..').getAttribute('class')).includes('feita'));
 for (const [k, v] of [['c2', '120'], ['c3', '120'], ['c4', '160']]) await clicarNota(k, v);
 ok('Total só aparece com as 5 notas', (await page.locator('#total').textContent()) === '—');
 await page.locator('#btn-concluir').click();
 ok('Concluir sem todas as notas avisa o que falta', /Falta a nota de: C5/.test(await page.locator('#status').textContent()));
 await clicarNota('c5', '0');
-ok('C5 = 0 mostra a lista de motivos', await page.locator('#c5-motivo').isVisible() && (await page.locator('#total').textContent()) === '560');
+ok('C5 = 0 mostra a lista de motivos, dentro da faixa lateral', await page.locator('#lateral #c5-motivo').isVisible() && (await page.locator('#total').textContent()) === '560' && (await page.locator('#lat-total').textContent()) === '560');
+ok('Competências com uma cor cada (C1 a C5), igual ao espelho', JSON.stringify(await page.evaluate(() => [...document.querySelectorAll('#lat-cols .lat-col')].map(c => getComputedStyle(c).getPropertyValue('--cor').trim()))) === JSON.stringify(['#f5c518', '#5cc27a', '#5aaee8', '#f29a4a', '#ec7fb6']));
+/* Voltar com alteração não salva: aviso na página, sem sair */
+await page.locator('#voltar').click();
+ok('Voltar com nota não salva: aviso na página e continua na correção', await page.locator('#sair').isVisible() && /redacao-corrigir\.html/.test(page.url()));
+await page.locator('#sair-nao').click();
+ok('"Ficar" fecha o aviso', await page.locator('#sair').isHidden());
 await page.locator('#btn-concluir').click();
 ok('Sem o motivo da C5, não envia', /motivo da nota zero na C5/.test(await page.locator('#status').textContent()));
 await page.locator('#c5-motivo').selectOption('proposta integralmente copiada da prova');
@@ -240,11 +271,19 @@ ok('Borracha apaga o destaque clicado', await page.evaluate(() => marcas.length)
 await page.locator('#mt-apagar').click();
 const pixel = await page.evaluate(() => { const c = document.querySelector('#folha'); const d = c.getContext('2d').getImageData(Math.round(c.width * 0.35), Math.round(c.height * 0.5), 1, 1).data; return [d[0], d[1], d[2]]; });
 ok('Destaque aparece amarelo na folha', pixel[2] < pixel[0] - 40, JSON.stringify(pixel));
+/* paleta: escolher o azul liga o marca-texto; o destaque sai azul e guarda a cor */
+await page.locator('.mt-cor[data-c="az"]').click();
+ok('Escolher uma cor liga o marca-texto com ela', (await page.locator('#mt-on').getAttribute('aria-pressed')) === 'true' && (await page.locator('.mt-cor[data-c="az"]').getAttribute('aria-pressed')) === 'true');
+await arrastar(0.8);
+const azul = await page.evaluate(() => { const c = document.querySelector('#folha'); const d = c.getContext('2d').getImageData(Math.round(c.width * 0.35), Math.round(c.height * 0.8), 1, 1).data; return { pixel: [d[0], d[1], d[2]], marcas }; });
+ok('Destaque azul na folha, com a cor guardada no destaque', azul.marcas.length === 2 && azul.marcas[1].c === 'az' && !('c' in azul.marcas[0]) && azul.pixel[2] > azul.pixel[0] + 20, JSON.stringify(azul));
+if (process.env.ATLAS_PNG_DIR) await page.screenshot({ path: process.env.ATLAS_PNG_DIR + '/redacao-corrigir-cores.png' });
+await page.locator('#mt-on').click();
 await page.locator('#btn-concluir').click();
 await page.waitForFunction(() => /ALUNO TESTE QUATRO/.test(document.querySelector('#aluno').textContent), null, { timeout: 15000 });
 const c3 = db.prepare('SELECT total, c5, c5_motivo, segundos FROM redacao_correcoes WHERE lote_id = ? AND pagina = 3').get(loteId);
 const mc3 = JSON.parse(db.prepare('SELECT marcacoes FROM redacao_correcoes WHERE lote_id = ? AND pagina = 3').get(loteId).marcacoes || '[]');
-ok('Destaques salvos com a correção (frações da folha)', mc3.length === 1 && Math.abs(mc3[0].x - 0.2) < 0.02 && Math.abs(mc3[0].w - 0.3) < 0.02 && mc3[0].h > 0 && mc3[0].h < 0.05, JSON.stringify(mc3));
+ok('Destaques salvos com a correção (frações da folha e cor)', mc3.length === 2 && Math.abs(mc3[0].x - 0.2) < 0.02 && Math.abs(mc3[0].w - 0.3) < 0.02 && mc3[0].h > 0 && mc3[0].h < 0.05 && !('c' in mc3[0]) && mc3[1].c === 'az', JSON.stringify(mc3));
 ok('Próxima folha abre sem destaques', await page.evaluate(() => marcas.length) === 0);
 ok('Concluir grava a nota com o tempo e vai para a próxima', c3.total === 560 && c3.c5 === 0 && c3.c5_motivo === 'proposta integralmente copiada da prova' && c3.segundos >= 1, JSON.stringify(c3));
 ok('Progresso da turma atualizado', /3 corrigidas \/ 4 folhas/.test(await page.locator('#prog-txt').textContent()), await page.locator('#prog-txt').textContent());
@@ -286,7 +325,7 @@ await page.reload();
 await page.waitForFunction(() => /ALUNO TESTE DOIS/.test(document.querySelector('#aluno').textContent), null, { timeout: 20000 });
 await page.locator('#btn-condenar').click();
 await page.locator('#cond-ok').click();
-ok('Condenar sem motivo avisa', /motivo para condenar/.test(await page.locator('#status').textContent()));
+ok('Pedir nova digitalização sem motivo avisa', /motivo do pedido de nova digitalização/.test(await page.locator('#status').textContent()));
 await page.locator('#cond-motivo').selectOption('erro de digitalização');
 await page.locator('#cond-ok').click();
 await page.locator('#fim').waitFor({ state: 'visible', timeout: 10000 });
@@ -303,7 +342,7 @@ await page.goto(base + '/redacao-lotes-admin.html');
 await page.locator('#app').waitFor({ state: 'visible' });
 await page.getByRole('button', { name: 'Folhas e dúvidas (1)' }).click();
 await page.locator('#fl-linhas tr').first().waitFor();
-ok('ADM vê a página condenada primeiro, com o motivo', /Condenada pela professora: erro de digitalização/.test(await page.locator('#fl-linhas tr').first().textContent()));
+ok('ADM vê a página condenada primeiro, com o motivo', /Nova digitalização pedida pela professora: erro de digitalização/.test(await page.locator('#fl-linhas tr').first().textContent()));
 ok('Folhas já corrigidas não têm botão de correção no ADM', await page.locator('#fl-linhas tr[data-pagina="1"]').getByRole('button', { name: 'Corrigir' }).count() === 0 && /corrigida pela professora/.test(await page.locator('#fl-linhas tr[data-pagina="1"]').textContent()));
 await page.locator('#fl-linhas tr').first().getByRole('button', { name: 'Devolver à professora' }).click();
 await page.waitForFunction(() => /devolvida à professora/.test(document.querySelector('#fl-status').textContent));

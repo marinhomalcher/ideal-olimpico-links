@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="pt-BR">
 <head>
-<meta name="atlas-versao" content="20261119a"><script src="atlas-versao.js?v=20261119a" defer></script><script src="atlas-alinhamento.js?v=20261119a"></script>
+<meta name="atlas-versao" content="20261119b"><script src="atlas-versao.js?v=20261119b" defer></script><script src="atlas-alinhamento.js?v=20261119b"></script>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow">
 <title>ATLAS | Meu desempenho</title>
 <style>
@@ -155,7 +155,7 @@ $('#m-recolher').addEventListener('click',async()=>{await liberar($('#m-prova').
 for(const id of ['#m-bim','#m-prova'])$(id).addEventListener('change',()=>{msg('#m-lib-status','');carregarEnviados().catch(e=>msg('#m-lib-status',e.message,true))});
 
 /* ---------- espelhos ---------- */
-const CORES=['#f5c518','#5cc27a','#5aaee8','#f29a4a','#ec7fb6'],COMPS=[['c1','Norma padrão'],['c2','Tema e tipo textual'],['c3','Argumentação'],['c4','Coesão textual'],['c5','Proposta de intervenção']];
+const CORES=A.CORES_COMP,COMPS=[['c1','Norma padrão'],['c2','Tema e tipo textual'],['c3','Argumentação'],['c4','Coesão textual'],['c5','Proposta de intervenção']];
 async function carregarEspelhos(){
   const bim=Number($('#e-bim').value),d=await api('/api/adm/desempenho/espelhos'),tb=$('#e-lotes');tb.replaceChildren();
   const lista=d.lotes.filter(l=>l.bimestre===bim);
@@ -185,7 +185,7 @@ function montarEspelho(folha,f,lote){
     if(k==='c5'&&f.c5_motivo){x.fillStyle='#a21923';x.font='24px Arial';for(const l of quebrar(x,'Motivo da nota zero na C5: '+f.c5_motivo,larg-80)){x.fillText(l,px+80,y-18);y+=30}y+=10}}
   if(f.observacao){y+=10;x.fillStyle='#12263a';x.font='bold 30px Arial';x.fillText('Observação da professora',px,y);y+=22;x.font='27px Arial';const ls=quebrar(x,f.observacao,larg-40),alt=ls.length*36+30;
     x.fillStyle='#fff7e6';x.fillRect(px,y,larg,alt);x.strokeStyle='#f0c36a';x.lineWidth=2;x.strokeRect(px,y,larg,alt);x.fillStyle='#30282b';let yy=y+42;for(const l of ls){x.fillText(l,px+20,yy);yy+=36}y+=alt+20}
-  if((f.marcacoes||[]).length){x.fillStyle='#5b6b7a';x.font='24px Arial';x.fillText('Os trechos em amarelo foram destacados pela professora.',px,Math.min(H-40,y+20))}
+  if((f.marcacoes||[]).length){x.fillStyle='#5b6b7a';x.font='24px Arial';x.fillText('Os trechos coloridos foram destacados pela professora.',px,Math.min(H-40,y+20))}
   return c}
 async function gerarEspelhos(l){
   if(ocupado)return;ocupado=true;document.querySelectorAll('#e-lotes button').forEach(b=>b.disabled=true);let feitos=0,falhas=0,doc;
@@ -196,7 +196,7 @@ async function gerarEspelhos(l){
     for(const [i,f] of d.folhas.entries()){
       msg('#e-status',`Gerando espelho ${i+1} de ${d.folhas.length}…`);
       try{const origem=await A.desenharPagina(doc,f.pagina,150),anal=A.analisar(origem),folha=A.desenhar(document.createElement('canvas'),origem,anal,{});
-        const ctx=folha.getContext('2d');ctx.save();ctx.globalCompositeOperation='multiply';ctx.fillStyle='#ffe066';for(const m of f.marcacoes||[])ctx.fillRect(m.x*folha.width,m.y*folha.height,m.w*folha.width,m.h*folha.height);ctx.restore();
+        const ctx=folha.getContext('2d');ctx.save();ctx.globalCompositeOperation='multiply';for(const m of f.marcacoes||[]){ctx.fillStyle=A.CORES_MARCA[m.c]||A.CORES_MARCA.am;ctx.fillRect(m.x*folha.width,m.y*folha.height,m.w*folha.width,m.h*folha.height)}ctx.restore();
         const esp=montarEspelho(folha,f,d.lote),blob=await paraJpeg(esp,.85);
         if(i===0){const p=$('#e-previa');if(p.src)URL.revokeObjectURL(p.src);p.src=URL.createObjectURL(blob);p.hidden=false}
         await enviarImagem(d.lote.bimestre,'ESPELHO',f.ra,1,blob);

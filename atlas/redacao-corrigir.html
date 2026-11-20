@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="pt-BR">
 <head>
-<meta name="atlas-versao" content="20261119a"><script src="atlas-versao.js?v=20261119a" defer></script><script src="atlas-alinhamento.js?v=20261119a"></script>
+<meta name="atlas-versao" content="20261119b"><script src="atlas-versao.js?v=20261119b" defer></script><script src="atlas-alinhamento.js?v=20261119b"></script>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="robots" content="noindex,nofollow"><title>ATLAS | Correção de redações</title>
 <style>
@@ -51,6 +51,22 @@ label.rot{font-size:13px;font-weight:700}
 .mt-bar .tool.on{background:#fff3c4;border-color:#e0b100}.mt-bar small{color:var(--muted);font-size:12px;margin-left:6px}
 #folha.marcando{cursor:crosshair;touch-action:none}#folha.apagando{cursor:pointer}
 #mt-previa{position:fixed;z-index:20;background:#ffd54a;opacity:.5;pointer-events:none;border-radius:2px}
+.voltar{border:1px solid #c8d4dc;background:#fff;border-radius:7px;padding:6px 10px;font-weight:700;color:var(--navy);text-decoration:none;white-space:nowrap}.voltar:hover{border-color:var(--navy)}
+.sair{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:8px 16px;background:#fff6f6;border-bottom:1px solid #edc5c8;font-size:14px}.sair button{border-radius:7px;padding:6px 10px;font-weight:700;border:1px solid #c8d4dc;background:#fff}.sair button.sim{background:#a01e2a;border-color:#a01e2a;color:#fff}
+.mt-paleta{display:inline-flex;gap:5px;align-items:center;margin:0 4px}.mt-cor{width:26px;height:26px;border-radius:50%;border:2px solid #fff;box-shadow:0 0 0 1px #c8d4dc;padding:0}.mt-cor.on{box-shadow:0 0 0 2px var(--navy)}.mt-cor:disabled{opacity:.45;cursor:not-allowed}
+.folha-wrap{display:flex;align-items:flex-start}.folha-wrap .folha-area{flex:1 1 auto;min-width:0}
+.lateral{display:none;flex:0 0 260px;width:260px;position:sticky;top:8px;align-self:flex-start;max-height:calc(100vh - 16px);overflow:auto;background:#fff;border-left:1px solid var(--line);padding:8px 6px;flex-direction:column;gap:7px}
+.lat-topo{display:flex;align-items:center;justify-content:space-between;gap:6px}.lat-total{font-size:10px;color:var(--muted);font-weight:700;letter-spacing:.04em}.lat-total b{display:block;font-size:19px;color:var(--navy);line-height:1.1}
+.lat-fechar{border:1px solid #c8d4dc;background:#fff;border-radius:6px;width:24px;height:24px;padding:0;font-weight:900;color:var(--muted)}
+.lat-cols{display:grid;grid-template-columns:repeat(5,1fr);gap:4px}.lat-col{display:grid;gap:3px;align-content:start}.lat-col .tag{text-align:center;font-size:11px;font-weight:900;color:var(--muted);background:var(--soft);border-radius:5px;padding:3px 0;cursor:help}
+.lateral .notas{grid-template-columns:1fr;gap:3px}.lateral .notas button{height:26px;font-size:12px;border-radius:6px}
+.comp .tag,.lat-col .tag{background:var(--cor,var(--soft));color:#1b2a36}.comp.feita .tag,.lat-col.feita .tag{box-shadow:0 0 0 2px var(--navy)}
+.lateral .motivo{grid-column:auto;min-width:0}.lateral .motivo select{width:100%;max-width:100%;font-size:12px;padding:5px 4px;font-weight:400}
+.lateral .bottom{grid-template-columns:1fr;gap:8px}.lateral .bottom .zero select{min-height:0;font-size:12px;padding:6px 4px}.lateral .bottom .obs label{font-size:11px}.lateral .bottom textarea{min-height:52px;font-size:12px}
+.lateral .acoes{flex-direction:column;gap:6px}.lateral .acoes .concluir{order:-1}.lateral .acoes button{white-space:normal;padding:9px 6px}.lateral .cond{padding:8px}.lateral .cond label{font-size:12px}.lateral .status{font-size:13px}.lateral .aviso{font-size:12px;padding:6px 8px}
+.lat-prog{font-size:11px;color:var(--muted);border-top:1px solid var(--line);padding-top:6px}.lat-prog b{color:var(--navy)}
+.lateral.fechada .lat-cols,.lateral.fechada .lat-total,.lateral.fechada .motivo,.lateral.fechada .lat-resto,.lateral.fechada .lat-prog{display:none}.lateral.fechada{padding:8px 4px;flex-basis:36px;width:36px}
+@media(min-width:1100px){.lateral{display:flex}body:not(.lat-fechada) #comps{display:none}}
 @media(max-width:1450px){#comps{grid-template-columns:repeat(3,minmax(0,1fr))}.bottom{grid-template-columns:1fr 1fr}.bottom .acoes{grid-column:1/-1}}
 @media(max-width:1000px){.school-logo{display:none}.folha-bar{align-items:flex-start}.tools{width:100%}.mt-bar small{display:none}}
 @media(max-width:750px){#comps{grid-template-columns:repeat(2,minmax(0,1fr))}.bottom{grid-template-columns:1fr}.bottom .acoes{grid-column:auto}.prog{width:100%;margin-left:0}.grade-head{align-items:flex-start;flex-wrap:wrap}}
@@ -63,20 +79,22 @@ label.rot{font-size:13px;font-weight:700}
 <p id="erro-geral" class="status error" style="padding:10px 24px" role="alert"></p>
 <main id="app" class="page-width" hidden>
 <section class="card folha-card"><div class="folha-bar">
-<div class="topo"><div><small id="pos">REDAÇÃO</small><h2 id="aluno"></h2><div class="sub"><span id="sub"></span> · <span id="folha-info"></span></div></div><div class="timer" id="timer-box"><small id="timer-rot">TEMPO DE CORREÇÃO</small><b id="timer">00:00</b></div></div>
+<div class="topo"><a class="voltar" id="voltar" href="redacao.html" title="Voltar às suas turmas">← Voltar</a><div><small id="pos">REDAÇÃO</small><h2 id="aluno"></h2><div class="sub"><span id="sub"></span> · <span id="folha-info"></span></div></div><div class="timer" id="timer-box"><small id="timer-rot">TEMPO DE CORREÇÃO</small><b id="timer">00:00</b></div></div>
 <div class="tools"><div class="tool-group"><label>ZOOM</label><button type="button" class="tool on" id="z-pagina">Página inteira</button><button type="button" class="tool" id="z-menos" aria-label="Diminuir zoom">−</button><span class="tool-val" id="z-val">100%</span><button type="button" class="tool" id="z-mais" aria-label="Aumentar zoom">+</button></div>
 <span class="tool-divider" aria-hidden="true"></span><div class="tool-group"><label>ROTAÇÃO</label><button type="button" class="tool" id="a-menos" title="Girar 0,25° no sentido anti-horário">↶ −0,25°</button><span class="tool-val" id="a-val">0,00°</span><button type="button" class="tool" id="a-mais" title="Girar 0,25° no sentido horário">+0,25° ↷</button><button type="button" class="tool" id="a-auto" title="Volta ao alinhamento automático">Auto</button></div></div></div>
-<div class="mt-bar" id="mt-bar"><button type="button" class="tool" id="mt-on" aria-pressed="false">🖍 Marca-texto</button><button type="button" class="tool" id="mt-apagar" aria-pressed="false">Borracha</button><button type="button" class="tool" id="mt-desfazer">↺ Desfazer</button><small id="mt-info">Ligue o marca-texto e arraste sobre a linha. O aluno verá os destaques no espelho.</small><div class="prog"><span>Progresso da turma · <button type="button" class="lista-btn" id="abrir-lista">ver lista</button></span><b id="prog-txt"></b></div><div class="barra"><span id="prog-barra"></span></div></div>
-<div class="folha-area" id="area"><canvas id="folha" width="10" height="14" aria-label="Folha da redação"></canvas></div></section>
+<div class="mt-bar" id="mt-bar"><button type="button" class="tool" id="mt-on" aria-pressed="false">🖍 Marca-texto</button><span class="mt-paleta" id="mt-paleta" role="group" aria-label="Cor do marca-texto"></span><button type="button" class="tool" id="mt-apagar" aria-pressed="false">Borracha</button><button type="button" class="tool" id="mt-desfazer">↺ Desfazer</button><small id="mt-info">Ligue o marca-texto e arraste sobre a linha. O aluno verá os destaques, com as cores, no espelho.</small><div class="prog"><span>Progresso da turma · <button type="button" class="lista-btn" id="abrir-lista">ver lista</button></span><b id="prog-txt"></b></div><div class="barra"><span id="prog-barra"></span></div></div>
+<div class="sair" id="sair" hidden role="alert"><span>Há alterações nesta redação que ainda não foram salvas.</span><button type="button" class="sim" id="sair-ok">Sair sem salvar</button><button type="button" id="sair-nao">Ficar</button></div>
+<div class="folha-wrap"><div class="folha-area" id="area"><canvas id="folha" width="10" height="14" aria-label="Folha da redação"></canvas></div>
+<aside class="lateral" id="lateral" aria-label="Notas das competências"><div class="lat-topo"><span class="lat-total">TOTAL<b id="lat-total">—</b></span><button type="button" class="lat-fechar" id="lat-fechar" title="Recolher as notas da lateral" aria-expanded="true">›</button></div><div class="lat-cols" id="lat-cols"></div><div id="lat-motivo"></div><div class="lat-resto" id="lat-resto"></div><div class="lat-prog">Progresso da turma · <b id="lat-prog"></b></div></aside></div></section>
 <section class="card painel" id="painel">
 <div class="grade-head"><div><h2>Avaliação desta redação</h2><p>Após ler a folha, registre as cinco competências e conclua a correção.</p></div><div class="total"><span>Nota total</span><span><b id="total">—</b> <small>/ 1000</small></span></div></div>
-<p class="aviso" id="aviso-estado" hidden></p>
+<div id="painel-antes"><p class="aviso" id="aviso-estado" hidden></p></div>
 <div id="comps"></div>
-<div class="bottom"><div class="zero"><select id="zero" aria-label="Zerar a redação inteira por critério"></select></div>
+<div id="painel-corpo"><div class="bottom"><div class="zero"><select id="zero" aria-label="Zerar a redação inteira por critério"></select></div>
 <div class="obs"><label class="rot" for="obs">Observações para a correção (opcional)</label><textarea id="obs" maxlength="1000"></textarea></div>
-<div class="acoes"><button type="button" class="condenar" id="btn-condenar">⚠ Condenar página</button><button type="button" class="concluir" id="btn-concluir">Concluir e ir para a próxima →</button></div></div>
-<div class="cond" id="cond" hidden><label class="rot" for="cond-motivo">Motivo para condenar esta página (ela vai para o ADM)</label><select id="cond-motivo"></select><div><button type="button" class="condenar" id="cond-ok">Condenar página</button><button type="button" class="tool" id="cond-nao">Voltar</button></div></div>
-<p id="status" class="status" role="status"></p>
+<div class="acoes"><button type="button" class="condenar" id="btn-condenar" title="A folha volta ao ADM para ser digitalizada de novo, mais nítida.">Pedir nova digitalização</button><button type="button" class="concluir" id="btn-concluir">Concluir e ir para a próxima →</button></div></div>
+<div class="cond" id="cond" hidden><label class="rot" for="cond-motivo">Motivo do pedido de nova digitalização (a folha volta ao ADM, mais nítida)</label><select id="cond-motivo"></select><div><button type="button" class="condenar" id="cond-ok">Pedir nova digitalização</button><button type="button" class="tool" id="cond-nao">Cancelar</button></div></div>
+<p id="status" class="status" role="status"></p></div>
 </section>
 </main>
 <div id="mt-previa" hidden></div>
@@ -89,7 +107,9 @@ const $=s=>document.querySelector(s),A=window.AtlasAlinhamento;
 const UN={BC:'Batista Campos',AM:'Augusto Montenegro',CN:'Cidade Nova'};
 const COMPS=[['c1','Norma padrão','Domínio da escrita formal'],['c2','Tema e tipo textual','Compreensão da proposta'],['c3','Argumentação','Organização das ideias'],['c4','Coesão textual','Ligação entre as partes'],['c5','Proposta de intervenção','Se a nota for 0, informar o motivo']];
 const ESCALA=[0,40,80,120,160,200],ESCALA_C2=[40,80,120,160,200];
-let L=null,doc=null,atual=null,origem=null,anal=null,ajuste=0,zoom='pagina',inicio=0,relogio=null,enviando=false;
+/* Cores do marca-texto (livres, sem significado fixo). Guardadas em cada destaque como c; sem c = amarelo (destaques antigos). */
+const CORES_MT=A.CORES_MARCA,NOMES_MT={am:'Amarelo',vd:'Verde',az:'Azul',rs:'Rosa'};let corMT='am',limpo='';
+let L=null,doc=null,atual=null,origem=null,anal=null,ajuste=0,zoom='pagina',inicio=0,relogio=null,enviando=false,marcas=[],modo,arraste;
 const loteId=Number(new URLSearchParams(location.search).get('lote'));
 function msg(t,tipo=''){const e=$('#status');e.textContent=t||'';e.className='status '+tipo}
 function graus(g){return (g>0?'+':g<0?'−':'')+Math.abs(g).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})+'°'}
@@ -98,29 +118,56 @@ async function api(path,opt={}){let r,d;try{r=await fetch(API+path,{...opt,heade
 /* ---------- painel de notas ---------- */
 function montarPainel(){
   const box=$('#comps');box.replaceChildren();
-  for(const [k,t,s] of COMPS){
-    const row=document.createElement('div');row.className='comp';row.innerHTML='<span class="tag"></span><span><strong></strong><small></small></span>';
+  for(const [i,[k,t,s]] of COMPS.entries()){
+    const row=document.createElement('div');row.className='comp';row.style.setProperty('--cor',A.CORES_COMP[i]);row.innerHTML='<span class="tag"></span><span><strong></strong><small></small></span>';
     row.querySelector('.tag').textContent=k.toUpperCase();row.querySelector('strong').textContent=t;row.querySelector('small').textContent=s;
     /* Notas por botões: clicar marca; clicar de novo no mesmo desmarca; clicar em outro troca. */
-    const g=document.createElement('div');g.className='notas';g.id='sel-'+k;g.dataset.valor='';g.setAttribute('role','group');g.setAttribute('aria-label','Nota da '+k.toUpperCase());
-    for(const v of ESCALA){const b=document.createElement('button');b.type='button';b.textContent=String(v);b.dataset.v=String(v);b.setAttribute('aria-pressed','false');
-      if(k==='c2'&&v===0){b.className='vaga';b.tabIndex=-1;b.setAttribute('aria-hidden','true')}
-      else b.addEventListener('click',()=>{marcarNota(k,g.dataset.valor===String(v)?'':String(v));recalcular()});g.append(b)}
-    row.append(g);box.append(row);
-    if(k==='c5'){const m=document.createElement('div');m.className='motivo';m.id='c5-motivo-box';m.hidden=true;const ms=document.createElement('select');ms.id='c5-motivo';ms.setAttribute('aria-label','Motivo da nota zero na C5');ms.append(new Option('Motivo da nota zero na C5…',''));for(const x of L.motivos.c5)ms.append(new Option(x,x));m.append(ms);box.append(m)}
+    row.append(grupoNotas(k,'sel-'+k));box.append(row);
+    /* Faixa lateral (telas largas): a mesma escala numa coluna estreita, ao lado da folha. */
+    const col=document.createElement('div');col.className='lat-col';col.style.setProperty('--cor',A.CORES_COMP[i]);col.innerHTML='<span class="tag"></span>';col.querySelector('.tag').textContent=k.toUpperCase();col.querySelector('.tag').title=t+' · '+s;
+    col.append(grupoNotas(k,'lat-'+k));$('#lat-cols').append(col);
+    if(k==='c5'){const m=document.createElement('div');m.className='motivo';m.id='c5-motivo-box';m.hidden=true;const ms=document.createElement('select');ms.id='c5-motivo';ms.setAttribute('aria-label','Motivo da nota zero na C5');ms.append(new Option('Motivo da nota zero na C5…',''));for(const x of L.motivos.c5)ms.append(new Option(x,x));m.append(ms);$('.bottom').prepend(m)}
   }
+  colocarMotivo();
+  const pal=$('#mt-paleta');pal.replaceChildren();for(const c of Object.keys(CORES_MT)){const b=document.createElement('button');b.type='button';b.className='mt-cor';b.dataset.c=c;b.style.background=CORES_MT[c];b.title=NOMES_MT[c];b.setAttribute('aria-label','Marca-texto '+NOMES_MT[c].toLowerCase());b.addEventListener('click',()=>{corMT=c;corPaleta();modoMT('marcar')});pal.append(b)}corPaleta();
   $('#zero').replaceChildren(new Option('Zerar a redação inteira por critério…',''),...L.motivos.zero.map(x=>new Option(x,x)));
   $('#zero').addEventListener('change',recalcular);
   $('#cond-motivo').replaceChildren(new Option('Escolha o motivo…',''),...L.motivos.condenar.map(x=>new Option(x,x)));
 }
-function marcarNota(k,v){const g=$('#sel-'+k);g.dataset.valor=v;for(const b of g.querySelectorAll('button[data-v]')){const on=b.dataset.v===v;b.classList.toggle('on',on);b.setAttribute('aria-pressed',String(on))}g.closest('.comp').classList.toggle('feita',v!=='')}
+function grupoNotas(k,id){
+  const g=document.createElement('div');g.className='notas';g.id=id;g.dataset.k=k;g.dataset.valor='';g.setAttribute('role','group');g.setAttribute('aria-label','Nota da '+k.toUpperCase());
+  for(const v of ESCALA){const b=document.createElement('button');b.type='button';b.textContent=String(v);b.dataset.v=String(v);b.setAttribute('aria-pressed','false');
+    if(k==='c2'&&v===0){b.className='vaga';b.tabIndex=-1;b.setAttribute('aria-hidden','true')}
+    else b.addEventListener('click',()=>{marcarNota(k,g.dataset.valor===String(v)?'':String(v));recalcular()});g.append(b)}
+  return g}
+/* A nota vale para os dois grupos da competência (painel de baixo e faixa lateral), sempre iguais. */
+function marcarNota(k,v){for(const g of document.querySelectorAll('.notas[data-k="'+k+'"]')){g.dataset.valor=v;for(const b of g.querySelectorAll('button[data-v]')){const on=b.dataset.v===v;b.classList.toggle('on',on);b.setAttribute('aria-pressed',String(on))}g.closest('.comp,.lat-col').classList.toggle('feita',v!=='')}}
+function corPaleta(){for(const b of document.querySelectorAll('.mt-cor')){const on=b.dataset.c===corMT;b.classList.toggle('on',on);b.setAttribute('aria-pressed',String(on))}}
+/* O motivo do zero na C5 fica logo abaixo das notas: na faixa quando ela está em uso, senão no painel de baixo (como no Inep). */
+function colocarMotivo(){const naFaixa=matchMedia('(min-width:1100px)').matches&&!$('#lateral').classList.contains('fechada');
+  const m=$('#c5-motivo-box');if(m){const alvo=naFaixa?$('#lat-motivo'):$('.bottom');if(m.parentElement!==alvo){if(naFaixa)alvo.append(m);else alvo.prepend(m)}}
+  /* Com a faixa em uso, toda a avaliação (aviso, zerar, observações, botões, pedido de nova digitalização, status) vai para ela e o painel de baixo some. */
+  const alvo=naFaixa?$('#lat-resto'):null;
+  for(const [sel,volta] of [['#aviso-estado','#painel-antes'],['.bottom','#painel-corpo'],['#cond','#painel-corpo'],['#status','#painel-corpo']]){const p=$(sel),dest=alvo||$(volta);if(p.parentElement!==dest)dest.append(p)}
+  $('#painel').hidden=naFaixa}
+addEventListener('resize',colocarMotivo);
+function lateral(fechada){$('#lateral').classList.toggle('fechada',fechada);document.body.classList.toggle('lat-fechada',fechada);const b=$('#lat-fechar');b.textContent=fechada?'‹':'›';b.title=fechada?'Mostrar as notas na lateral':'Recolher as notas da lateral';b.setAttribute('aria-expanded',String(!fechada));
+  try{localStorage.setItem('atlas_redacao_lateral',fechada?'fechada':'aberta')}catch{}colocarMotivo();if(origem)desenhar()}
+$('#lat-fechar').addEventListener('click',()=>lateral(!$('#lateral').classList.contains('fechada')));
+try{if(localStorage.getItem('atlas_redacao_lateral')==='fechada')lateral(true)}catch{}
+/* Voltar: com alteração ainda não salva, pede confirmação na própria página (sem confirm()). */
+function foto(){return JSON.stringify([valores(),$('#zero').value,$('#obs').value,$('#c5-motivo')?.value||'',marcas])}
+$('#voltar').addEventListener('click',e=>{if(travada()||foto()===limpo)return;e.preventDefault();$('#sair').hidden=false;$('#sair-nao').focus()});
+$('#sair-ok').addEventListener('click',()=>{location.href='redacao.html'});
+$('#sair-nao').addEventListener('click',()=>{$('#sair').hidden=true});
 function valores(){const v={};for(const [k] of COMPS)v[k]=$('#sel-'+k).dataset.valor;return v}
 function recalcular(){
-  const zero=$('#zero').value;for(const [k] of COMPS)for(const b of $('#sel-'+k).querySelectorAll('button:not(.vaga)'))b.disabled=!!zero||travada();
+  const zero=$('#zero').value;for(const [k] of COMPS)for(const b of document.querySelectorAll('.notas[data-k="'+k+'"] button:not(.vaga)'))b.disabled=!!zero||travada();
   const v=valores();$('#c5-motivo-box').hidden=!!zero||v.c5!=='0';
-  if(zero){$('#total').textContent='0';return}
-  if($('#zero').dataset.motivoAntigo&&COMPS.every(([k])=>v[k]==='')){$('#total').textContent='0';return}
-  const ok=COMPS.every(([k])=>v[k]!=='');$('#total').textContent=ok?String(COMPS.reduce((s,[k])=>s+Number(v[k]),0)):'—';
+  const total=t=>{$('#total').textContent=t;$('#lat-total').textContent=t};
+  if(zero){total('0');return}
+  if($('#zero').dataset.motivoAntigo&&COMPS.every(([k])=>v[k]==='')){total('0');return}
+  const ok=COMPS.every(([k])=>v[k]!=='');total(ok?String(COMPS.reduce((s,[k])=>s+Number(v[k]),0)):'—');
 }
 const travada=()=>atual?.estado==='condenada';
 function preencher(f){
@@ -129,10 +176,11 @@ function preencher(f){
   for(const [k] of COMPS)marcarNota(k,f[k]==null?'':String(f[k]));
   marcas=(f.marcacoes||[]).map(m=>({...m}));modoMT('');
   $('#c5-motivo').value=f.c5_motivo||'';$('#obs').value=f.observacao||'';$('#cond').hidden=true;recalcular();
-  const trava=travada();for(const id of ['#zero','#obs','#c5-motivo','#btn-concluir','#btn-condenar','#mt-on','#mt-apagar','#mt-desfazer'])$(id).disabled=trava;
+  const trava=travada();for(const id of ['#zero','#obs','#c5-motivo','#btn-concluir','#btn-condenar','#mt-on','#mt-apagar','#mt-desfazer'])$(id).disabled=trava;for(const b of document.querySelectorAll('.mt-cor'))b.disabled=trava;
+  $('#sair').hidden=true;limpo=foto();
   $('#btn-concluir').textContent=f.estado==='pendente'?'Concluir e ir para a próxima →':'Salvar revisão →';
   const av=$('#aviso-estado');av.hidden=f.estado==='pendente';
-  av.textContent=f.estado==='condenada'?'Página condenada ('+(f.condenada_motivo||'')+'). Ela está com o ADM.':f.estado==='corrigida'?'Redação já corrigida. Você pode revisar as notas; o tempo da primeira correção fica guardado.':'';
+  av.textContent=f.estado==='condenada'?'Nova digitalização pedida ('+(f.condenada_motivo||'')+'). A folha está com o ADM.':f.estado==='corrigida'?'Redação já corrigida. Você pode revisar as notas; o tempo da primeira correção fica guardado.':'';
   if(motivoAntigo)av.textContent+=' Motivo anterior: '+motivoAntigo+'. Para salvar uma revisão, escolha um dos motivos atuais.';
 }
 /* ---------- cronômetro: começa ao abrir, sem pausa; fechar a página zera ---------- */
@@ -155,10 +203,10 @@ $('#a-mais').addEventListener('click',()=>{ajuste=Math.round((ajuste+0.25)*100)/
 $('#a-menos').addEventListener('click',()=>{ajuste=Math.round((ajuste-0.25)*100)/100;desenhar()});
 $('#a-auto').addEventListener('click',()=>{ajuste=0;desenhar()});
 /* ---------- marca-texto: faixas retas amarelas, guardadas em frações da folha (0 a 1) ---------- */
-let marcas=[],modo='',arraste=null;const ALT_FAIXA=0.018;
-function pintarMarcas(){const c=$('#folha'),ctx=c.getContext('2d');ctx.save();ctx.globalCompositeOperation='multiply';ctx.fillStyle='#ffe066';
-  for(const m of marcas)ctx.fillRect(m.x*c.width,m.y*c.height,m.w*c.width,m.h*c.height);ctx.restore();
-  $('#mt-info').textContent=modo==='marcar'?'Arraste sobre a linha para destacar.':modo==='apagar'?'Clique num destaque para apagar.':(marcas.length?marcas.length+(marcas.length===1?' destaque nesta folha.':' destaques nesta folha.'):'Ligue o marca-texto e arraste sobre a linha. O aluno verá os destaques no espelho.')}
+modo='';arraste=null;const ALT_FAIXA=0.018;
+function pintarMarcas(){const c=$('#folha'),ctx=c.getContext('2d');ctx.save();ctx.globalCompositeOperation='multiply';
+  for(const m of marcas){ctx.fillStyle=CORES_MT[m.c]||CORES_MT.am;ctx.fillRect(m.x*c.width,m.y*c.height,m.w*c.width,m.h*c.height)}ctx.restore();
+  $('#mt-info').textContent=modo==='marcar'?'Arraste sobre a linha para destacar.':modo==='apagar'?'Clique num destaque para apagar.':(marcas.length?marcas.length+(marcas.length===1?' destaque nesta folha.':' destaques nesta folha.'):'Ligue o marca-texto, escolha a cor e arraste sobre a linha. O aluno verá os destaques no espelho.')}
 function modoMT(m){modo=m;const c=$('#folha');c.classList.toggle('marcando',m==='marcar');c.classList.toggle('apagando',m==='apagar');
   for(const [id,on] of [['#mt-on',m==='marcar'],['#mt-apagar',m==='apagar']]){$(id).classList.toggle('on',on);$(id).setAttribute('aria-pressed',String(on))}if(origem)desenhar()}
 $('#mt-on').addEventListener('click',()=>modoMT(modo==='marcar'?'':'marcar'));
@@ -170,15 +218,15 @@ $('#folha').addEventListener('pointerdown',e=>{if(!origem||travada())return;cons
   if(modo!=='marcar')return;e.preventDefault();$('#folha').setPointerCapture(e.pointerId);arraste={x0:p.x,y:p.y,x1:p.x};previa()});
 $('#folha').addEventListener('pointermove',e=>{if(!arraste)return;arraste.x1=pontoFolha(e).x;previa()});
 function previa(){const pv=$('#mt-previa');if(!arraste){pv.hidden=true;return}const r=$('#folha').getBoundingClientRect();const x=Math.min(arraste.x0,arraste.x1),w=Math.abs(arraste.x1-arraste.x0);
-  Object.assign(pv.style,{left:(r.left+x*r.width)+'px',top:(r.top+(arraste.y-ALT_FAIXA/2)*r.height)+'px',width:Math.max(2,w*r.width)+'px',height:(ALT_FAIXA*r.height)+'px'});pv.hidden=false}
+  Object.assign(pv.style,{background:CORES_MT[corMT],left:(r.left+x*r.width)+'px',top:(r.top+(arraste.y-ALT_FAIXA/2)*r.height)+'px',width:Math.max(2,w*r.width)+'px',height:(ALT_FAIXA*r.height)+'px'});pv.hidden=false}
 function soltar(){if(!arraste)return;const x=Math.min(arraste.x0,arraste.x1),w=Math.abs(arraste.x1-arraste.x0);
-  if(w>=0.01){const y=Math.min(1-ALT_FAIXA,Math.max(0,arraste.y-ALT_FAIXA/2));marcas.push({x:+x.toFixed(4),y:+y.toFixed(4),w:+Math.min(w,1-x).toFixed(4),h:ALT_FAIXA})}
+  if(w>=0.01){const y=Math.min(1-ALT_FAIXA,Math.max(0,arraste.y-ALT_FAIXA/2));marcas.push({x:+x.toFixed(4),y:+y.toFixed(4),w:+Math.min(w,1-x).toFixed(4),h:ALT_FAIXA,...(corMT!=='am'?{c:corMT}:{})})}
   arraste=null;previa();desenhar()}
 $('#folha').addEventListener('pointerup',soltar);$('#folha').addEventListener('pointercancel',()=>{arraste=null;previa()});
 $('#area').addEventListener('scroll',()=>{if(arraste)previa()});
 addEventListener('resize',()=>{if(zoom==='pagina')desenhar()});
 
-function progresso(){const p=L.progresso,feitas=p.corrigidas+p.condenadas;$('#prog-txt').textContent=`${p.corrigidas} corrigidas / ${p.folhas} folhas`+(p.condenadas?` · ${p.condenadas} condenadas`:'');$('#prog-barra').style.width=(p.folhas?feitas/p.folhas*100:0)+'%'}
+function progresso(){const p=L.progresso,feitas=p.corrigidas+p.condenadas;$('#prog-txt').textContent=$('#lat-prog').textContent=`${p.corrigidas} corrigidas / ${p.folhas} folhas`+(p.condenadas?` · ${p.condenadas} para digitalizar de novo`:'');$('#prog-barra').style.width=(p.folhas?feitas/p.folhas*100:0)+'%'}
 async function abrir(f){
   atual=f;$('#fim').hidden=true;$('#app').hidden=false;msg('Abrindo a folha…');
   const idx=L.folhas.indexOf(f)+1;$('#pos').textContent=`REDAÇÃO ${idx} DE ${L.folhas.length}`;$('#aluno').textContent=f.nome||('RA '+f.ra);
@@ -209,10 +257,10 @@ $('#btn-concluir').addEventListener('click',()=>{
 });
 $('#btn-condenar').addEventListener('click',()=>{$('#cond').hidden=false;$('#cond-motivo').focus()});
 $('#cond-nao').addEventListener('click',()=>{$('#cond').hidden=true});
-$('#cond-ok').addEventListener('click',()=>{const m=$('#cond-motivo').value;if(!m)return msg('Escolha o motivo para condenar a página.','error');enviar({condenar:true,motivo:m,observacao:$('#obs').value},'Página condenada e enviada ao ADM.')});
+$('#cond-ok').addEventListener('click',()=>{const m=$('#cond-motivo').value;if(!m)return msg('Escolha o motivo do pedido de nova digitalização.','error');enviar({condenar:true,motivo:m,observacao:$('#obs').value},'Pedido de nova digitalização enviado ao ADM.')});
 /* ---------- lista do lote ---------- */
 function abrirLista(){const ol=$('#lista-itens');ol.replaceChildren();for(const [i,f] of L.folhas.entries()){const li=document.createElement('li'),b=document.createElement('button');b.type='button';if(f===atual)b.className='atual';
-  const a=document.createElement('span');a.textContent=(i+1)+'. '+(f.nome||'RA '+f.ra);const e=document.createElement('span');e.className='est-'+f.estado;e.textContent=f.estado==='corrigida'?f.total+' pontos':f.estado==='condenada'?'condenada':'pendente';
+  const a=document.createElement('span');a.textContent=(i+1)+'. '+(f.nome||'RA '+f.ra);const e=document.createElement('span');e.className='est-'+f.estado;e.textContent=f.estado==='corrigida'?f.total+' pontos':f.estado==='condenada'?'nova digitalização':'pendente';
   b.append(a,e);b.addEventListener('click',()=>{$('#lista').hidden=true;abrir(f)});li.append(b);ol.append(li)}$('#lista').hidden=false}
 $('#abrir-lista').addEventListener('click',abrirLista);$('#fim-lista').addEventListener('click',abrirLista);$('#fechar-lista').addEventListener('click',()=>{$('#lista').hidden=true});
 document.addEventListener('keydown',e=>{if(e.key==='Escape')$('#lista').hidden=true});
