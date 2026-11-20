@@ -6,6 +6,7 @@ import { encerrarAnoAutomatico } from './redacao-encerrar.js';
 import { rotaDesempenhoAdm, rotaDesempenhoPortal } from './desempenho.js';
 import { rotaCertificadosPortal } from './certificados.js';
 import { listarPessoas, salvarPessoa } from './pessoas.js';
+import { rotaPessoasPlanilha } from './pessoas-planilha.js';
 // Administração: login "Entrar com Google", liberado SOMENTE para o e-mail em ADMIN_EMAIL.
 // Professores e Supervisores: login por código no e-mail institucional.
 // Questões: enviadas pelo Professor e analisadas pelo Supervisor da disciplina (tabelas itens/item_versoes/revisoes).
@@ -2409,6 +2410,11 @@ async function rotasAdm(request, env, path) {
   /* Cadastros e funções: cadastro único de pessoas (várias funções por pessoa). */
   if (path === '/api/adm/pessoas' && request.method === 'GET') {
     return { ok: true, disciplinas: DISCIPLINAS, pessoas: await listarPessoas(env) };
+  }
+  /* Pessoas pela planilha: prévia (só confere) e importação (grava pelo mesmo salvarPessoa). */
+  if ((path === '/api/adm/pessoas/previa' || path === '/api/adm/pessoas/importar') && request.method === 'POST') {
+    const body = await readJson(request, 2 * 1024 * 1024);
+    return await rotaPessoasPlanilha(env, path, body, { limparNome, limparEmail, limparAcessoAte, emailEmUso, DISCIPLINAS, registrar, sessao, hojeSP });
   }
   const pessoaMatch = path.match(/^\/api\/adm\/pessoas(?:\/(\d+))?$/);
   if (pessoaMatch && ((request.method === 'POST' && !pessoaMatch[1]) || (request.method === 'PUT' && pessoaMatch[1]))) {
