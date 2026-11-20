@@ -68,10 +68,18 @@ window.folhaTeste = function (op = {}) {
   /* rodapé com logos vermelhos */
   x.fillStyle = '#c8102e'; x.font = 'bold 40px Arial'; x.fillText('enem', 0.40 * W, 0.935 * H); x.fillText('ideal', 0.80 * W, 0.935 * H);
   x.beginPath(); x.arc(0.15 * W, 0.925 * H, 22, 0, 7); x.fill();
-  /* marcadores em "L" (por último, como na impressão): braço 0,0345 da largura, espessura 0,0036 */
+  /* marcadores em "L" (por último, como na impressão): braço 0,0345 da largura, espessura 0,0036.
+     op.fracos: lista de cantos impressos fracos, como nas folhas reais de 11/2026 (traço de 2 px,
+     braço horizontal pontilhado). */
   const L = 0.0345 * W, T = 0.0036 * W; x.fillStyle = '#000';
   for (const [k, [fx, fy]] of Object.entries(A.MODELO.cantos)) {
     const [px, py] = P(fx, fy), dx = k[1] === 'e' ? 1 : -1, dy = k[0] === 's' ? 1 : -1;
+    if ((op.fracos || []).includes(k)) {
+      const t = 2;
+      for (let u = 0; u < L; u += 5) x.fillRect(dx > 0 ? px + u : px - u - 3, dy > 0 ? py : py - t, 3, t);
+      x.fillRect(dx > 0 ? px : px - t, dy > 0 ? py : py - L, t, L);
+      continue;
+    }
     x.fillRect(dx > 0 ? px : px - L, dy > 0 ? py : py - T, L, T);
     x.fillRect(dx > 0 ? px : px - T, dy > 0 ? py : py - L, T, L);
   }

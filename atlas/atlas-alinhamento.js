@@ -26,30 +26,29 @@
     for (let k = 0; k < 256; k++) { acum += hist[k]; if (acum >= n * 0.9) { papel = k; break; } }
     const limite = Math.max(40, papel * 0.55), b = new Uint8Array(n);
     for (let i = 0; i < n; i++) b[i] = v[i] < limite ? 1 : 0;
-    b.cinza = v;
+    b.cinza = v; b.papel = papel;
     return b;
   }
 
+  /* Erosão (minimo) ou dilatação 3×3 de uma imagem binária. */
+  function morf(ent, w, h, minimo) {
+    const t = new Uint8Array(w * h), o = new Uint8Array(w * h);
+    for (let y = 0; y < h; y++) for (let x = 0, i = y * w; x < w; x++, i++) {
+      const e = x ? ent[i - 1] : ent[i], d = x < w - 1 ? ent[i + 1] : ent[i];
+      t[i] = minimo ? (e & ent[i] & d) : (e | ent[i] | d);
+    }
+    for (let y = 0; y < h; y++) for (let x = 0, i = y * w; x < w; x++, i++) {
+      const c = y ? t[i - w] : t[i], bx = y < h - 1 ? t[i + w] : t[i];
+      o[i] = minimo ? (c & t[i] & bx) : (c | t[i] | bx);
+    }
+    return o;
+  }
   /* Abertura 3×3 (erosão + dilatação): apaga traços finos, como a linha vermelha da assinatura,
      que no scan em cinza escurece e encosta no "L"; os braços grossos do marcador continuam. */
-  function abrir(b, w, h) {
-    const passo = (ent, minimo) => {
-      const t = new Uint8Array(w * h), o = new Uint8Array(w * h);
-      for (let y = 0; y < h; y++) for (let x = 0, i = y * w; x < w; x++, i++) {
-        const e = x ? ent[i - 1] : ent[i], d = x < w - 1 ? ent[i + 1] : ent[i];
-        t[i] = minimo ? (e & ent[i] & d) : (e | ent[i] | d);
-      }
-      for (let y = 0; y < h; y++) for (let x = 0, i = y * w; x < w; x++, i++) {
-        const c = y ? t[i - w] : t[i], bx = y < h - 1 ? t[i + w] : t[i];
-        o[i] = minimo ? (c & t[i] & bx) : (c | t[i] | bx);
-      }
-      return o;
-    };
-    return passo(passo(b, true), false);
-  }
-
-  /* Componentes conectados (4 vizinhos), com caixa, área, centro e os 4 pontos extremos. */
-  function componentes(b, w, h) {
+  function abrir(b, w, h) { return morf(morf(b, w, h, true), w, h, false); }
+  /* Componentes conectados (4 vizinhos), com caixa, área, centro e os 4 pontos extremos.
+     Se `mapa` (Int32Array w*h) vier, recebe em cada pixel o índice do componente + 1 (0 = fundo). */
+  function componentes(b, w, h, mapa) {
     const rot = new Int32Array(w * h), pai = [0];
     const raiz = x => { while (pai[x] !== x) { pai[x] = pai[pai[x]]; x = pai[x]; } return x; };
     for (let y = 0, i = 0; y < h; y++) for (let x = 0; x < w; x++, i++) {
@@ -73,7 +72,12 @@
       if (y - x > s.ie[1] - s.ie[0]) s.ie = [x, y];
       if (x + y > s.id[0] + s.id[1]) s.id = [x, y];
     }
-    return [...st.values()];
+    const lista = [...st.values()];
+    if (mapa) {
+      const idx = new Map([...st.keys()].map((k, i) => [k, i + 1]));
+      for (let i = 0; i < w * h; i++) mapa[i] = rot[i] ? idx.get(f[rot[i]]) : 0;
+    }
+    return lista;
   }
 
   /* Um componente é marcador se tem o tamanho de um "L" e a massa puxada para o cotovelo. */
@@ -90,6 +94,58 @@
       out.push({ tipo, ponto: [s[tipo][0] + (tipo[1] === 'd' ? 1 : 0), s[tipo][1] + (tipo[0] === 'i' ? 1 : 0)] });
     }
     return out;
+  }
+
+  /* Segunda busca de um marcador que faltou: nas folhas impressas de verdade, um "L" pode sair com
+     traço fino ou pontilhado (em 11/2026 os da direita saíam com metade da espessura dos da esquerda;
+     a abertura o apaga) ou emendado numa linha da folha (no scan em cinza, ou quando a compressão do
+     PDF escurece a linha vermelha; o conjunto fica comprido demais). Recorta a vizinhança de onde ele
+     deveria estar, engrossa 2 px (une os pontos e as falhas de até 4 px) e, para cada mancha, olha só
+     a caixa do tamanho de um "L" a partir do canto externo, ignorando o que continua além dela.
+     Devolve o canto externo (descontado o engrossamento) ou null. */
+  function marcadorFraco(b, w, h, tipo, esperado) {
+    const R = Math.round(0.08 * w), S = Math.round(0.045 * w);   /* janela; lado da caixa do "L" (braço 0,0345 + folga) */
+    const x0 = Math.max(0, Math.round(esperado[0]) - R), y0 = Math.max(0, Math.round(esperado[1]) - R);
+    const cw = Math.min(w, x0 + 2 * R) - x0, ch = Math.min(h, y0 + 2 * R) - y0;
+    if (cw < 10 || ch < 10) return null;
+    const rec = new Uint8Array(cw * ch), sx = tipo[1] === 'e' ? 1 : -1, sy = tipo[0] === 's' ? 1 : -1;
+    /* Primeiro com o limiar normal; se não achar, com um limiar mais tolerante (traço que ficou cinza-claro
+       ao reduzir o scan para 150 dpi), que só vale aqui dentro. */
+    for (const fator of [0, 0.72]) {
+      for (let y = 0; y < ch; y++) {
+        const ini = (y0 + y) * w + x0;
+        if (!fator) rec.set(b.subarray(ini, ini + cw), y * cw);
+        else for (let x = 0; x < cw; x++) rec[y * cw + x] = b.cinza[ini + x] < b.papel * fator ? 1 : 0;
+      }
+      const g = morf(morf(rec, cw, ch, false), cw, ch, false), mapa = new Int32Array(cw * ch);
+      let melhor = null, dist = 0.08 * w;
+      const comps = componentes(g, cw, ch, mapa);
+      for (let k = 0; k < comps.length; k++) {
+        const c = comps[k];
+        if (c.area < 30) continue;
+        const [qx, qy] = c[tipo];   /* canto externo da mancha, no sentido do "L" procurado */
+        /* Caixa S×S a partir desse canto, para dentro da folha: só o que está nela conta. */
+        const bx0 = sx > 0 ? qx : Math.max(0, qx - S + 1), by0 = sy > 0 ? qy : Math.max(0, qy - S + 1);
+        const bx1 = Math.min(cw - 1, bx0 + S - 1), by1 = Math.min(ch - 1, by0 + S - 1);
+        let x_0 = cw, x_1 = -1, y_0 = ch, y_1 = -1, area = 0, mx = 0, my = 0;
+        for (let y = by0; y <= by1; y++) for (let x = bx0; x <= bx1; x++) {
+          if (mapa[y * cw + x] !== k + 1) continue;   /* só a própria mancha: o que está perto não conta */
+          area++; mx += x; my += y;
+          if (x < x_0) x_0 = x; if (x > x_1) x_1 = x; if (y < y_0) y_0 = y; if (y > y_1) y_1 = y;
+        }
+        if (!area) continue;
+        const bw = x_1 - x_0 + 1, bh = y_1 - y_0 + 1, fill = area / (bw * bh);
+        if (bw < 0.022 * w || bh < 0.022 * w || bw / bh < 0.6 || bw / bh > 1.6 || fill < 0.08 || fill > 0.45) continue;
+        const dx = (mx / area - (x_0 + x_1) / 2) / bw, dy = (my / area - (y_0 + y_1) / 2) / bh;
+        if (dx * sx > -0.12 || dy * sy > -0.12) continue;   /* massa puxada para o cotovelo */
+        /* Canto externo do pixel extremo, descontados os 2 px do engrossamento. */
+        const p = [x0 + (sx > 0 ? x_0 + 2 : x_1 + 1 - 2), y0 + (sy > 0 ? y_0 + 2 : y_1 + 1 - 2)];
+        const d = Math.hypot(p[0] - esperado[0], p[1] - esperado[1]);
+        if (d < dist) { dist = d; melhor = p; }
+      }
+      if (melhor) return melhor;
+    }
+    return null;
   }
 
   /* ---------- geometria (números complexos: z = x + iy) ---------- */
@@ -265,16 +321,31 @@
     /* Para cada canto, o candidato do tipo certo mais perto de onde o modelo diz que ele fica,
        com a folha em pé ou de cabeça para baixo (o "L" virado continua com o mesmo formato). */
     const OPOSTO = { se: 'id', sd: 'ie', ie: 'sd', id: 'se' };
-    const achados = {};
+    /* Posição esperada do canto t com a folha em pé (0) ou de cabeça para baixo (1). */
+    const esperado = (t, virada) => virada ? [(1 - MODELO.cantos[OPOSTO[t]][0]) * w, (1 - MODELO.cantos[OPOSTO[t]][1]) * h] : [MODELO.cantos[t][0] * w, MODELO.cantos[t][1] * h];
+    const achados = {}, orient = {};
     for (const t of TIPOS) {
-      const o = MODELO.cantos[OPOSTO[t]];
-      const esperados = [[MODELO.cantos[t][0] * w, MODELO.cantos[t][1] * h], [(1 - o[0]) * w, (1 - o[1]) * h]];
       let melhor = null, dist = 0.15 * w;
-      for (const c of cands) if (c.tipo === t) for (const esp of esperados) {
-        const d = Math.hypot(c.ponto[0] - esp[0], c.ponto[1] - esp[1]);
-        if (d < dist) { dist = d; melhor = c; }
+      for (const c of cands) if (c.tipo === t) for (const virada of [0, 1]) {
+        const esp = esperado(t, virada), d = Math.hypot(c.ponto[0] - esp[0], c.ponto[1] - esp[1]);
+        if (d < dist) { dist = d; melhor = c; orient[t] = virada; }
       }
       if (melhor) achados[t] = melhor.ponto;
+    }
+    /* Os cantos têm de concordar sobre a folha estar em pé ou virada: os que divergem da maioria saem
+       (uma mancha em forma de "L" no lugar errado) e são procurados de novo na posição certa. */
+    const votos = [0, 0];
+    for (const t of TIPOS) if (achados[t]) votos[orient[t]]++;
+    const viradas = votos[0] === votos[1] ? [0, 1] : [votos[1] > votos[0] ? 1 : 0];
+    for (const t of TIPOS) if (achados[t] && !viradas.includes(orient[t])) delete achados[t];
+    /* Cantos que faltaram: segunda busca (marcador impresso fraco ou emendado numa linha), na posição
+       esperada da orientação que os outros indicam; sem maioria, nas duas. */
+    for (const t of TIPOS) {
+      if (achados[t]) continue;
+      for (const virada of viradas) {
+        const p = marcadorFraco(b, w, h, t, esperado(t, virada));
+        if (p) { achados[t] = p; break; }
+      }
     }
     const avisos = [];
     let usados = TIPOS.filter(t => achados[t]);
