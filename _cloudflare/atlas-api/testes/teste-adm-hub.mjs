@@ -33,8 +33,14 @@ ok('Raiz do site não mostra mais ÁREA DO COORDENADOR', !/COORDENADOR/i.test(ra
 ok('Tela inicial do ATLAS não mostra mais o cartão Administrador', !/data-role="Administrador"/.test(atlasHome) && !/'Administrador'/.test(atlasHome));
 ok('Tela inicial do ATLAS mantém Professor, Supervisor e Redação', ['Professor', 'Supervisor', 'Redação'].every(r => atlasHome.includes('data-role="' + r + '"')));
 ok('Páginas de destino continuam existindo', ['inscricoes/coordenador/index.html', 'atlas/admin.html', 'atlas/admin-questoes.html', 'atlas/alunos-admin.html', 'atlas/redacao-lotes-admin.html'].every(f => fs.existsSync(RAIZ + f)));
-ok('Páginas admin do ATLAS voltam ao painel /adm/', ['admin', 'admin-questoes', 'admin-selecoes', 'admin-relatorio', 'admin-enviar'].every(f => ler('atlas/' + f + '.html').includes('href="../adm/"')));
-ok('Coordenação volta ao painel /adm/', ler('inscricoes/coordenador/index.html').includes('href="../../adm/"'));
+const admPaginas = ['admin', 'admin-questoes', 'admin-selecoes', 'admin-relatorio', 'admin-enviar'];
+ok('Páginas admin do ATLAS voltam à aba ATLAS do painel com "← Voltar ao painel"', admPaginas.every(f => ler('atlas/' + f + '.html').includes('<a class="back-link" href="../adm/#atlas">← Voltar ao painel</a>')));
+ok('Páginas admin do ATLAS não têm mais o menu lateral antigo (cada função abre só pelo painel)', admPaginas.every(f => !/ÁREA DO ADM|<aside><small>/.test(ler('atlas/' + f + '.html'))));
+ok('Alunos e Mapas de desempenho voltam à aba ATLAS; Redação volta à aba Redação', ['alunos-admin', 'desempenho-admin'].every(f => ler('atlas/' + f + '.html').includes('href="../adm/#atlas">← Voltar ao painel')) && ['redacao-admin', 'redacao-lotes-admin'].every(f => ler('atlas/' + f + '.html').includes('href="../adm/#redacao">← Voltar ao painel')) && !/Voltar à área do ADM/.test(['alunos-admin', 'desempenho-admin', 'redacao-admin', 'redacao-lotes-admin'].map(f => ler('atlas/' + f + '.html')).join('')));
+ok('Coordenação volta à aba Inscrições do painel', ler('inscricoes/coordenador/index.html').includes('<a class="back" href="../../adm/#inscricoes">← Voltar ao painel</a>'));
+ok('Hub: grupo "Cadastros" com "Professores e colaboradores", cartão "Mapas de desempenho" e um só cartão da coordenação em Inscrições', /<h3>Cadastros<\/h3>/.test(hub) && /admin\.html"><b>Professores e colaboradores<\/b>/.test(hub) && /<b>Mapas de desempenho<\/b>/.test(hub) && !/Meu desempenho|Cadastros e funções|<h3>Pessoas<\/h3>/.test(hub) && (hub.match(/href="\.\.\/inscricoes\/coordenador\/"/g) || []).length === 1 && !hub.includes('coordenador/#competition'));
+ok('Mapas de desempenho: título da página renomeado', /<title>ATLAS \| Mapas de desempenho<\/title>/.test(ler('atlas/desempenho-admin.html')) && /<h1>Mapas de desempenho<\/h1>/.test(ler('atlas/desempenho-admin.html')));
+ok('Coordenação: comprovantes no centro e valores por grupo na coluna lateral', /<div class="centro">[\s\S]*id="list"[\s\S]*<\/div>\s*<aside class="lateral"[\s\S]*id="prices"/.test(ler('inscricoes/coordenador/index.html')) && /\.layout\{display:grid;grid-template-columns:minmax\(0,1fr\) 340px/.test(ler('inscricoes/coordenador/coordenador.css')));
 
 // ---------- 2. Navegador ----------
 const ORIGEM = 'https://idealolimpico.com.br';
@@ -169,6 +175,22 @@ await page.goto(ORIGEM + '/adm/?r=2#atlas');
 await page.waitForTimeout(500);
 ok('Celular: sem rolagem horizontal', await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1));
 ok('Meu desempenho sem página no site: cartão desativado com "Em breve"', await page.evaluate(() => { const c = document.getElementById('cardDesempenho'); return c.classList.contains('off') && !c.hasAttribute('href') && c.querySelector('em').textContent === 'Em breve'; }));
+
+// 2g. Coordenação: comprovantes no centro, valores por grupo na coluna da direita; no celular, a coluna desce.
+await page.setViewportSize({ width: 1400, height: 900 });
+await page.goto(ORIGEM + '/inscricoes/coordenador/');
+await page.click('#enterCoordinator');
+await page.waitForFunction(() => !document.getElementById('app').classList.contains('hidden'));
+await page.waitForTimeout(300);
+const caixas = () => page.evaluate(() => { const r = s => document.querySelector(s).getBoundingClientRect(); const c = r('.centro'), l = r('.lateral'); return { centroDir: Math.round(c.right), centroLarg: Math.round(c.width), centroTopo: Math.round(c.top), centroBaixo: Math.round(c.bottom), lateralEsq: Math.round(l.left), lateralTopo: Math.round(l.top), lateralLarg: Math.round(l.width) }; });
+let cx = await caixas();
+ok('Coordenação (tela larga): comprovantes à esquerda, valores por grupo ao lado na mesma altura', cx.lateralEsq >= cx.centroDir && Math.abs(cx.lateralTopo - cx.centroTopo) < 4 && cx.centroLarg > 700 && cx.lateralLarg === 340, JSON.stringify(cx));
+ok('Coordenação: "← Voltar ao painel" no topo e os quadros de valor na coluna', await page.textContent('a.back') === '← Voltar ao painel' && await page.locator('.lateral #prices').count() === 1 && await page.locator('.centro #list').count() === 1);
+await page.setViewportSize({ width: 375, height: 740 });
+await page.waitForTimeout(200);
+cx = await caixas();
+ok('Coordenação (celular): valores por grupo descem para baixo dos comprovantes, sem rolagem horizontal', cx.lateralTopo >= cx.centroBaixo && await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), JSON.stringify(cx));
+ok('Coordenação: sem erro de JavaScript nem violação de CSP', erros.length === 0 && (await violacoes()).length === 0, erros.join('|'));
 await browser.close();
 
 for (const [estado, nome, extra] of results) console.log(estado.padEnd(7), nome, extra ? '— ' + extra : '');

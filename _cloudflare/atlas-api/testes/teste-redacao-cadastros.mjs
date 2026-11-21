@@ -148,8 +148,8 @@ ok('Redação: cadastros não tem mais a aba Alunos e aponta para a página nova
 await page.locator('[data-tab="turmas"]').click();
 ok('"Ver alunos" leva à página Alunos com a turma', (await page.locator('#turmas-lista a', { hasText: 'Ver alunos' }).first().getAttribute('href')).startsWith('alunos-admin.html?turma='));
 for (const f of ['admin.html', 'admin-questoes.html', 'admin-enviar.html', 'admin-relatorio.html', 'admin-selecoes.html']) {
-  const menu = fs.readFileSync(atlas + f, 'utf8').match(/<aside><small>ÁREA DO ADM<\/small>(.*?)<\/aside>/)?.[1] || '';
-  ok('Menu do ADM com "Alunos" logo abaixo de "Cadastros e funções": ' + f, /^<a href="admin\.html"[^>]*>Cadastros e funções<\/a><a href="alunos-admin\.html"[^>]*>Alunos<\/a>/.test(menu) && menu.includes('<a href="alunos-admin.html">Alunos</a><a href="redacao-lotes-admin.html">Redação</a>') && !menu.includes('redacao-admin.html'));
+  const html = fs.readFileSync(atlas + f, 'utf8');
+  ok('Sem o menu lateral antigo; "Voltar ao painel" leva à aba ATLAS do /adm/: ' + f, !html.includes('ÁREA DO ADM') && html.includes('<a class="back-link" href="../adm/#atlas">← Voltar ao painel</a>'));
 }
 ok('Login do ADM volta para a página Alunos', fs.readFileSync(atlas + 'admin.html', 'utf8').includes("['alunos-admin.html','redacao-admin.html','redacao-lotes-admin.html',"));
 const turmaAluno = db.prepare("SELECT turma_id FROM redacao_alunos WHERE ra = '12345'").get().turma_id;

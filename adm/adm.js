@@ -76,7 +76,7 @@
   document.querySelectorAll('.tab').forEach(b => b.addEventListener('click', () => abrirAba(b.dataset.aba)));
   window.addEventListener('hashchange', () => abrirAba(abaDoEndereco(), false));
 
-  // "Meu desempenho" chega com outro ramo: se a página ainda não existir no site, o cartão avisa.
+  // "Mapas de desempenho" chega com outro ramo: se a página ainda não existir no site, o cartão avisa.
   let desempenhoConferido = false;
   async function conferirDesempenho() {
     if (desempenhoConferido) return; desempenhoConferido = true;

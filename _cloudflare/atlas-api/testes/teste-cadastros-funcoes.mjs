@@ -148,7 +148,7 @@ ok('Rota antiga da equipe continua gravando a função (marcação de digitaliza
 await page.addInitScript(t => { try { sessionStorage.setItem('atlas_adm_token', t) } catch {} }, 'adm-token');
 await page.goto(base + '/admin.html');
 await page.locator('#list table').waitFor({ timeout: 15000 });
-ok('Menu e título: "Cadastros e funções"', (await page.locator('#app-view h1').textContent()) === 'Cadastros e funções' && (await page.locator('aside a.atual').textContent()) === 'Cadastros e funções');
+ok('Título: "Professores e colaboradores", sem o menu lateral antigo', (await page.locator('#app-view h1').textContent()) === 'Professores e colaboradores' && await page.locator('#app-view aside').count() === 0);
 ok('Lista mostra quem é só coordenador, com etiqueta', /Coord Só[\s\S]*Coordenador/.test(await page.locator('#list tr', { hasText: 'Coord Só' }).textContent()));
 await page.locator('#f-funcao').selectOption('coord');
 ok('Filtro de função: só coordenadores', await page.locator('#list tbody tr').count() === 1);
