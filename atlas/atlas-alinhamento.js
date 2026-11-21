@@ -491,5 +491,6 @@
   const CORES_MARCA = Object.freeze({ am: '#ffe066', vd: '#9be37f', az: '#8fd0ff', rs: '#ffa6c9' });
   /* Uma cor por competência (C1 a C5), como no sistema do Inep: usada na correção e no espelho do aluno. */
   const CORES_COMP = Object.freeze(['#f5c518', '#5cc27a', '#5aaee8', '#f29a4a', '#ec7fb6']);
-  window.AtlasAlinhamento = { MODELO, C128, CORES_MARCA, CORES_COMP, analisar, decodificar, lerCodigoImagem, desenhar, matrizFinal, abrirPdf, desenharPagina, carregarPdfLib, montarPdf };
+  /* binarizar e componentes também servem ao cartão-resposta (atlas-cartao.js). */
+  window.AtlasAlinhamento = { MODELO, C128, CORES_MARCA, CORES_COMP, analisar, decodificar, lerCodigoImagem, desenhar, matrizFinal, abrirPdf, desenharPagina, carregarPdfLib, montarPdf, binarizar, componentes };
 })();

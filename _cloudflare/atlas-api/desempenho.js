@@ -5,8 +5,11 @@
 // O ADM envia e libera; o aluno vê pelo portal (Apps Script → esta API com o segredo PORTAL_ATLAS_SECRET),
 // recebendo só links temporários das imagens dele. Guarda: só o ano corrente (encerramento de 31/12).
 import { RedacaoError } from './redacao-cadastros.js';
+import { lerGabarito, serieValida, trilhaValida, respostasValidas, cartoesValidos, corrigir } from './gabarito.js';
 
 export const PROVAS = Object.freeze({ PART: 'Simulado Particulares', ENEM1: 'Simulado ENEM · 1º dia', ENEM2: 'Simulado ENEM · 2º dia', ESPELHO: 'Espelho da redação' });
+/* Provas com cartão-resposta e gabarito (o espelho da redação não tem). */
+const COM_GABARITO = Object.freeze(['PART', 'ENEM1', 'ENEM2']);
 const MAX_IMAGEM = 4 * 1024 * 1024;   /* envio simples do Graph aceita até 4 MB por arquivo */
 const MAX_PAGINAS = 40;
 const erro = (status, mensagem) => { throw new RedacaoError(status, mensagem); };
@@ -67,7 +70,8 @@ async function alunosDoAno(env, ano) {
 }
 async function documentos(env, ano, bimestre, p) {
   return (await env.DB.prepare(
-    'SELECT d.id, d.ra, d.paginas, d.enviado_em, d.liberado_em, d.lote_id, a.nome, t.unidade, t.codigo FROM desempenho_documentos d ' +
+    'SELECT d.id, d.ra, d.paginas, d.enviado_em, d.liberado_em, d.lote_id, d.serie, d.trilha, ' +
+    '(d.respostas IS NOT NULL) AS com_respostas, (d.cartoes IS NOT NULL) AS com_cartao, a.nome, t.unidade, t.codigo FROM desempenho_documentos d ' +
     'LEFT JOIN redacao_alunos a ON a.ra = d.ra LEFT JOIN redacao_turmas t ON t.id = a.turma_id ' +
     'WHERE d.ano = ? AND d.bimestre = ? AND d.prova = ? ORDER BY a.nome COLLATE NOCASE, d.ra'
   ).bind(ano, bimestre, p).all()).results;
@@ -98,13 +102,20 @@ async function registrar(env, body, ano, quem, registrarEvento) {
   const b = inteiro(body?.bimestre, 1, 4), p = prova(body?.prova), ra = raValido(body?.ra), paginas = inteiro(body?.paginas, 1, MAX_PAGINAS);
   const loteId = body?.lote_id ? inteiro(body.lote_id, 1, 1000000000) : null;
   if (!await env.DB.prepare('SELECT 1 FROM redacao_alunos WHERE ra = ? AND ano = ?').bind(ra, ano).first()) erro(404, 'Aluno não encontrado na lista do ano.');
+  /* cartão-resposta: série e trilha da prova (para achar o gabarito), respostas da planilha e grades das páginas */
+  const comCartao = COM_GABARITO.includes(p);
+  const serie = comCartao && body?.serie != null && body.serie !== '' ? serieValida(body.serie) : null;
+  const trilha = comCartao && body?.trilha != null && body.trilha !== '' ? trilhaValida(body.trilha) : null;
+  const respostas = comCartao ? respostasValidas(body?.respostas) : null;
+  const cartoes = comCartao ? cartoesValidos(body?.cartoes, paginas) : null;
   const antigo = await env.DB.prepare('SELECT id, paginas, liberado_em FROM desempenho_documentos WHERE ano = ? AND bimestre = ? AND prova = ? AND ra = ?').bind(ano, b, p, ra).first();
   /* páginas que sobraram de uma versão anterior maior saem do SharePoint */
   if (antigo && antigo.paginas > paginas) for (let n = paginas + 1; n <= antigo.paginas; n++) await apagarCaminho(env, caminho(ano, b, p, ra, n)).catch(() => {});
   await env.DB.prepare(
-    'INSERT INTO desempenho_documentos (ano, bimestre, prova, ra, paginas, lote_id, enviado_em, enviado_por, liberado_em) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) ' +
-    'ON CONFLICT (ano, bimestre, prova, ra) DO UPDATE SET paginas = excluded.paginas, lote_id = excluded.lote_id, enviado_em = excluded.enviado_em, enviado_por = excluded.enviado_por'
-  ).bind(ano, b, p, ra, paginas, loteId, agora(), quem, antigo?.liberado_em || null).run();
+    'INSERT INTO desempenho_documentos (ano, bimestre, prova, ra, paginas, lote_id, enviado_em, enviado_por, liberado_em, serie, trilha, respostas, cartoes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ' +
+    'ON CONFLICT (ano, bimestre, prova, ra) DO UPDATE SET paginas = excluded.paginas, lote_id = excluded.lote_id, enviado_em = excluded.enviado_em, enviado_por = excluded.enviado_por, ' +
+    'serie = excluded.serie, trilha = excluded.trilha, respostas = excluded.respostas, cartoes = excluded.cartoes'
+  ).bind(ano, b, p, ra, paginas, loteId, agora(), quem, antigo?.liberado_em || null, serie, trilha, respostas, cartoes).run();
   await registrarEvento(env, 'redacao_desempenho_enviado', { ano, bimestre: b, prova: p, ra, paginas, substituiu: !!antigo });
   return { ok: true, substituiu: !!antigo };
 }
@@ -126,6 +137,49 @@ async function apagarDocumento(env, id, ano, quem, registrarEvento) {
   await env.DB.prepare('DELETE FROM desempenho_documentos WHERE id = ?').bind(id).run();
   await registrarEvento(env, 'redacao_desempenho_apagado', { ano, bimestre: d.bimestre, prova: d.prova, ra: d.ra, por: quem });
   return { ok: true };
+}
+
+/* ---------- gabaritos (um por bimestre, prova, série e trilha) ---------- */
+const provaComGabarito = v => { const p = prova(v); if (!COM_GABARITO.includes(p)) erro(400, 'Essa prova não tem gabarito.'); return p; };
+async function listarGabaritos(env, ano, b, p) {
+  const r = (await env.DB.prepare(
+    'SELECT id, bimestre, prova, serie, trilha, inicio, respostas, atualizado_em, atualizado_por FROM desempenho_gabaritos WHERE ano = ?' +
+    (b ? ' AND bimestre = ?' : '') + (p ? ' AND prova = ?' : '') + ' ORDER BY bimestre, prova, serie, trilha'
+  ).bind(ano, ...(b ? [b] : []), ...(p ? [p] : [])).all()).results;
+  return r.map(g => {
+    const resp = JSON.parse(g.respostas);
+    return { id: g.id, bimestre: g.bimestre, prova: g.prova, serie: g.serie, trilha: g.trilha, inicio: g.inicio, questoes: resp.length,
+      anuladas: resp.filter(x => x === 'X').length, duplas: resp.filter(x => x.includes('/')).length, atualizado_em: g.atualizado_em, atualizado_por: g.atualizado_por };
+  });
+}
+async function salvarGabarito(env, body, ano, quem, registrarEvento) {
+  const b = inteiro(body?.bimestre, 1, 4), p = provaComGabarito(body?.prova), serie = serieValida(body?.serie), trilha = trilhaValida(body?.trilha);
+  const { inicio, respostas } = lerGabarito(body?.texto, body?.inicio ?? 1);
+  const antigo = await env.DB.prepare('SELECT id FROM desempenho_gabaritos WHERE ano = ? AND bimestre = ? AND prova = ? AND serie = ? AND trilha = ?').bind(ano, b, p, serie, trilha).first();
+  await env.DB.prepare(
+    'INSERT INTO desempenho_gabaritos (ano, bimestre, prova, serie, trilha, inicio, respostas, atualizado_em, atualizado_por) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) ' +
+    'ON CONFLICT (ano, bimestre, prova, serie, trilha) DO UPDATE SET inicio = excluded.inicio, respostas = excluded.respostas, atualizado_em = excluded.atualizado_em, atualizado_por = excluded.atualizado_por'
+  ).bind(ano, b, p, serie, trilha, inicio, JSON.stringify(respostas), agora(), quem).run();
+  await registrarEvento(env, 'desempenho_gabarito_salvo', { ano, bimestre: b, prova: p, serie, trilha, inicio, questoes: respostas.length, substituiu: !!antigo, por: quem });
+  return { ok: true, substituiu: !!antigo, inicio, questoes: respostas.length, anuladas: respostas.filter(x => x === 'X').length, duplas: respostas.filter(x => x.includes('/')).length, respostas };
+}
+async function apagarGabarito(env, id, ano, quem, registrarEvento) {
+  const g = await env.DB.prepare('SELECT * FROM desempenho_gabaritos WHERE id = ? AND ano = ?').bind(id, ano).first();
+  if (!g) erro(404, 'Gabarito não encontrado.');
+  await env.DB.prepare('DELETE FROM desempenho_gabaritos WHERE id = ?').bind(id).run();
+  await registrarEvento(env, 'desempenho_gabarito_apagado', { ano, bimestre: g.bimestre, prova: g.prova, serie: g.serie, trilha: g.trilha, por: quem });
+  return { ok: true };
+}
+/* O que o portal manda junto com as páginas: gabarito, respostas do aluno e a grade de cada página. Só quando
+   o documento tem grade e existe gabarito da série e trilha dele; senão o aluno vê a imagem como antes. */
+async function cartaoDoDocumento(env, d) {
+  if (!d.cartoes || !d.serie || !d.trilha || !COM_GABARITO.includes(d.prova)) return null;
+  const g = await env.DB.prepare('SELECT inicio, respostas FROM desempenho_gabaritos WHERE ano = ? AND bimestre = ? AND prova = ? AND serie = ? AND trilha = ?').bind(d.ano, d.bimestre, d.prova, d.serie, d.trilha).first();
+  if (!g) return null;
+  let paginas, gabarito;
+  try { paginas = JSON.parse(d.cartoes); gabarito = JSON.parse(g.respostas); } catch { return null; }
+  if (!Array.isArray(paginas) || !Array.isArray(gabarito)) return null;
+  return { inicio: g.inicio, gabarito, respostas: d.respostas || null, paginas, resumo: corrigir(gabarito, d.respostas) };
 }
 
 /* Espelhos: lotes do ano com as folhas corrigidas e quantos espelhos já existem. */
@@ -159,10 +213,18 @@ export async function rotaDesempenhoAdm(request, env, path, { hojeSP, readJson, 
   }
   if (path === '/api/adm/desempenho/alunos' && request.method === 'GET') return { ok: true, ano, alunos: await alunosDoAno(env, ano) };
   if (path === '/api/adm/desempenho/imagem' && request.method === 'PUT') return await receberImagem(request, env, url, ano);
-  if (path === '/api/adm/desempenho/documentos' && request.method === 'POST') return await registrar(env, await readJson(request), ano, quem, registrarEvento);
+  /* o registro traz as grades das páginas do cartão (até 40 × ~1,5 KB), então o limite é maior que o padrão */
+  if (path === '/api/adm/desempenho/documentos' && request.method === 'POST') return await registrar(env, await readJson(request, 256 * 1024), ano, quem, registrarEvento);
   if (path === '/api/adm/desempenho/liberar' && request.method === 'POST') return await liberar(env, await readJson(request), ano, quem, registrarEvento);
   const md = path.match(/^\/api\/adm\/desempenho\/documentos\/(\d+)$/);
   if (md && request.method === 'DELETE') return await apagarDocumento(env, inteiro(md[1], 1, 1000000000), ano, quem, registrarEvento);
+  if (path === '/api/adm/desempenho/gabaritos' && request.method === 'GET') {
+    const b = url.searchParams.get('bimestre'), p = url.searchParams.get('prova');
+    return { ok: true, ano, gabaritos: await listarGabaritos(env, ano, b ? inteiro(b, 1, 4) : null, p ? provaComGabarito(p) : null) };
+  }
+  if (path === '/api/adm/desempenho/gabaritos' && request.method === 'POST') return await salvarGabarito(env, await readJson(request), ano, quem, registrarEvento);
+  const mg = path.match(/^\/api\/adm\/desempenho\/gabaritos\/(\d+)$/);
+  if (mg && request.method === 'DELETE') return await apagarGabarito(env, inteiro(mg[1], 1, 1000000000), ano, quem, registrarEvento);
   if (path === '/api/adm/desempenho/espelhos' && request.method === 'GET') return { ok: true, ano, lotes: await lotesParaEspelho(env, ano) };
   const me = path.match(/^\/api\/adm\/desempenho\/espelhos\/(\d+)$/);
   if (me && request.method === 'GET') return await dadosEspelho(env, inteiro(me[1], 1, 1000000000), ano);
@@ -189,7 +251,7 @@ export async function rotaDesempenhoPortal(env, path, body, hojeSP) {
       if (!l) erro(502, 'Não foi possível abrir as páginas agora. Tente de novo em instantes.');
       links.push(l);
     }
-    return { ok: true, bimestre: d.bimestre, prova: d.prova, titulo: PROVAS[d.prova], links };
+    return { ok: true, bimestre: d.bimestre, prova: d.prova, titulo: PROVAS[d.prova], links, cartao: await cartaoDoDocumento(env, d) };
   }
   erro(404, 'Rota indisponível.');
 }

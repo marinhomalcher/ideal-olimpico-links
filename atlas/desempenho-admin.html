@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="pt-BR">
 <head>
-<meta name="atlas-versao" content="20261121b"><script src="atlas-versao.js?v=20261121b" defer></script><script src="atlas-alinhamento.js?v=20261121b"></script>
+<meta name="atlas-versao" content="20261121c"><script src="atlas-versao.js?v=20261121c" defer></script><script src="atlas-alinhamento.js?v=20261121c"></script><script src="atlas-cartao.js?v=20261121c"></script>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow">
 <title>ATLAS | Mapas de desempenho</title>
 <style>
@@ -27,20 +27,32 @@ header{background:#fff;border-bottom:4px solid var(--red);padding:10px max(clamp
 <div class="tabs" role="tablist" aria-label="Mapas de desempenho"><button type="button" data-tab="mapas" aria-selected="true">Mapas de desempenho</button><button type="button" data-tab="espelhos" aria-selected="false">Espelhos da redação</button></div>
 
 <section id="mapas" class="tab">
-<div class="panel"><h2>Enviar mapas</h2>
+<div class="panel"><h2>Enviar cartões-resposta e mapas</h2>
 <div class="grid"><div><label for="m-bim">Bimestre</label><select id="m-bim"><option value="1">1º bimestre</option><option value="2">2º bimestre</option><option value="3">3º bimestre</option><option value="4">4º bimestre</option></select></div>
 <div><label for="m-prova">Prova</label><select id="m-prova"><option value="PART">Simulado Particulares</option><option value="ENEM1">Simulado ENEM · 1º dia</option><option value="ENEM2">Simulado ENEM · 2º dia</option></select></div>
-<div><label for="m-arquivos">Arquivos PDF dos mapas</label><input id="m-arquivos" type="file" accept="application/pdf,.pdf" multiple></div></div>
-<p class="hint">Pode mandar um PDF por aluno ou um PDF com vários alunos. O ATLAS lê o código de barras (RA) de cada página; a página sem código fica com o aluno da página anterior. Sem código, tenta pelo nome do arquivo (RA ou nome do aluno); se não achar, escolha o aluno na lista.</p>
+<div><label for="m-arquivos">Arquivos: PDF dos cartões e planilha .xlsx das respostas</label><input id="m-arquivos" type="file" accept="application/pdf,.pdf,.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" multiple></div>
+<div><label for="m-serie">Série da prova</label><select id="m-serie"><option value="">Escolha…</option><option value="1">1ª série</option><option value="2">2ª série</option><option value="3">3ª série</option><option value="6">6º ano</option><option value="7">7º ano</option><option value="8">8º ano</option><option value="9">9º ano</option></select></div>
+<div><label for="m-trilha">Trilha (gabarito)</label><select id="m-trilha"><option value="">Escolha…</option><option value="MED">MED (e militar)</option><option value="REG">REG (regular)</option></select></div></div>
+<p class="hint">Pode mandar um PDF por aluno ou um PDF com vários alunos. O ATLAS lê o código de barras (RA) de cada página; a página sem código fica com o aluno da página anterior. Sem código, tenta pelo nome do arquivo (RA ou nome do aluno); se não achar, escolha o aluno na lista. Nas páginas que são cartão-resposta, lê também a grade das bolhas; junto com a planilha de correção (colunas Matrícula e Respostas) e o gabarito da série e trilha, o aluno vê no portal o gabarito por cima do cartão dele. A série e a trilha são sugeridas pela turma do primeiro aluno lido; confira antes de enviar.</p>
 <div class="actions"><button class="primary" type="button" id="m-ler" disabled>Ler arquivos</button><button class="primary" type="button" id="m-enviar" hidden>Enviar</button><button class="secondary" type="button" id="m-limpar" hidden>Limpar</button></div>
 <p id="m-status" class="status" role="status"></p>
-<div class="table" id="m-tabela-box" hidden><table><thead><tr><th>Arquivo</th><th>Páginas</th><th>Aluno</th><th>Como achou</th><th>Situação</th></tr></thead><tbody id="m-tabela"></tbody></table></div>
+<div class="table" id="m-tabela-box" hidden><table><thead><tr><th>Arquivo</th><th>Páginas</th><th>Aluno</th><th>Como achou</th><th>Cartão</th><th>Situação</th></tr></thead><tbody id="m-tabela"></tbody></table></div>
 <datalist id="lista-alunos"></datalist>
+</div>
+<div class="panel"><h2>Gabaritos <span id="g-titulo" class="hint"></span></h2>
+<p class="hint">Um gabarito por série e trilha, do bimestre e da prova escolhidos acima. Cole o texto que a coordenação gera (uma linha por questão, como <code>Q.91: A</code>) ou só a sequência de letras (<code>ABEDC…</code>, aí informe a primeira questão). <code>X</code> ou "anulada" vale para todos; <code>A/C</code> aceita as duas. Salvar de novo substitui.</p>
+<div class="grid"><div><label for="g-serie">Série</label><select id="g-serie"><option value="1">1ª série</option><option value="2">2ª série</option><option value="3">3ª série</option><option value="6">6º ano</option><option value="7">7º ano</option><option value="8">8º ano</option><option value="9">9º ano</option></select></div>
+<div><label for="g-trilha">Trilha</label><select id="g-trilha"><option value="MED">MED (e militar)</option><option value="REG">REG (regular)</option></select></div>
+<div><label for="g-inicio">Primeira questão (só para a sequência de letras)</label><input id="g-inicio" type="number" min="1" max="999" value="1"></div></div>
+<div style="margin-top:12px"><label for="g-texto">Gabarito</label><textarea id="g-texto" rows="6" style="width:100%;border:1px solid #d8cdd0;border-radius:8px;padding:8px;font-family:Consolas,monospace" placeholder="Q.91: A&#10;Q.92: B&#10;Q.93: X&#10;…"></textarea></div>
+<div class="actions"><input id="g-arquivo" type="file" accept=".txt,text/plain" style="width:auto"><button class="primary" type="button" id="g-salvar">Salvar gabarito</button></div>
+<p id="g-status" class="status" role="status"></p>
+<div class="table"><table><thead><tr><th>Série</th><th>Trilha</th><th>Questões</th><th>Primeira</th><th>Anuladas</th><th>Duas certas</th><th>Atualizado</th><th></th></tr></thead><tbody id="g-lista"></tbody></table></div>
 </div>
 <div class="panel"><h2>Já enviados <span id="m-titulo-lista" class="hint"></span></h2>
 <div class="actions" style="margin-top:0"><button class="primary" type="button" id="m-liberar">Liberar para os alunos</button><button class="secondary" type="button" id="m-recolher">Recolher</button><span class="hint" id="m-contagem"></span></div>
 <p id="m-lib-status" class="status" role="status"></p>
-<div class="table"><table><thead><tr><th>Aluno</th><th>RA</th><th>Turma</th><th>Páginas</th><th>Enviado</th><th>No portal</th><th></th></tr></thead><tbody id="m-enviados"></tbody></table></div>
+<div class="table"><table><thead><tr><th>Aluno</th><th>RA</th><th>Turma</th><th>Páginas</th><th>Cartão</th><th>Enviado</th><th>No portal</th><th></th></tr></thead><tbody id="m-enviados"></tbody></table></div>
 <h2 style="margin-top:22px">Resumo do ano</h2><div class="resumo" id="resumo"></div>
 </div>
 </section>
@@ -64,6 +76,23 @@ const API='https://atlas-api.marinhomalcher.workers.dev',token=sessionStorage.ge
 const PROVAS={PART:'Simulado Particulares',ENEM1:'Simulado ENEM · 1º dia',ENEM2:'Simulado ENEM · 2º dia',ESPELHO:'Espelho da redação'};
 const UNIDADES={BC:'Batista Campos',AM:'Augusto Montenegro',CN:'Cidade Nova'};
 let alunos=[],porRa=new Map(),grupos=[],ocupado=false;
+const C=window.AtlasCartao;let respostasPorRa=new Map();   /* Matrícula → respostas, das planilhas .xlsx lidas */
+/* ExcelJS sob demanda (mesma versão e integridade da página de alunos), só para ler a planilha de respostas. */
+function excel(){return new Promise((resolve,reject)=>{if(window.ExcelJS)return resolve();const s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js';s.integrity='sha384-Pqp51FUN2/qzfxZxBCtF0stpc9ONI6MYZpVqmo8m20SoaQCzf+arZvACkLkirlPz';s.crossOrigin='anonymous';s.onload=()=>resolve();s.onerror=()=>reject(Error('Não foi possível carregar o leitor de planilhas.'));document.head.append(s)})}
+/* Planilha de correção: aba "Resultados" (ou a primeira), colunas Matrícula e Respostas pelo cabeçalho. */
+async function lerPlanilhaRespostas(f){
+  await excel();const wb=new ExcelJS.Workbook();await wb.xlsx.load(await f.arrayBuffer());
+  const ws=wb.getWorksheet('Resultados')||wb.worksheets[0];if(!ws)throw Error(f.name+': planilha vazia.');
+  const cab=[];ws.getRow(1).eachCell((c,i)=>{cab[i]=sem(c.text||c.value)});
+  const iRa=cab.findIndex(h=>/^(MATRICULA|RA)$/.test(h||'')),iResp=cab.findIndex(h=>/^RESPOSTAS?$/.test(h||''));
+  if(iRa<0||iResp<0)throw Error(f.name+': não achei as colunas Matrícula e Respostas.');
+  let n=0;ws.eachRow((row,r)=>{if(r===1)return;const ra=String(row.getCell(iRa).text||row.getCell(iRa).value||'').trim(),resp=String(row.getCell(iResp).text||row.getCell(iResp).value||'').trim().toUpperCase();
+    if(/^\d{1,15}$/.test(ra)&&/^[A-E_*]{1,200}$/.test(resp)){respostasPorRa.set(ra,resp);n++}});
+  return n}
+/* Série e trilha sugeridas pela turma do aluno (1MED → 1ª série MED; 2EMA → 2ª série REG; 6EFA → 6º ano REG). */
+function sugerirSerieTrilha(a){
+  const cod=sem(a.codigo||''),serie=String(a.serie||'').replace(/\D/g,'')||(cod.match(/^\d/)||[''])[0];
+  return {serie,trilha:/MED|MIL/.test(cod)?'MED':'REG'}}
 function msg(id,t,erro=false){const e=$(id);e.textContent=t||'';e.classList.toggle('error',erro)}
 async function api(path,{method='GET',body}={}){let r,d;try{r=await fetch(API+path,{method,headers:{Authorization:'Bearer '+token,...(body!==undefined?{'Content-Type':'application/json'}:{})},body:body===undefined?undefined:JSON.stringify(body),cache:'no-store'});d=await r.json()}catch{throw Error('Sem conexão com o ATLAS.')}if(!r.ok||!d.ok)throw Error(d.error||'Não foi possível concluir.');return d}
 async function enviarImagem(bim,prova,ra,n,blob){let r,d;for(let t=0;t<3;t++){try{r=await fetch(API+`/api/adm/desempenho/imagem?bimestre=${bim}&prova=${prova}&ra=${encodeURIComponent(ra)}&n=${n}`,{method:'PUT',headers:{Authorization:'Bearer '+token,'Content-Type':'image/jpeg'},body:blob});d=await r.json().catch(()=>({}));if(r.ok&&d.ok)return;if(r.status<500)break}catch{}await new Promise(x=>setTimeout(x,1500*(t+1)))}throw Error(d?.error||'Falha ao enviar a página '+n+'.')}
@@ -85,12 +114,13 @@ function pelaNomeArquivo(nome){
   const n=' '+sem(base)+' ';let achado=null;for(const a of alunos){if(n.includes(' '+sem(a.nome)+' ')){if(achado&&achado!==a.ra)return null;achado=a.ra}}return achado}
 $('#m-arquivos').addEventListener('change',()=>{$('#m-ler').disabled=!$('#m-arquivos').files.length});
 $('#m-ler').addEventListener('click',async()=>{
-  if(ocupado)return;ocupado=true;$('#m-ler').disabled=true;grupos=[];renderGrupos();
+  if(ocupado)return;ocupado=true;$('#m-ler').disabled=true;grupos=[];respostasPorRa=new Map();renderGrupos();
   try{
-    const arqs=[...$('#m-arquivos').files];
+    const arqs=[...$('#m-arquivos').files];let planilhas=0,linhas=0;
     for(const [i,f] of arqs.entries()){
       msg('#m-status',`Lendo ${f.name} (${i+1} de ${arqs.length})…`);
-      let doc;try{doc=await A.abrirPdf(new Uint8Array(await f.arrayBuffer()))}catch(e){grupos.push({arquivo:f.name,de:0,ate:0,paginas:[],ra:'',como:'erro',erro:'Não abriu como PDF.'});continue}
+      if(/\.xlsx$/i.test(f.name)){try{linhas+=await lerPlanilhaRespostas(f);planilhas++}catch(e){grupos.push({arquivo:f.name,de:0,ate:0,paginas:[],medidas:[],ra:'',como:'erro',erro:e.message})}continue}
+      let doc;try{doc=await A.abrirPdf(new Uint8Array(await f.arrayBuffer()))}catch(e){grupos.push({arquivo:f.name,de:0,ate:0,paginas:[],medidas:[],ra:'',como:'erro',erro:'Não abriu como PDF.'});continue}
       try{
         let atual=null;
         for(let n=1;n<=doc.numPages;n++){
@@ -98,17 +128,31 @@ $('#m-ler').addEventListener('click',async()=>{
           const c=await A.desenharPagina(doc,n,150);
           let cod=A.lerCodigoImagem(c);
           if(!cod){const alta=await A.desenharPagina(doc,n,300);cod=A.lerCodigoImagem(alta);alta.width=alta.height=0}
+          /* grade do cartão-resposta (marcas e ArUco); a decisão final fica para depois, com o modelo do lote */
+          let m=null;try{m=C.medir(c);delete m.bin}catch{m=null}
           const blob=await paraJpeg(c);c.width=c.height=0;
-          if(cod&&(!atual||atual.ra!==cod||atual.como!=='código')){atual={arquivo:f.name,de:n,ate:n,paginas:[blob],ra:cod,como:'código',lido:cod};grupos.push(atual);continue}
-          if(atual){atual.paginas.push(blob);atual.ate=n;continue}
-          const ra=pelaNomeArquivo(f.name)||'';atual={arquivo:f.name,de:n,ate:n,paginas:[blob],ra,como:ra?'nome do arquivo':'escolher'};grupos.push(atual);
+          if(cod&&(!atual||atual.ra!==cod||atual.como!=='código')){atual={arquivo:f.name,de:n,ate:n,paginas:[blob],medidas:[m],ra:cod,como:'código',lido:cod};grupos.push(atual);continue}
+          if(atual){atual.paginas.push(blob);atual.medidas.push(m);atual.ate=n;continue}
+          const ra=pelaNomeArquivo(f.name)||'';atual={arquivo:f.name,de:n,ate:n,paginas:[blob],medidas:[m],ra,como:ra?'nome do arquivo':'escolher'};grupos.push(atual);
         }
       }finally{doc.destroy()}
     }
-    msg('#m-status',grupos.length?'Confira a lista e clique em "Enviar".':'Nenhuma página lida.');
+    /* o molde do cartão sai da melhor página do lote e cada página escolhe entre as marcas dela e o molde */
+    const modelo=C.melhorModelo(grupos.flatMap(g=>g.medidas||[]));
+    for(const g of grupos){g.cartoes=(g.medidas||[]).map(m=>m?C.serializar(C.escolherGrade(m,modelo),m.W,m.H):null);if(!g.cartoes.some(Boolean))g.cartoes=null;g.respostas=respostasPorRa.get(g.ra)||null}
+    const primeiro=grupos.find(g=>g.ra&&porRa.has(g.ra));
+    if(primeiro){const s=sugerirSerieTrilha(porRa.get(primeiro.ra));if(!$('#m-serie').value&&[...$('#m-serie').options].some(o=>o.value===s.serie))$('#m-serie').value=s.serie;if(!$('#m-trilha').value)$('#m-trilha').value=s.trilha}
+    const comGrade=grupos.filter(g=>g.cartoes).length,comResp=grupos.filter(g=>g.respostas).length;
+    msg('#m-status',grupos.length?`Confira a lista e clique em "Enviar". Cartões com grade lida: ${comGrade} de ${grupos.length}`+(planilhas?`; respostas da planilha: ${comResp} (${linhas} linhas em ${planilhas} arquivo${planilhas===1?'':'s'}).`:'; sem planilha de respostas, o aluno verá só as respostas certas por cima do cartão.'):'Nenhuma página lida.');
+    avisarGabarito().catch(()=>{});
   }catch(e){msg('#m-status',e.message,true)}
   finally{ocupado=false;$('#m-ler').disabled=false;renderGrupos()}
 });
+/* Avisa se ainda não há gabarito salvo para a série e trilha escolhidas (não impede o envio). */
+async function avisarGabarito(){
+  const serie=$('#m-serie').value,trilha=$('#m-trilha').value;if(!serie||!trilha||!grupos.some(g=>g.cartoes))return;
+  const d=await api(`/api/adm/desempenho/gabaritos?bimestre=${$('#m-bim').value}&prova=${$('#m-prova').value}`);
+  if(!d.gabaritos.some(g=>g.serie===serie&&g.trilha===trilha))msg('#m-status',$('#m-status').textContent+` Ainda não há gabarito salvo para ${serie}ª/${trilha} neste bimestre e prova: salve-o no quadro "Gabaritos" (pode ser depois do envio).`)}
 function problemaDoGrupo(g){
   if(g.erro)return g.erro;if(!g.ra)return 'Escolha o aluno.';if(!porRa.has(g.ra))return g.como==='código'?'RA lido ('+g.ra+') fora da lista do ano.':'Aluno não encontrado.';
   if(grupos.filter(x=>x.ra===g.ra&&!x.enviado).length>1)return 'Mesmo aluno em mais de um item.';if(g.paginas.length>40)return 'Mais de 40 páginas.';return ''}
@@ -120,15 +164,18 @@ function renderGrupos(){
     else{const i=document.createElement('input');i.setAttribute('list','lista-alunos');i.placeholder='Digite o nome ou o RA';i.value=g.ra&&porRa.has(g.ra)?rotuloAluno(porRa.get(g.ra)):'';i.setAttribute('aria-label','Aluno do arquivo '+g.arquivo);
       i.addEventListener('change',()=>{const ra=(i.value.match(/^\d{1,15}/)||[''])[0];g.ra=porRa.has(ra)?ra:'';if(g.ra&&g.como!=='código')g.como='escolhido';renderGrupos()});td(tr,i)}
     td(tr,g.como==='código'?tag('código de barras','ok'):g.como==='nome do arquivo'?tag('nome do arquivo','aviso'):g.como==='escolhido'?tag('escolhido','aviso'):tag(g.como==='erro'?'erro':'sem código','erro'));
+    const cart=document.createElement('span');if(g.erro)cart.textContent='—';else{const n=(g.cartoes||[]).filter(Boolean).length;cart.append(n?tag(`grade em ${n} ${n===1?'página':'páginas'}`,'ok'):tag('sem grade','aviso'),' ',g.respostas?tag('respostas','ok'):tag('sem respostas','aviso'))}td(tr,cart);
     const p=problemaDoGrupo(g);td(tr,g.enviado?tag('enviado','ok'):g.falha?tag(g.falha,'erro'):p?tag(p,'erro'):tag('pronto','cinza'));tb.append(tr)}
   const prontos=grupos.filter(g=>!g.enviado&&!problemaDoGrupo(g)).length;$('#m-enviar').textContent=prontos?`Enviar ${prontos} ${prontos===1?'documento':'documentos'}`:'Enviar';$('#m-enviar').disabled=!prontos||ocupado}
 $('#m-limpar').addEventListener('click',()=>{if(ocupado)return;grupos=[];$('#m-arquivos').value='';$('#m-ler').disabled=true;msg('#m-status','');renderGrupos()});
 $('#m-enviar').addEventListener('click',async()=>{
-  if(ocupado)return;ocupado=true;renderGrupos();const bim=Number($('#m-bim').value),prova=$('#m-prova').value;let feitos=0,falhas=0;
+  if(ocupado)return;const bim=Number($('#m-bim').value),prova=$('#m-prova').value,serie=$('#m-serie').value,trilha=$('#m-trilha').value;
+  if(grupos.some(g=>g.cartoes&&!g.enviado)&&(!serie||!trilha)){msg('#m-status','Escolha a série e a trilha da prova: é por elas que o portal acha o gabarito do cartão.',true);return}
+  ocupado=true;renderGrupos();let feitos=0,falhas=0;
   const fila=grupos.filter(g=>!g.enviado&&!problemaDoGrupo(g));
   for(const [i,g] of fila.entries()){
     try{for(const [k,b] of g.paginas.entries()){msg('#m-status',`Enviando ${i+1} de ${fila.length}: página ${k+1} de ${g.paginas.length}…`);await enviarImagem(bim,prova,g.ra,k+1,b)}
-      await api('/api/adm/desempenho/documentos',{method:'POST',body:{bimestre:bim,prova,ra:g.ra,paginas:g.paginas.length}});g.enviado=true;g.falha='';feitos++}
+      await api('/api/adm/desempenho/documentos',{method:'POST',body:{bimestre:bim,prova,ra:g.ra,paginas:g.paginas.length,serie:serie||null,trilha:trilha||null,respostas:g.respostas||null,cartoes:g.cartoes||null}});g.enviado=true;g.falha='';feitos++}
     catch(e){g.falha=e.message;falhas++}
     renderGrupos()}
   ocupado=false;renderGrupos();msg('#m-status',`${feitos} ${feitos===1?'documento enviado':'documentos enviados'}`+(falhas?`, ${falhas} com erro (tente de novo).`:'. Eles só aparecem para os alunos depois de "Liberar".'),!!falhas);
@@ -140,11 +187,13 @@ async function carregarEnviados(){
   const bim=$('#m-bim').value,prova=$('#m-prova').value,d=await api(`/api/adm/desempenho?bimestre=${bim}&prova=${prova}`);
   $('#m-titulo-lista').textContent=`· ${bim}º bimestre · ${PROVAS[prova]}`;
   const tb=$('#m-enviados');tb.replaceChildren();let lib=0;
-  for(const x of d.documentos){const tr=document.createElement('tr');td(tr,x.nome||'(fora da lista)');td(tr,x.ra);td(tr,x.codigo?x.codigo+' '+x.unidade:'');td(tr,x.paginas);td(tr,data(x.enviado_em));td(tr,x.liberado_em?tag('liberado em '+data(x.liberado_em),'ok'):tag('não liberado','aviso'));if(x.liberado_em)lib++;
+  for(const x of d.documentos){const tr=document.createElement('tr');td(tr,x.nome||'(fora da lista)');td(tr,x.ra);td(tr,x.codigo?x.codigo+' '+x.unidade:'');td(tr,x.paginas);
+    const cart=document.createElement('span');if(x.com_cartao){cart.append(tag('grade','ok'),' ',x.com_respostas?tag('respostas','ok'):tag('sem respostas','aviso'));if(x.serie&&x.trilha)cart.append(' '+x.serie+'/'+x.trilha)}else cart.textContent='—';td(tr,cart);
+    td(tr,data(x.enviado_em));td(tr,x.liberado_em?tag('liberado em '+data(x.liberado_em),'ok'):tag('não liberado','aviso'));if(x.liberado_em)lib++;
     const b=document.createElement('button');b.type='button';b.className='danger';b.textContent='Apagar';let armado=null;
     b.addEventListener('click',async()=>{if(!b.classList.contains('confirmar')){b.classList.add('confirmar');b.textContent='Confirmar: apagar';armado=setTimeout(()=>{b.classList.remove('confirmar');b.textContent='Apagar'},5000);return}clearTimeout(armado);b.disabled=true;try{await api('/api/adm/desempenho/documentos/'+x.id,{method:'DELETE'});await carregarEnviados()}catch(e){msg('#m-lib-status',e.message,true);b.disabled=false}});
     td(tr,b);tb.append(tr)}
-  if(!d.documentos.length){const tr=document.createElement('tr');td(tr,'Nada enviado ainda.').colSpan=7;tb.append(tr)}
+  if(!d.documentos.length){const tr=document.createElement('tr');td(tr,'Nada enviado ainda.').colSpan=8;tb.append(tr)}
   $('#m-contagem').textContent=d.documentos.length?`${d.documentos.length} ${d.documentos.length===1?'aluno':'alunos'} · ${lib} liberado${lib===1?'':'s'}`:'';
   $('#m-liberar').disabled=!d.documentos.length||lib===d.documentos.length;$('#m-recolher').disabled=!lib;renderResumo(d.resumo)}
 function renderResumo(lista){const box=$('#resumo');box.replaceChildren();for(let b=1;b<=4;b++){const div=document.createElement('div');const t=document.createElement('b');t.textContent=b+'º bimestre';div.append(t);
@@ -152,7 +201,27 @@ function renderResumo(lista){const box=$('#resumo');box.replaceChildren();for(le
 async function liberar(prova,bim,sim,status){try{const d=await api('/api/adm/desempenho/liberar',{method:'POST',body:{bimestre:Number(bim),prova,liberar:sim}});msg(status,sim?`${d.alterados} liberado(s). Os alunos já veem no portal.`:`${d.alterados} recolhido(s). Saíram do portal.`)}catch(e){msg(status,e.message,true)}}
 $('#m-liberar').addEventListener('click',async()=>{await liberar($('#m-prova').value,$('#m-bim').value,true,'#m-lib-status');carregarEnviados()});
 $('#m-recolher').addEventListener('click',async()=>{await liberar($('#m-prova').value,$('#m-bim').value,false,'#m-lib-status');carregarEnviados()});
-for(const id of ['#m-bim','#m-prova'])$(id).addEventListener('change',()=>{msg('#m-lib-status','');carregarEnviados().catch(e=>msg('#m-lib-status',e.message,true))});
+for(const id of ['#m-bim','#m-prova'])$(id).addEventListener('change',()=>{msg('#m-lib-status','');carregarEnviados().catch(e=>msg('#m-lib-status',e.message,true));carregarGabaritos().catch(e=>msg('#g-status',e.message,true))});
+
+/* ---------- gabaritos: um por série e trilha, do bimestre e prova escolhidos ---------- */
+async function carregarGabaritos(){
+  const bim=$('#m-bim').value,prova=$('#m-prova').value,d=await api(`/api/adm/desempenho/gabaritos?bimestre=${bim}&prova=${prova}`);
+  $('#g-titulo').textContent=`· ${bim}º bimestre · ${PROVAS[prova]}`;
+  const tb=$('#g-lista');tb.replaceChildren();
+  for(const g of d.gabaritos){const tr=document.createElement('tr');td(tr,/^\d$/.test(g.serie)&&g.serie>3?g.serie+'º ano':g.serie+'ª série');td(tr,g.trilha);td(tr,g.questoes);td(tr,g.inicio);td(tr,g.anuladas);td(tr,g.duplas);td(tr,data(g.atualizado_em));
+    const b=document.createElement('button');b.type='button';b.className='danger';b.textContent='Apagar';let armado=null;
+    b.addEventListener('click',async()=>{if(!b.classList.contains('confirmar')){b.classList.add('confirmar');b.textContent='Confirmar: apagar';armado=setTimeout(()=>{b.classList.remove('confirmar');b.textContent='Apagar'},5000);return}clearTimeout(armado);b.disabled=true;try{await api('/api/adm/desempenho/gabaritos/'+g.id,{method:'DELETE'});msg('#g-status','Gabarito apagado.');await carregarGabaritos()}catch(e){msg('#g-status',e.message,true);b.disabled=false}});
+    td(tr,b);tb.append(tr)}
+  if(!d.gabaritos.length){const tr=document.createElement('tr');td(tr,'Nenhum gabarito salvo para este bimestre e prova.').colSpan=8;tb.append(tr)}}
+$('#g-arquivo').addEventListener('change',async()=>{const f=$('#g-arquivo').files[0];if(!f)return;try{$('#g-texto').value=await f.text();msg('#g-status',`Arquivo ${f.name} carregado; confira e clique em "Salvar gabarito".`)}catch(e){msg('#g-status',e.message,true)}});
+$('#g-salvar').addEventListener('click',async()=>{
+  const texto=$('#g-texto').value.trim();if(!texto){msg('#g-status','Cole o gabarito ou escolha o arquivo .txt.',true);return}
+  $('#g-salvar').disabled=true;
+  try{const d=await api('/api/adm/desempenho/gabaritos',{method:'POST',body:{bimestre:Number($('#m-bim').value),prova:$('#m-prova').value,serie:$('#g-serie').value,trilha:$('#g-trilha').value,inicio:Number($('#g-inicio').value)||1,texto}});
+    msg('#g-status',`${d.substituiu?'Gabarito substituído':'Gabarito salvo'}: ${d.questoes} questões, da ${d.inicio} à ${d.inicio+d.questoes-1}`+(d.anuladas?`, ${d.anuladas} anulada${d.anuladas===1?'':'s'}`:'')+(d.duplas?`, ${d.duplas} com duas certas`:'')+'. Os alunos já liberados passam a ver o gabarito no cartão.');
+    $('#g-texto').value='';$('#g-arquivo').value='';await carregarGabaritos()}
+  catch(e){msg('#g-status',e.message,true)}
+  finally{$('#g-salvar').disabled=false}});
 
 /* ---------- espelhos ---------- */
 const CORES=A.CORES_COMP,COMPS=[['c1','Norma padrão'],['c2','Tema e tipo textual'],['c3','Argumentação'],['c4','Coesão textual'],['c5','Proposta de intervenção']];
@@ -212,7 +281,7 @@ async function gerarEspelhos(l){
 (async()=>{if(!token){$('#auth-error').hidden=false;return}
   try{await api('/api/adm/sessao');$('#app').hidden=false;const d=await api('/api/adm/desempenho/alunos');alunos=d.alunos;porRa=new Map(alunos.map(a=>[a.ra,a]));
     const dl=$('#lista-alunos');for(const a of alunos){const o=document.createElement('option');o.value=rotuloAluno(a);dl.append(o)}
-    await carregarEnviados()}
+    await carregarEnviados();await carregarGabaritos()}
   catch(e){if(/Entre|sess|autoriz/i.test(e.message)){$('#app').hidden=true;$('#auth-error').hidden=false}else msg('#m-status',e.message,true)}})();
 </script>
 </body>

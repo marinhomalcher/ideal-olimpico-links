@@ -16,7 +16,7 @@ const ACOES={
   adicionarCarrinhoSerie:arg=>adicionarCarrinhoSerie(arg),abrirPagamentoNovo:arg=>abrirPagamentoNovo(Number(arg)),
   copiarPixAtual:()=>copiarPixAtual(),enviarComprovanteAtual:()=>enviarComprovanteAtual(),voltarPagamentosNovos:()=>voltarPagamentosNovos(),
   abaDesempenho:()=>abrirDesempenho(),abaConquistas:()=>abrirConquistas(),abaCertificados:()=>abrirCertificados(),escolherAnoConquistas:arg=>escolherAnoConquistas(arg),abaCompeticoes:()=>irHome(),escolherBimestre:arg=>escolherBimestre(Number(arg)),verDocumento:arg=>verDocumento(Number(arg)),
-  visorAnterior:()=>visorIr(-1),visorProxima:()=>visorIr(1),visorZoom:arg=>visorZoom(Number(arg)),fecharVisor:()=>fecharVisor()
+  visorAnterior:()=>visorIr(-1),visorProxima:()=>visorIr(1),visorZoom:arg=>visorZoom(Number(arg)),visorGabarito:()=>visorGabarito(),fecharVisor:()=>fecharVisor()
 };
 document.addEventListener('click',e=>{
   const el=e.target&&e.target.closest?e.target.closest('[data-acao]'):null;
@@ -980,9 +980,10 @@ function renderDesempenho(){
 function verDocumento(id){
   const d=(desempenho||[]).find(x=>Number(x.id)===id);if(!d||!alunoAtual)return;
   const p=PROVAS_DESEMPENHO.find(x=>x.id===d.prova)||{titulo:'Documento'};
-  visor={id,titulo:p.titulo+' · '+d.bimestre+'º bimestre',links:[],pagina:0,zoom:1,tentou:false};
-  document.getElementById('visorTitulo').textContent=visor.titulo;document.getElementById('visorPagina').textContent='';
+  visor={id,titulo:p.titulo+' · '+d.bimestre+'º bimestre',links:[],pagina:0,zoom:1,tentou:false,cartao:null,gabaritoLigado:true};
+  document.getElementById('visorTitulo').textContent=visor.titulo;document.getElementById('visorPagina').textContent='';document.getElementById('visorResumo').textContent='';
   const img=document.getElementById('visorImg');img.removeAttribute('src');img.classList.add('hidden');
+  limparMascara();document.getElementById('visorGabarito').classList.add('hidden');
   document.getElementById('visorMsg').textContent='Abrindo...';
   const dlg=document.getElementById('visorDesempenho');if(!dlg.open)dlg.showModal();
   buscarPaginas();
@@ -993,6 +994,8 @@ function buscarPaginas(){
     if(visor!==atual)return;
     visor.links=(r&&Array.isArray(r.links))?r.links.filter(l=>/^https:\/\/grupoideal\.sharepoint\.com\//.test(String(l))):[];
     if(!visor.links.length){document.getElementById('visorMsg').textContent='Não foi possível abrir agora. Tente de novo em instantes.';return;}
+    visor.cartao=cartaoValido(r&&r.cartao);
+    mostrarResumoCartao();
     mostrarPagina();
   }).withFailureHandler(e=>{
     if(visor!==atual)return;
@@ -1007,9 +1010,10 @@ function mostrarPagina(){
   document.getElementById('visorPagina').textContent=n>1?`Página ${visor.pagina+1} de ${n}`:'';
   document.getElementById('visorMsg').textContent='Carregando a página...';
   img.classList.add('hidden');img.alt=visor.titulo+(n>1?' — página '+(visor.pagina+1):'');
-  img.onload=()=>{document.getElementById('visorMsg').textContent='';img.classList.remove('hidden');};
+  img.onload=()=>{document.getElementById('visorMsg').textContent='';img.classList.remove('hidden');desenharMascara();};
   /* link temporário vencido (cerca de 1 h): pede links novos uma vez */
   img.onerror=()=>{if(visor&&!visor.tentou){visor.tentou=true;document.getElementById('visorMsg').textContent='Abrindo de novo...';buscarPaginas();}else document.getElementById('visorMsg').textContent='Não foi possível carregar a página. Feche e abra de novo.';};
+  limparMascara();
   img.src=visor.links[visor.pagina];
   aplicarZoom();
   for(const b of document.querySelectorAll('#visorDesempenho [data-acao=visorAnterior],#visorDesempenho [data-acao=visorProxima]'))b.classList.toggle('hidden',n<2);
@@ -1019,7 +1023,78 @@ function mostrarPagina(){
 function visorIr(passo){if(!visor)return;const n=visor.links.length,p=visor.pagina+passo;if(p<0||p>=n)return;visor.pagina=p;mostrarPagina();document.getElementById('visorArea').scrollTo({top:0,left:0});}
 const ZOOMS=[1,1.5,2,3];
 function visorZoom(passo){if(!visor)return;const i=Math.max(0,Math.min(ZOOMS.length-1,ZOOMS.indexOf(visor.zoom)+passo));visor.zoom=ZOOMS[i];aplicarZoom();}
-function aplicarZoom(){const img=document.getElementById('visorImg');for(const z of ZOOMS)img.classList.toggle('zoom-'+String(z).replace('.','-'),!!visor&&visor.zoom===z);}
-function fecharVisor(){visor=null;const img=document.getElementById('visorImg');img.onload=img.onerror=null;img.removeAttribute('src');const dlg=document.getElementById('visorDesempenho');if(dlg&&dlg.open)dlg.close();}
+function aplicarZoom(){const folha=document.getElementById('visorFolha');for(const z of ZOOMS)folha.classList.toggle('zoom-'+String(z).replace('.','-'),!!visor&&visor.zoom===z);}
+function fecharVisor(){visor=null;const img=document.getElementById('visorImg');img.onload=img.onerror=null;img.removeAttribute('src');limparMascara();const dlg=document.getElementById('visorDesempenho');if(dlg&&dlg.open)dlg.close();}
+
+/* ---------- gabarito por cima do cartão-resposta (pedido de 21/11/2026) ----------
+   O servidor manda, junto com as páginas, o gabarito oficial da série e trilha, as respostas do aluno (da planilha
+   de correção) e a grade das bolhas de cada página (lida pelo ADM na hora do envio). Aqui só se desenha, numa
+   camada SVG que acompanha a imagem e o zoom: verde cheio onde acertou, vermelho com X onde errou mais o anel
+   verde na certa, âmbar na certa quando deixou em branco, roxo nas anuladas. O botão "Gabarito" liga e desliga. */
+const LETRAS_CARTAO='ABCDE';
+function cartaoValido(c){
+  if(!c||typeof c!=='object'||!Array.isArray(c.gabarito)||!Array.isArray(c.paginas))return null;
+  const gab=c.gabarito.map(x=>String(x||'').toUpperCase()).filter(x=>/^([A-E](\/[A-E])*|X)$/.test(x));
+  if(!gab.length||gab.length!==c.gabarito.length||gab.length>200)return null;
+  const resp=typeof c.respostas==='string'&&/^[A-E_*]{1,200}$/.test(c.respostas.toUpperCase())?c.respostas.toUpperCase():null;
+  const ponto=p=>Array.isArray(p)&&p.length===2&&Number.isFinite(p[0])&&Number.isFinite(p[1])?[p[0],p[1]]:null;
+  const lista=a=>Array.isArray(a)&&a.length&&a.length<=64?a.map(ponto):null;
+  const paginas=c.paginas.slice(0,40).map(g=>{
+    if(!g||typeof g!=='object')return null;
+    const t=lista(g.t),b=lista(g.b),esq=lista(g.esq),dir=lista(g.dir);
+    if(!t||!b||!esq||!dir||t.some(x=>!x)||b.some(x=>!x)||esq.some(x=>!x)||dir.some(x=>!x)||t.length!==b.length||esq.length!==dir.length)return null;
+    if(!Array.isArray(g.blocos)||!g.blocos.every(bl=>Array.isArray(bl)&&bl.every(i=>Number.isInteger(i)&&i>=0&&i<t.length)))return null;
+    const w=Number(g.w),h=Number(g.h),linhas=Number(g.linhas);
+    if(!(w>0&&h>0&&w<20000&&h<20000)||!Number.isInteger(linhas)||linhas<1||linhas>esq.length)return null;
+    return {w,h,t,b,esq,dir,blocos:g.blocos,linhas};
+  });
+  if(!paginas.some(Boolean))return null;
+  const inicio=Number.isInteger(c.inicio)&&c.inicio>=1?c.inicio:1;
+  return {gabarito:gab,respostas:resp,paginas,inicio};
+}
+function centroCartao(g,col,li){
+  const c=g.t[col],f=g.b[col],e=g.esq[li],d=g.dir[li];
+  if(!c||!f||!e||!d)return null;
+  const fy=(e[1]+d[1])/2,k=(fy-c[1])/((f[1]-c[1])||1),x=c[0]+(f[0]-c[0])*k;
+  const fx=(c[0]+f[0])/2,j=(fx-e[0])/((d[0]-e[0])||1),y=e[1]+(d[1]-e[1])*(isFinite(j)?j:0.5);
+  return [x,y];
+}
+function limparMascara(){const svg=document.getElementById('visorMascara');svg.replaceChildren();svg.classList.add('hidden');}
+function svgEl(nome,attrs){const e=document.createElementNS('http://www.w3.org/2000/svg',nome);for(const k in attrs)e.setAttribute(k,String(attrs[k]));return e;}
+function desenharMascara(){
+  const svg=document.getElementById('visorMascara'),botao=document.getElementById('visorGabarito');
+  svg.replaceChildren();
+  const c=visor&&visor.cartao,g=c&&c.paginas[visor.pagina];
+  botao.classList.toggle('hidden',!g);
+  if(!g){svg.classList.add('hidden');return;}
+  botao.setAttribute('aria-pressed',String(visor.gabaritoLigado));
+  svg.setAttribute('viewBox',`0 0 ${g.w} ${g.h}`);svg.setAttribute('preserveAspectRatio','none');
+  svg.classList.toggle('hidden',!visor.gabaritoLigado);
+  const p0=centroCartao(g,0,0),p1=centroCartao(g,1,0);if(!p0||!p1)return;
+  const r=Math.max(3,Math.hypot(p1[0]-p0[0],p1[1]-p0[1])*0.33),alts=g.blocos[0].length;
+  const anel=(p,raio,cor,esp)=>svg.append(svgEl('circle',{cx:p[0].toFixed(1),cy:p[1].toFixed(1),r:raio.toFixed(1),fill:'none',stroke:cor,'stroke-width':esp}));
+  const cheio=(p,fundo,borda)=>svg.append(svgEl('circle',{cx:p[0].toFixed(1),cy:p[1].toFixed(1),r:r.toFixed(1),fill:fundo,'fill-opacity':0.42,stroke:borda,'stroke-width':3}));
+  const risco=(p,cor)=>{const d=r*0.6;svg.append(svgEl('path',{d:`M${(p[0]-d).toFixed(1)} ${(p[1]-d).toFixed(1)}L${(p[0]+d).toFixed(1)} ${(p[1]+d).toFixed(1)}M${(p[0]+d).toFixed(1)} ${(p[1]-d).toFixed(1)}L${(p[0]-d).toFixed(1)} ${(p[1]+d).toFixed(1)}`,stroke:cor,'stroke-width':2.5,fill:'none'}));};
+  for(let q=0;q<c.gabarito.length;q++){
+    const bloco=Math.floor(q/g.linhas),lin=q%g.linhas;
+    if(!g.blocos[bloco])break;
+    const col=g.blocos[bloco][0],certa=c.gabarito[q],marcou=c.respostas?c.respostas[q]:'';
+    if(certa==='X'){for(let a=0;a<alts;a++){const p=centroCartao(g,col+a,lin);if(p)anel(p,r,'#6b53c4',2);}continue;}
+    const certas=certa.split('/').map(l=>LETRAS_CARTAO.indexOf(l)).filter(i=>i>=0&&i<alts),iMarcou=LETRAS_CARTAO.indexOf(marcou),acertou=certas.includes(iMarcou);
+    for(const i of certas){const p=centroCartao(g,col+i,lin);if(!p)continue;if(acertou&&i===iMarcou)cheio(p,'#17863b','#17863b');else anel(p,r,'#17863b',3);}
+    if(iMarcou>=0&&iMarcou<alts&&!acertou){const p=centroCartao(g,col+iMarcou,lin);if(p){cheio(p,'#d6222a','#d6222a');risco(p,'#d6222a');}}
+    if(c.respostas&&(marcou==='_'||marcou==='*')){const p=centroCartao(g,col+certas[0],lin);if(p)anel(p,r*1.35,'#b07d12',2);}
+  }
+}
+function visorGabarito(){if(!visor||!visor.cartao)return;visor.gabaritoLigado=!visor.gabaritoLigado;desenharMascara();}
+function mostrarResumoCartao(){
+  const el=document.getElementById('visorResumo'),c=visor&&visor.cartao;
+  if(!c){el.textContent='';return;}
+  let acertos=0,erros=0,brancos=0,anuladas=0;
+  for(let q=0;q<c.gabarito.length;q++){const g=c.gabarito[q],m=c.respostas?c.respostas[q]:'';if(g==='X'){anuladas++;continue;}if(!m||m==='_'||m==='*'){brancos++;continue;}if(g.split('/').includes(m))acertos++;else erros++;}
+  el.replaceChildren();
+  if(!c.respostas){el.textContent=`Gabarito oficial com ${c.gabarito.length} questões`+(anuladas?`, ${anuladas} anulada${anuladas===1?'':'s'}`:'')+'.';return;}
+  const b=document.createElement('b');b.textContent=`${acertos+anuladas} de ${c.gabarito.length}`;el.append(b,` · ${acertos} acerto${acertos===1?'':'s'} · ${erros} erro${erros===1?'':'s'} · ${brancos} em branco · ${anuladas} anulada${anuladas===1?'':'s'}`);
+}
 document.getElementById('visorDesempenho').addEventListener('close',()=>{if(visor)fecharVisor();});
 for(const ev of ['contextmenu','dragstart'])document.getElementById('visorDesempenho').addEventListener(ev,e=>e.preventDefault());

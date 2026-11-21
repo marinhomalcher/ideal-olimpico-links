@@ -2034,7 +2034,7 @@ async function rotasSelecoesAdm(request, env, path, url, sessao) {
 // Guarda as tabelas de conteúdo e cadastro; não guarda sessões nem códigos de login.
 // As imagens já ficam no R2 e não são copiadas de novo.
 const TABELAS_BACKUP = ['meta', 'usuarios', 'retiradas', 'grupos', 'grupo_versoes', 'itens', 'item_versoes', 'revisoes', 'consertos', 'selecoes', 'selecao_itens', 'eventos',
-  'redacao_turmas', 'redacao_alunos', 'redacao_equipe', 'redacao_professor_turmas', 'redacao_digitalizador_unidades', 'redacao_importacoes', 'redacao_lotes', 'redacao_paginas', 'redacao_correcoes', 'coordenadores', 'redacao_envios', 'desempenho_documentos', 'alunos'];
+  'redacao_turmas', 'redacao_alunos', 'redacao_equipe', 'redacao_professor_turmas', 'redacao_digitalizador_unidades', 'redacao_importacoes', 'redacao_lotes', 'redacao_paginas', 'redacao_correcoes', 'coordenadores', 'redacao_envios', 'desempenho_documentos', 'desempenho_gabaritos', 'alunos'];
 const MANTER_BACKUPS = 60;
 
 async function fazerBackup(env, origem) {
