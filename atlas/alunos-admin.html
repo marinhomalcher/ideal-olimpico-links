@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="pt-BR">
 <head>
-<meta name="atlas-versao" content="20261120d"><script src="atlas-versao.js?v=20261120d" defer></script>
+<meta name="atlas-versao" content="20261121a"><script src="atlas-versao.js?v=20261121a" defer></script>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow">
 <title>ATLAS | Alunos</title>
 <style>
@@ -9,7 +9,7 @@
 .grid.quatro{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:10px}@media(max-width:700px){.grid.quatro{grid-template-columns:1fr 1fr}}</style>
 </head>
 <body>
-<header><div class="brand"><img src="ideal-logo.png" alt="Ideal 50 anos"><span>ATLAS · Alunos</span></div><div><a class="back" href="admin.html">← Voltar à área do ADM</a></div></header>
+<header><div class="brand"><img src="ideal-logo.png" alt="Ideal 50 anos"><span>ATLAS · Alunos</span></div><div><a class="back" href="../adm/#atlas">← Voltar ao painel</a></div></header>
 <main class="shell"><h1>Alunos</h1><p class="lead">Cadastro anual dos alunos, pela planilha completa. É a base usada pela Redação (leitura do RA e conferência da turma) e, no futuro, por outras partes do ATLAS.</p>
 <div id="auth-error" class="panel" hidden><p>Entre primeiro na área do Administrador para acessar o cadastro de alunos.</p><a class="link" href="admin.html?volta=alunos-admin.html">Abrir login do ADM</a></div>
 <div id="app" hidden><section id="alunos"><div class="panel"><h2>Atualizar alunos pela planilha completa</h2><p class="hint">Use o modelo com as colunas NOME COMPLETO, RA, FILIAL, SÉRIE, CODTURMA e SEGMENTO. Alunos ausentes da nova planilha não são apagados durante o ano. Confira a prévia antes de importar.</p><label for="arquivo">Planilha .xlsx</label><input id="arquivo" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"><div class="actions"><button id="previa-button" class="secondary" type="button">Conferir planilha</button><button id="importar-button" class="primary" type="button" disabled>Importar alunos</button></div><p id="alunos-status" class="status" role="status"></p><div id="previa" class="preview" hidden></div></div><div class="panel"><h2>Consultar alunos de uma turma</h2><div class="grid quatro"><div><label for="c-unidade">Unidade</label><select id="c-unidade"><option value="">Escolha</option><option value="BC">Batista Campos</option><option value="AM">Augusto Montenegro</option><option value="CN">Cidade Nova</option></select></div><div><label for="c-segmento">Segmento</label><select id="c-segmento"></select></div><div><label for="c-serie">Série</label><select id="c-serie"></select></div><div><label for="consultar-turma">Turma</label><select id="consultar-turma"></select></div></div><p id="consultar-status" class="status" role="status"></p><div class="table"><table><thead><tr><th>RA</th><th>Aluno</th></tr></thead><tbody id="alunos-lista"></tbody></table></div></div></section></div></main>

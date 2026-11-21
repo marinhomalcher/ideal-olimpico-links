@@ -246,7 +246,7 @@ await page.selectOption('#es-disciplina','História');
 await paste('#comando','Questão antiga de História');await paste('#alt-a','a) um\nb) dois\nc) três\nd) quatro\ne) cinco');await page.selectOption('#es-gabarito','A');
 await page.click('#es-visualizar');await page.waitForSelector('#es-previa:not([hidden])');await page.click('#es-enviar');await page.waitForSelector('#es-ok:not([hidden])');
 ok('Tela ADM: envia questão de História', (await page.textContent('#es-ok')).includes('Supervisor de História'), await page.textContent('#es-ok'));
-ok('Tela ADM: menu tem Enviar questões e Relatório', (await page.textContent('aside')).includes('Relatório de produção'));
+ok('Tela ADM: sem o menu lateral antigo; "Voltar ao painel" leva à aba ATLAS do /adm/', await page.locator('#app-view aside').count()===0 && (await page.getAttribute('a.back-link','href'))==='../adm/#atlas');
 await page.screenshot({path:S+'adm-enviar.png',fullPage:false});
 // --- ADM: relatório ---
 await page.goto('https://idealolimpico.com.br/atlas/admin-relatorio.html');await page.waitForSelector('table.rel');

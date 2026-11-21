@@ -134,11 +134,11 @@ await page.addInitScript(t=>{try{sessionStorage.setItem('atlas_adm_token',t)}cat
 await page.goto('https://idealolimpico.com.br/atlas/admin.html');
 await page.waitForSelector('#list table');
 ok('Página principal do ADM não mostra mais cópias nem retiradas', await page.locator('#sec-copias').isHidden() && await page.locator('#ret-painel').isHidden() && await page.locator('#sec-professores').isVisible());
-ok('Menu do ADM tem "Questões retiradas" e "Cópias de segurança" no fim', /Seleções recebidas<\/a><a href="admin\.html\?secao=retiradas">Questões retiradas<\/a><a href="admin\.html\?secao=copias">Cópias de segurança<\/a><\/aside>/.test(await page.locator('aside').evaluate(e=>e.outerHTML)));
-await page.click('aside a[href="admin.html?secao=copias"]');
+ok('Página principal do ADM não tem mais o menu lateral (retiradas e cópias abrem pelo painel /adm/)', await page.locator('#app-view aside').count()===0 && (await page.getAttribute('a.back-link','href'))==='../adm/#atlas');
+await page.goto('https://idealolimpico.com.br/atlas/admin.html?secao=copias');
 await page.waitForFunction(()=>document.querySelector('#backup-ultimo').textContent.includes('Última cópia'));
 ok('Tela ADM: mostra a última cópia', true);
-ok('Página "Cópias de segurança" mostra só esse quadro, com o item do menu marcado', await page.locator('#sec-copias').isVisible() && await page.locator('#sec-professores').isHidden() && await page.locator('#ret-painel').isHidden() && (await page.locator('#app-view h1').textContent())==='Cópias de segurança' && (await page.locator('aside a.atual').textContent())==='Cópias de segurança');
+ok('Página "Cópias de segurança" mostra só esse quadro', await page.locator('#sec-copias').isVisible() && await page.locator('#sec-professores').isHidden() && await page.locator('#ret-painel').isHidden() && (await page.locator('#app-view h1').textContent())==='Cópias de segurança');
 db.exec('DELETE FROM login_rate_limits');
 await page.click('#backup-agora');await page.waitForFunction(()=>document.querySelector('#backup-status').textContent.includes('Cópia feita'));
 await page.click('#backup-ver');await page.waitForFunction(()=>document.querySelectorAll('#backup-lista tbody tr').length>0);

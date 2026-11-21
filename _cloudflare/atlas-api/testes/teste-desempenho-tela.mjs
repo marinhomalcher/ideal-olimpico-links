@@ -162,7 +162,7 @@ await page.click('#e-liberar');
 await page.waitForFunction(() => /liberado/.test(document.querySelector('#e-lib-status').textContent));
 ok('Liberar os espelhos do bimestre', conta("SELECT COUNT(*) AS n FROM desempenho_documentos WHERE prova = 'ESPELHO' AND liberado_em IS NOT NULL") === 2);
 ok('Sem erros de JavaScript na página', errors.length === 0, errors.join(' | '));
-ok('Menu do ADM tem "Meu desempenho" e o login volta para a página', /desempenho-admin\.html">Meu desempenho/.test(fs.readFileSync(atlas + 'admin.html', 'utf8')) && /'desempenho-admin\.html'\]/.test(fs.readFileSync(atlas + 'admin.html', 'utf8')));
+ok('Painel /adm/ tem "Mapas de desempenho" e o login volta para a página', /desempenho-admin\.html"><b>Mapas de desempenho/.test(fs.readFileSync(repo + 'adm/index.html', 'utf8')) && /'desempenho-admin\.html'\]/.test(fs.readFileSync(atlas + 'admin.html', 'utf8')));
 
 await browser.close();
 server.close();
