@@ -25,6 +25,14 @@ await gerador.close();
 
 const chamadas = [], pedidosImg = [];
 let linkVencido = false;
+/* grade fictícia da 1ª página do cartão (imagem 900 × 1270): 2 blocos de 5 alternativas e 3 linhas, como o
+   atlas-cartao.js serializa (marcas de cima, de baixo, da esquerda e da direita; blocos como índices de coluna) */
+const GRADE = {
+  w: 900, h: 1270, blocos: [[0, 1, 2, 3, 4], [5, 6, 7, 8, 9]], linhas: 3,
+  t: [[100, 600], [130, 600], [160, 600], [190, 600], [220, 600], [400, 600], [430, 600], [460, 600], [490, 600], [520, 600]],
+  b: [[100, 760], [130, 760], [160, 760], [190, 760], [220, 760], [400, 760], [430, 760], [460, 760], [490, 760], [520, 760]],
+  esq: [[40, 640], [40, 680], [40, 720]], dir: [[860, 640], [860, 680], [860, 720]]
+};
 const DOCS = [
   { id: 11, bimestre: 1, prova: 'PART', paginas: 2, liberado_em: '2026-04-10T12:00:00Z' },
   { id: 12, bimestre: 2, prova: 'ENEM1', paginas: 2, liberado_em: '2026-06-24T12:00:00Z' },
@@ -52,7 +60,9 @@ await ctx.route('https://ideal-olimpico-producao.marinhomalcher.workers.dev/**',
   if (c.method === 'paginasDesempenho') {
     const id = c.args[1], v = linkVencido ? 'vencido' : 'ok';
     linkVencido = false;
-    return r({ links: id === 13 ? [SP + 'esp-' + v] : [SP + 'p1-' + v, SP + 'p2-' + v, 'https://evil.example/x.jpg'] });
+    /* id 11: cartão com gabarito na 1ª página (grade fictícia de 2 blocos × 3 linhas); id 12: "cartao" malformado, que deve ser ignorado */
+    const cartao = id === 11 ? { inicio: 1, gabarito: ['A', 'B', 'X', 'C/D', 'E', 'A'], respostas: 'AC_DEB', paginas: [GRADE, null] } : id === 12 ? { gabarito: 'ABC', paginas: 'x' } : null;
+    return r({ links: id === 13 ? [SP + 'esp-' + v] : [SP + 'p1-' + v, SP + 'p2-' + v, 'https://evil.example/x.jpg'], cartao });
   }
   return r({});
 });
@@ -107,13 +117,41 @@ ok('Link de fora do SharePoint do grupo é descartado', !pedidosImg.some(u => u.
 const menu = await page.evaluate(() => { const e = new MouseEvent('contextmenu', { bubbles: true, cancelable: true }); document.getElementById('visorImg').dispatchEvent(e); return e.defaultPrevented; });
 ok('Menu do botão direito ("salvar imagem") bloqueado na imagem', menu);
 ok('Imagem não arrastável e sem seleção', await page.evaluate(() => { const i = document.getElementById('visorImg'); return i.draggable === false && getComputedStyle(i).userSelect === 'none'; }));
+/* gabarito por cima do cartão: 1ª página tem grade; acertou A (verde cheio), errou a 2ª (C em vez de B: vermelho com X
+   e anel verde na B), 3ª anulada (5 anéis roxos), 4ª aceita C ou D e marcou D (verde cheio no D e anel verde no C),
+   5ª acertou E, 6ª marcou B e a certa é A */
+const masc = await page.evaluate(() => {
+  const svg = document.getElementById('visorMascara'), circ = [...svg.querySelectorAll('circle')], path = svg.querySelectorAll('path').length;
+  const cheios = circ.filter(c => c.getAttribute('fill') !== 'none'), verdes = cheios.filter(c => c.getAttribute('fill') === '#17863b'), vermelhos = cheios.filter(c => c.getAttribute('fill') === '#d6222a');
+  const roxos = circ.filter(c => c.getAttribute('stroke') === '#6b53c4'), aneisVerdes = circ.filter(c => c.getAttribute('fill') === 'none' && c.getAttribute('stroke') === '#17863b');
+  const folha = document.getElementById('visorFolha').getBoundingClientRect(), s = svg.getBoundingClientRect();
+  return { visivel: !svg.classList.contains('hidden'), viewBox: svg.getAttribute('viewBox'), total: circ.length, verdes: verdes.length, vermelhos: vermelhos.length, roxos: roxos.length, aneisVerdes: aneisVerdes.length, riscos: path,
+    botao: !document.getElementById('visorGabarito').classList.contains('hidden'), pressionado: document.getElementById('visorGabarito').getAttribute('aria-pressed'),
+    resumo: document.getElementById('visorResumo').textContent, sobreposta: Math.abs(folha.width - s.width) < 2 && Math.abs(folha.height - s.height) < 2,
+    primeiro: circ[0] && [circ[0].getAttribute('cx'), circ[0].getAttribute('cy')] };
+});
+ok('Máscara do gabarito desenhada por cima da 1ª página, do tamanho da imagem', masc.visivel && masc.viewBox === '0 0 900 1270' && masc.sobreposta && masc.botao && masc.pressionado === 'true', JSON.stringify(masc));
+ok('Acertos verdes cheios (A, D, E), erros vermelhos com X (2) e anel verde na certa (B, C, A), anulada roxa (5)', masc.verdes === 3 && masc.vermelhos === 2 && masc.riscos === 2 && masc.aneisVerdes === 3 && masc.roxos === 5 && masc.total === 13, JSON.stringify(masc));
+ok('Centro da 1ª bolha vem do cruzamento das marcas (coluna A × linha 1)', masc.primeiro && masc.primeiro[0] === '100.0' && masc.primeiro[1] === '640.0', JSON.stringify(masc.primeiro));
+ok('Resumo: 4 de 6, com acertos, erros, em branco e anuladas', /^4 de 6 · 3 acertos · 2 erros · 0 em branco · 1 anulada$/.test(masc.resumo), masc.resumo);
+await page.click('#visorGabarito');
+ok('Botão "Gabarito" esconde a máscara e mostra o cartão limpo', await page.evaluate(() => document.getElementById('visorMascara').classList.contains('hidden') && document.getElementById('visorGabarito').getAttribute('aria-pressed') === 'false'));
+await page.click('#visorGabarito');
+ok('… e liga de novo', await page.evaluate(() => !document.getElementById('visorMascara').classList.contains('hidden')));
 await page.click('[data-acao=visorProxima]');
 await page.waitForFunction(() => document.getElementById('visorImg').src.includes('p2-ok') && document.getElementById('visorImg').naturalWidth > 0);
 ok('Próxima página', await page.evaluate(() => document.getElementById('visorPagina').textContent === 'Página 2 de 2' && document.querySelector('[data-acao=visorProxima]').disabled));
+ok('Página sem grade: sem máscara e sem o botão', await page.evaluate(() => document.getElementById('visorMascara').classList.contains('hidden') && document.getElementById('visorMascara').childElementCount === 0 && document.getElementById('visorGabarito').classList.contains('hidden')));
 await page.click('[data-acao=visorZoom][data-arg="1"]');
-ok('Zoom aumenta a página', await page.evaluate(() => document.getElementById('visorImg').classList.contains('zoom-1-5') && document.getElementById('visorImg').getBoundingClientRect().width > document.getElementById('visorArea').clientWidth));
+ok('Zoom aumenta a página (e a máscara vai junto, na mesma camada)', await page.evaluate(() => document.getElementById('visorFolha').classList.contains('zoom-1-5') && document.getElementById('visorFolha').getBoundingClientRect().width > document.getElementById('visorArea').clientWidth && document.getElementById('visorImg').getBoundingClientRect().width === document.getElementById('visorFolha').getBoundingClientRect().width));
 await page.click('#visorDesempenho .close');
-ok('Fechar o visualizador', await page.evaluate(() => !document.getElementById('visorDesempenho').open && !document.getElementById('visorImg').getAttribute('src')));
+ok('Fechar o visualizador', await page.evaluate(() => !document.getElementById('visorDesempenho').open && !document.getElementById('visorImg').getAttribute('src') && document.getElementById('visorMascara').childElementCount === 0));
+/* "cartao" fora da forma esperada é ignorado em silêncio */
+await page.click('[data-acao=escolherBimestre][data-arg="2"]');
+await page.click('[data-acao=verDocumento][data-arg="12"]');
+await page.waitForFunction(() => { const i = document.getElementById('visorImg'); return i.complete && i.naturalWidth > 0 && !i.classList.contains('hidden'); });
+ok('Cartão malformado vindo do servidor: visor abre sem máscara, sem botão e sem resumo', await page.evaluate(() => document.getElementById('visorGabarito').classList.contains('hidden') && document.getElementById('visorMascara').childElementCount === 0 && document.getElementById('visorResumo').textContent === ''));
+await page.click('#visorDesempenho .close');
 
 /* link temporário vencido: pede links novos uma vez, sozinho */
 await page.click('[data-acao=escolherBimestre][data-arg="2"]');

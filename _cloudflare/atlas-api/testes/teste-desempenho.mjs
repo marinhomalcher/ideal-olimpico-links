@@ -63,11 +63,17 @@ const jpeg = n => new Uint8Array([0xFF, 0xD8, 0xFF, 0xE0, n, 1, 2, 3]);
 const conta = (q, ...a) => db.prepare(q).get(...a).n;
 
 /* ---------- migração ---------- */
-ok('Schema 19', db.prepare("SELECT valor FROM meta WHERE chave='schema_versao'").get().valor === '19');
+ok('Schema 20', db.prepare("SELECT valor FROM meta WHERE chave='schema_versao'").get().valor === '20');
 { const m = new DatabaseSync(':memory:');
   m.exec(sql.split('-- ---------- v18 ----------')[0]); m.exec(fs.readFileSync(REPO + '_cloudflare/atlas-api/migrations/0018_desempenho.sql', 'utf8'));
   ok('Migração 0018 cria desempenho_documentos e marca a versão 18', m.prepare("SELECT COUNT(*) AS n FROM sqlite_master WHERE name = 'desempenho_documentos'").get().n === 1 && m.prepare("SELECT valor FROM meta WHERE chave = 'schema_versao'").get().valor === '18'); }
-ok('Cópia de segurança inclui desempenho_documentos', /'desempenho_documentos'(, '[a-z_]+')*\]/.test(fs.readFileSync(REPO + '_cloudflare/atlas-api/worker.js', 'utf8')));
+{ const m = new DatabaseSync(':memory:');
+  m.exec(sql.split('-- ---------- v20 ----------')[0]); m.exec(fs.readFileSync(REPO + '_cloudflare/atlas-api/migrations/0020_cartao_gabarito.sql', 'utf8'));
+  const cols = m.prepare('PRAGMA table_info(desempenho_documentos)').all().map(c => c.name);
+  ok('Migração 0020 põe série, trilha, respostas e cartões no documento, cria desempenho_gabaritos e marca a versão 20',
+    ['serie', 'trilha', 'respostas', 'cartoes'].every(c => cols.includes(c)) && m.prepare("SELECT COUNT(*) AS n FROM sqlite_master WHERE name = 'desempenho_gabaritos'").get().n === 1 && m.prepare("SELECT valor FROM meta WHERE chave = 'schema_versao'").get().valor === '20', cols.join(',')); }
+ok('Cópia de segurança inclui desempenho_documentos e desempenho_gabaritos', /'desempenho_documentos', 'desempenho_gabaritos'(, '[a-z_]+')*\]/.test(fs.readFileSync(REPO + '_cloudflare/atlas-api/worker.js', 'utf8')));
+ok('Encerramento do ano apaga também os gabaritos', /desempenho_gabaritos WHERE ano = \?/.test(fs.readFileSync(REPO + '_cloudflare/atlas-api/redacao-encerrar.js', 'utf8')));
 
 /* ---------- alunos fictícios ---------- */
 const alunos = [];
@@ -164,6 +170,45 @@ await adm('/api/adm/desempenho/imagem?bimestre=1&prova=ESPELHO&ra=20000&n=1', 'P
 r = await adm('/api/adm/desempenho/documentos', 'POST', { bimestre: 1, prova: 'ESPELHO', ra: '20000', paginas: 1, lote_id: lote });
 const r4 = await adm('/api/adm/desempenho/espelhos');
 ok('Espelho registrado conta no lote', r.status === 200 && r4.data.lotes[0].espelhos === 1);
+
+/* ---------- cartão-resposta com gabarito (21/11/2026) ---------- */
+const GRADE = { w: 1240, h: 1753, blocos: [[0, 1, 2, 3, 4]], linhas: 2, t: [[96, 958], [122.7, 958], [149.4, 958], [176.1, 958], [202.8, 958]], b: [[96, 1506], [122.7, 1506], [149.4, 1506], [176.1, 1506], [202.8, 1506]], esq: [[34, 1007], [34, 1041]], dir: [[1211, 1007], [1211, 1041]] };
+await adm('/api/adm/desempenho/imagem?bimestre=2&prova=ENEM2&ra=20002&n=1', 'PUT', jpeg(11));
+await adm('/api/adm/desempenho/imagem?bimestre=2&prova=ENEM2&ra=20002&n=2', 'PUT', jpeg(12));
+r = await adm('/api/adm/desempenho/documentos', 'POST', { bimestre: 2, prova: 'ENEM2', ra: '20002', paginas: 2, serie: '3', trilha: 'med', respostas: 'ab_de', cartoes: [GRADE, null] });
+ok('Registra o cartão com série, trilha, respostas e a grade da 1ª página', r.status === 200, JSON.stringify(r.data));
+r = await adm('/api/adm/desempenho?bimestre=2&prova=ENEM2');
+ok('Lista mostra série/trilha e que há grade e respostas', r.status === 200 && r.data.documentos[0].serie === '3' && r.data.documentos[0].trilha === 'MED' && r.data.documentos[0].com_cartao === 1 && r.data.documentos[0].com_respostas === 1, JSON.stringify(r.data.documentos));
+r = await adm('/api/adm/desempenho/documentos', 'POST', { bimestre: 2, prova: 'ENEM2', ra: '20002', paginas: 2, serie: '4', trilha: 'MED' });
+const r5 = await adm('/api/adm/desempenho/documentos', 'POST', { bimestre: 2, prova: 'ENEM2', ra: '20002', paginas: 2, respostas: 'ABF' });
+const r6 = await adm('/api/adm/desempenho/documentos', 'POST', { bimestre: 2, prova: 'ENEM2', ra: '20002', paginas: 2, cartoes: [GRADE] });
+ok('Recusa série fora da lista, resposta fora de A–E e grades que não batem com as páginas', r.status === 400 && r5.status === 400 && r6.status === 400, [r.status, r5.status, r6.status].join());
+const idEnem = db.prepare("SELECT id FROM desempenho_documentos WHERE ra = '20002' AND prova = 'ENEM2'").get().id;
+await adm('/api/adm/desempenho/liberar', 'POST', { bimestre: 2, prova: 'ENEM2', liberar: true });
+r = await portal('/api/portal/desempenho/paginas', { ra: '20002', id: idEnem });
+ok('Portal: sem gabarito salvo, as páginas vêm sem cartão (o aluno vê só a imagem)', r.status === 200 && r.data.links.length === 2 && r.data.cartao === null, JSON.stringify(r.data.cartao));
+r = await adm('/api/adm/desempenho/gabaritos', 'POST', { bimestre: 2, prova: 'ENEM2', serie: '3', trilha: 'MED', texto: 'GABARITO OFICIAL\nTotal de questoes: 5\n------\nQ.91: A\nQ.92: C\nQ.93: X\nQ.94: D/E\nQ.95: A\n' });
+ok('Salva o gabarito no formato da coordenação (começa na 91, uma anulada, uma dupla)', r.status === 200 && !r.data.substituiu && r.data.inicio === 91 && r.data.questoes === 5 && r.data.anuladas === 1 && r.data.duplas === 1, JSON.stringify(r.data));
+r = await adm('/api/adm/desempenho/gabaritos', 'POST', { bimestre: 2, prova: 'ENEM2', serie: '3', trilha: 'MED', texto: 'ACXDA', inicio: 91 });
+ok('Salvar de novo substitui (sequência de letras com a primeira questão)', r.status === 200 && r.data.substituiu && r.data.inicio === 91 && r.data.questoes === 5 && r.data.anuladas === 1 && r.data.duplas === 0, JSON.stringify(r.data));
+r = await adm('/api/adm/desempenho/gabaritos', 'POST', { bimestre: 2, prova: 'ESPELHO', serie: '3', trilha: 'MED', texto: 'ABC' });
+const r7 = await adm('/api/adm/desempenho/gabaritos', 'POST', { bimestre: 2, prova: 'ENEM2', serie: '3', trilha: 'MED', texto: 'Q.91: A\nQ.93: B' });
+const r8 = await adm('/api/adm/desempenho/gabaritos', 'POST', { bimestre: 2, prova: 'ENEM2', serie: '3', trilha: 'MED', texto: 'ABC' }, { token: 'user-token' });
+ok('Recusa gabarito de espelho, com buraco na numeração e de quem não é ADM', r.status === 400 && r7.status === 400 && /Falta a questão 92/.test(r7.data.error) && (r8.status === 401 || r8.status === 403), [r.status, r7.status, r8.status].join());
+r = await adm('/api/adm/desempenho/gabaritos?bimestre=2&prova=ENEM2');
+ok('Lista os gabaritos do bimestre e prova, com contagens', r.status === 200 && r.data.gabaritos.length === 1 && r.data.gabaritos[0].serie === '3' && r.data.gabaritos[0].trilha === 'MED' && r.data.gabaritos[0].questoes === 5 && r.data.gabaritos[0].inicio === 91, JSON.stringify(r.data.gabaritos));
+r = await portal('/api/portal/desempenho/paginas', { ra: '20002', id: idEnem });
+ok('Portal: com gabarito da série e trilha, vem o cartão: gabarito, respostas, grade por página e resumo',
+  r.status === 200 && r.data.cartao && r.data.cartao.inicio === 91 && r.data.cartao.gabarito.join('') === 'ACXDA' && r.data.cartao.respostas === 'AB_DE' && r.data.cartao.paginas.length === 2 && r.data.cartao.paginas[0].t.length === 5 && r.data.cartao.paginas[1] === null
+  && JSON.stringify(r.data.cartao.resumo) === JSON.stringify({ questoes: 5, acertos: 2, erros: 2, brancos: 0, anuladas: 1, valem: 4 }), JSON.stringify(r.data.cartao));
+await adm('/api/adm/desempenho/gabaritos', 'POST', { bimestre: 2, prova: 'ENEM2', serie: '2', trilha: 'REG', texto: 'EEEEE', inicio: 91 });
+r = await portal('/api/portal/desempenho/paginas', { ra: '20002', id: idEnem });
+ok('Gabarito de outra série e trilha não se mistura', r.status === 200 && r.data.cartao.gabarito.join('') === 'ACXDA');
+const idGab = db.prepare("SELECT id FROM desempenho_gabaritos WHERE serie = '3' AND trilha = 'MED'").get().id;
+r = await adm('/api/adm/desempenho/gabaritos/' + idGab, 'DELETE');
+const p3 = await portal('/api/portal/desempenho/paginas', { ra: '20002', id: idEnem });
+ok('Apagar o gabarito tira a máscara do portal na hora', r.status === 200 && p3.data.cartao === null);
+ok('Gabaritos ficam registrados nos eventos', conta("SELECT COUNT(*) AS n FROM eventos WHERE acao LIKE 'desempenho_gabarito_%'") >= 3);
 
 for (const x of results) console.log(x.join(' | '));
 const bad = results.filter(x => x[0] !== 'OK  ').length;

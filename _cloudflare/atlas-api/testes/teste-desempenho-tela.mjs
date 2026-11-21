@@ -106,7 +106,9 @@ await page.waitForFunction(() => /Confira|Nenhuma/.test(document.querySelector('
 const linhas = await page.$$eval('#m-tabela tr', trs => trs.map(tr => [...tr.children].map(td => td.querySelector('input')?.value ?? td.textContent)));
 ok('PDF com 2 alunos vira 2 documentos (página sem código fica com o anterior)', linhas.length === 6 && linhas[0][1] === 'págs. 1–2' && linhas[0][2].startsWith('20000') && linhas[1][1] === 'págs. 3–4' && linhas[1][2].startsWith('20001') && linhas[0][3] === 'código de barras', JSON.stringify(linhas.slice(0, 2)));
 ok('RA no nome do arquivo e nome do aluno no arquivo são reconhecidos', linhas[2][2].startsWith('20002') && linhas[2][3] === 'nome do arquivo' && linhas[3][2].startsWith('20003') && linhas[3][1] === 'págs. 1–2', JSON.stringify(linhas.slice(2, 4)));
-ok('Sem código e sem nome: pede para escolher; RA fora da lista é avisado', linhas[4][4] === 'Escolha o aluno.' && /99999.*fora da lista/.test(linhas[5][4]), JSON.stringify(linhas.slice(4)));
+ok('Sem código e sem nome: pede para escolher; RA fora da lista é avisado', linhas[4][5] === 'Escolha o aluno.' && /99999.*fora da lista/.test(linhas[5][5]), JSON.stringify(linhas.slice(4)));
+ok('Mapa sem bolhas: coluna "Cartão" avisa que não há grade nem respostas', linhas[0][4] === 'sem grade sem respostas', JSON.stringify(linhas[0]));
+ok('Série e trilha sugeridas pela turma do primeiro aluno (3EMA → 3ª série, REG)', await page.evaluate(() => document.getElementById('m-serie').value === '3' && document.getElementById('m-trilha').value === 'REG'));
 ok('Botão mostra quantos estão prontos', (await page.textContent('#m-enviar')) === 'Enviar 4 documentos');
 const campo = page.locator('#m-tabela tr').nth(4).locator('input');
 await campo.fill('20004 — Aluno Fictício Elisa — 3EMA BC');
@@ -130,6 +132,67 @@ await apagar.click();
 await page.waitForFunction(() => document.querySelector('#m-contagem').textContent === '4 alunos · 4 liberados');
 ok('Confirmar apaga o documento e as páginas', conta('SELECT COUNT(*) AS n FROM desempenho_documentos') === 4 && !sp.has('2026/B2/ENEM1/20000/p1.jpg'));
 function conta(q) { return db.prepare(q).get().n; }
+
+/* ---------- cartão-resposta sintético (geometria do cartão real) com código de barras: a grade é lida no envio ---------- */
+const pdfCartao = async (ra, respostas) => pdfDeJpegs([(await page.evaluate(([ra, respostas]) => {
+  const X0 = [96, 282, 475, 696, 884, 1071], PASSO = 26.7, YT = 958, YB = 1506, Y0 = 1007, PL = 34, XE = 34, XD = 1211, ARUCO = [[37, 60], [1181, 45], [1197, 1649], [53, 1666]];
+  const c = document.createElement('canvas'); c.width = 1240; c.height = 1753; const g = c.getContext('2d');
+  g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height); g.fillStyle = '#000';
+  for (const [x, y] of ARUCO) { g.fillRect(x - 19, y - 19, 38, 38); g.fillStyle = '#fff'; for (const [a, b] of [[-12, -12], [4, -12], [-12, 4], [4, 4]]) g.fillRect(x + a, y + b, 8, 8); g.fillStyle = '#000'; }
+  for (const x0 of X0) for (let a = 0; a < 5; a++) { const x = x0 + a * PASSO; g.fillRect(x - 8.5, YT - 5, 17, 10); g.fillRect(x - 8.5, YB - 5, 17, 10); }
+  for (let l = 0; l < 15; l++) { const y = Y0 + l * PL; g.fillRect(XE - 5, y - 8.5, 10, 17); g.fillRect(XD - 5, y - 8.5, 10, 17); }
+  for (let q = 0; q < 90; q++) { const bl = Math.floor(q / 15), y = Y0 + (q % 15) * PL; for (let a = 0; a < 5; a++) { const x = X0[bl] + a * PASSO; g.beginPath(); g.arc(x, y, 9, 0, 7); g.lineWidth = 1.2; g.strokeStyle = '#777'; g.stroke(); if ('ABCDE'[a] === respostas[q]) { g.beginPath(); g.arc(x, y, 7.5, 0, 7); g.fillStyle = '#111'; g.fill(); } } }
+  const larg = window.code128(ra), mod = 3; let px = 300; larg.forEach((l, k) => { if (k % 2 === 0) { g.fillStyle = '#000'; g.fillRect(px, 330, l * mod, 70); } px += l * mod; });
+  return { jpeg: window.jpeg(c), w: c.width, h: c.height };
+}, [ra, respostas]))].map(j => ({ ...j, jpeg: Buffer.from(j.jpeg, 'base64') })));
+await page.click('#m-limpar');
+await page.selectOption('#m-prova', 'ENEM2');
+await page.setInputFiles('#m-arquivos', [{ name: '3EMA_BC_ENEM2.pdf', mimeType: 'application/pdf', buffer: await pdfCartao('20005', 'ABCDE'.repeat(18)) }]);
+await page.click('#m-ler');
+await page.waitForFunction(() => /Confira|Nenhuma/.test(document.querySelector('#m-status').textContent), null, { timeout: 60000 });
+const lc = await page.$$eval('#m-tabela tr', trs => trs.map(tr => [...tr.children].map(td => td.querySelector('input')?.value ?? td.textContent)));
+ok('Cartão sintético: RA pelo código de barras e grade lida na página', lc.length === 1 && lc[0][2].startsWith('20005') && lc[0][3] === 'código de barras' && lc[0][4] === 'grade em 1 página sem respostas', JSON.stringify(lc));
+ok('Status conta os cartões com grade e avisa que falta o gabarito de 3ª/REG', /grade lida: 1 de 1/.test(await page.textContent('#m-status')) && await page.waitForFunction(() => /não há gabarito salvo para 3ª\/REG/.test(document.querySelector('#m-status').textContent)).then(() => true), await page.textContent('#m-status'));
+await page.selectOption('#m-trilha', '');
+await page.click('#m-enviar');
+ok('Sem trilha escolhida, o envio de cartão é barrado com explicação', /Escolha a série e a trilha/.test(await page.textContent('#m-status')) && conta("SELECT COUNT(*) AS n FROM desempenho_documentos WHERE prova = 'ENEM2'") === 0);
+await page.selectOption('#m-trilha', 'MED');
+await page.click('#m-enviar');
+await page.waitForFunction(() => /enviad/.test(document.querySelector('#m-status').textContent), null, { timeout: 60000 });
+const docCartao = db.prepare("SELECT serie, trilha, respostas, cartoes FROM desempenho_documentos WHERE prova = 'ENEM2' AND ra = '20005'").get();
+const gradeSalva = docCartao && JSON.parse(docCartao.cartoes);
+ok('Documento guardado com série, trilha e a grade da página (30 marcas de cima, 15 laterais, 6 blocos)', docCartao && docCartao.serie === '3' && docCartao.trilha === 'MED' && docCartao.respostas === null && gradeSalva.length === 1 && gradeSalva[0].t.length === 30 && gradeSalva[0].esq.length === 15 && gradeSalva[0].blocos.length === 6 && gradeSalva[0].w === 1240, JSON.stringify(docCartao && { ...docCartao, cartoes: docCartao.cartoes.slice(0, 80) }));
+await page.waitForFunction(() => [...document.querySelectorAll('#m-enviados tr')].some(tr => /grade/.test(tr.textContent)));
+ok('Lista "Já enviados" mostra a grade, a falta de respostas e a série/trilha', await page.evaluate(() => [...document.querySelectorAll('#m-enviados tr')].some(tr => /grade.*sem respostas.*3\/MED/.test(tr.textContent))));
+
+/* ---------- gabaritos pela tela ---------- */
+ok('Quadro de gabaritos começa vazio para 2º bimestre · ENEM 2º dia', await page.evaluate(() => /ENEM · 2º dia/.test(document.getElementById('g-titulo').textContent) && /Nenhum gabarito/.test(document.getElementById('g-lista').textContent)));
+await page.selectOption('#g-serie', '3');
+await page.selectOption('#g-trilha', 'MED');
+await page.fill('#g-texto', 'GABARITO OFICIAL\nTotal de questoes: 4\n-----\nQ.91: A\nQ.92: B\nQ.93: X\nQ.94: C/D\n');
+await page.click('#g-salvar');
+await page.waitForFunction(() => /Gabarito salvo/.test(document.querySelector('#g-status').textContent));
+ok('Salvar o gabarito avisa o que entendeu (4 questões, da 91 à 94, 1 anulada, 1 dupla)', /4 questões, da 91 à 94, 1 anulada, 1 com duas certas/.test(await page.textContent('#g-status')), await page.textContent('#g-status'));
+await page.waitForFunction(() => document.querySelectorAll('#g-lista tr').length === 1 && /3ª série/.test(document.querySelector('#g-lista').textContent));
+const lg = await page.$$eval('#g-lista tr', trs => trs.map(tr => [...tr.children].map(td => td.textContent)));
+ok('Quadro lista o gabarito: série, trilha, questões, primeira, anuladas, duplas', JSON.stringify(lg[0].slice(0, 6)) === JSON.stringify(['3ª série', 'MED', '4', '91', '1', '1']), JSON.stringify(lg));
+await page.fill('#g-texto', 'Q.91: A\nQ.93: B');
+await page.click('#g-salvar');
+await page.waitForFunction(() => /Falta a questão 92/.test(document.querySelector('#g-status').textContent));
+ok('Gabarito com buraco é recusado com o motivo na tela', (await page.$eval('#g-status', e => e.classList.contains('error'))));
+await page.setInputFiles('#g-arquivo', { name: '3MED_2BIM_AV2_GAB.txt', mimeType: 'text/plain', buffer: Buffer.from('Q.91: E\nQ.92: E\nQ.93: E\nQ.94: E\n') });
+await page.waitForFunction(() => /carregado/.test(document.querySelector('#g-status').textContent));
+ok('Arquivo .txt vai para a caixa de texto para conferir', (await page.inputValue('#g-texto')).startsWith('Q.91: E'));
+await page.click('#g-salvar');
+await page.waitForFunction(() => /Gabarito substituído/.test(document.querySelector('#g-status').textContent));
+ok('Salvar de novo substitui e some com a anulada', JSON.parse(db.prepare("SELECT respostas FROM desempenho_gabaritos WHERE serie = '3' AND trilha = 'MED'").get().respostas).join('') === 'EEEE');
+const apagarG = page.locator('#g-lista tr').first().locator('button');
+await apagarG.click();
+ok('Apagar gabarito pede confirmação na própria tela', (await apagarG.textContent()) === 'Confirmar: apagar' && conta('SELECT COUNT(*) AS n FROM desempenho_gabaritos') === 1);
+await apagarG.click();
+await page.waitForFunction(() => /Nenhum gabarito/.test(document.getElementById('g-lista').textContent));
+ok('Confirmar apaga o gabarito', conta('SELECT COUNT(*) AS n FROM desempenho_gabaritos') === 0);
+await page.selectOption('#m-prova', 'ENEM1');
 
 /* ---------- espelhos: lote fictício com 2 folhas corrigidas ---------- */
 const turma = db.prepare("SELECT turma_id AS id FROM redacao_alunos WHERE ra = '20000'").get().id;

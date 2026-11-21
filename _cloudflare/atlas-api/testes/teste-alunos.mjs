@@ -40,11 +40,11 @@ const conta = (q, ...a) => db.prepare(q).get(...a).n;
 const aluno = ra => db.prepare('SELECT * FROM alunos WHERE ra = ?').get(ra);
 
 /* ---------- migração ---------- */
-ok('Schema 19', db.prepare("SELECT valor FROM meta WHERE chave='schema_versao'").get().valor === '19');
+ok('Schema 20', db.prepare("SELECT valor FROM meta WHERE chave='schema_versao'").get().valor === '20');
 { const m = new DatabaseSync(':memory:');
   m.exec(sql.split('-- ---------- v19 ----------')[0]); m.exec(fs.readFileSync(repo + '_cloudflare/atlas-api/migrations/0019_alunos.sql', 'utf8'));
   ok('Migração 0019 cria a tabela alunos e marca a versão 19', m.prepare("SELECT COUNT(*) AS n FROM sqlite_master WHERE name = 'alunos'").get().n === 1 && m.prepare("SELECT valor FROM meta WHERE chave = 'schema_versao'").get().valor === '19'); }
-ok('Cópia de segurança inclui a tabela alunos', /'desempenho_documentos', 'alunos'\]/.test(fs.readFileSync(repo + '_cloudflare/atlas-api/worker.js', 'utf8')));
+ok('Cópia de segurança inclui a tabela alunos', /'desempenho_gabaritos', 'alunos']/.test(fs.readFileSync(repo + '_cloudflare/atlas-api/worker.js', 'utf8')));
 
 /* ---------- importação da planilha da escola (15 colunas) ---------- */
 const linhas = [
