@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="pt-BR">
 <head>
-<meta name="atlas-versao" content="20261121a"><script src="atlas-versao.js?v=20261121a" defer></script>
+<meta name="atlas-versao" content="20261121b"><script src="atlas-versao.js?v=20261121b" defer></script>
 <meta charset="utf-8"><meta name="robots" content="noindex, nofollow"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="referrer" content="strict-origin-when-cross-origin">
 <title>ATLAS | Relatório de produção</title>
@@ -92,7 +92,7 @@ async function gerar(){const b=$('#f-gerar');b.disabled=true;msg('Gerando relat�
 $('#f-gerar').addEventListener('click',gerar);
 function celula(n,cls=''){const td=document.createElement('td');td.textContent=String(n);if(!n)td.classList.add('zero');if(cls)td.classList.add(cls);return td}
 function desenhar(d){
-  $('#rel-titulo').textContent='Produção de '+d.ano+' · '+tituloRecorte(d);
+  $('#rel-titulo').textContent='Painel de produção · '+tituloRecorte(d);
   const t=d.totais;$('#rel-resumo').innerHTML='';
   for(const [txt,n] of [['enviadas',t.total],['aprovadas',t.aprovado],['em análise',t.analise],['com ajuste pedido',t.ajustes],['descartadas',t.descartado],['correções reenviadas',t.corrigidas],['classificadas pela força-tarefa',t.classificadas||0]]){const c=document.createElement('span');c.className='chip';c.textContent=n+' '+txt;$('#rel-resumo').append(c)}
   const box=$('#rel-tabela');if(!d.linhas.length){box.innerHTML='<div class="empty">Nenhum professor ou questão neste recorte.</div>';return}

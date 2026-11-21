@@ -5,7 +5,7 @@
 // por postMessage e volta com um resultado. Sem janelas do navegador: a confirmação é um segundo clique.
 (() => {
   'use strict';
-  const PERMITIDAS = new Set(['coordenadorAtualizarCatalogo', 'coordenadorAtualizarHistorico', 'coordenadorAtualizarConquistas', 'coordenadorDesconectarLembrados', 'coordenadorTestarAviso']);
+  const PERMITIDAS = new Set(['coordenadorAtualizarCatalogo', 'coordenadorAtualizarConquistas']);
   const frame = document.getElementById('ponteCoordenador');
   const botoes = [...document.querySelectorAll('button.card.acao')];
   if (!frame || !botoes.length) return;

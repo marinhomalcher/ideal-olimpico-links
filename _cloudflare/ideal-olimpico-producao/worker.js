@@ -184,6 +184,79 @@ function sanitizeCorrectionResult(result) {
   data.whatsappConfigurado = Boolean(safeUrl);
   return { ...result, data };
 }
+// ---------- ATLAS como base dos dados do aluno (21/11/2026) ----------
+// Depois do login (código ou acesso lembrado), os dados que o ATLAS tem do aluno prevalecem sobre os da
+// planilha, e a resposta leva uma "prova" (HMAC) que liga a sessão à matrícula. Na confirmação de dados,
+// a prova volta dentro dos dados: o Worker grava no ATLAS primeiro e depois na planilha do Apps Script.
+// Sem ATLAS_API_URL + PORTAL_ATLAS_SECRET (segredo, no painel da Cloudflare), tudo segue como antes.
+const ATLAS_METODOS_LOGIN = Object.freeze(['autenticarAlunoCodigo', 'retomarSessaoAluno']);
+const ATLAS_CAMPOS = Object.freeze(['nome', 'serie', 'segmento', 'dataNascimento', 'cpf', 'emailPessoal', 'whatsappAluno',
+  'responsavelNome', 'responsavelVinculo', 'responsavelWhatsapp', 'contatosConfirmadosAno', 'contatosConfirmadosNesteAno', 'anoAtual']);
+const ATLAS_ERRO_SALVAR = 'Não foi possível salvar os dados agora. Tente de novo em instantes.';
+function atlasConfigurado(env) {
+  return typeof env.ATLAS_API_URL === 'string' && /^https:\/\/[a-z0-9-]+\.[a-z0-9-]+\.workers\.dev$/.test(env.ATLAS_API_URL) &&
+    typeof env.PORTAL_ATLAS_SECRET === 'string' && env.PORTAL_ATLAS_SECRET.length >= 32;
+}
+async function hmacHex(secret, text) {
+  const encoder = new TextEncoder();
+  const key = await crypto.subtle.importKey('raw', encoder.encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+  return Array.from(new Uint8Array(await crypto.subtle.sign('HMAC', key, encoder.encode(text))), b => b.toString(16).padStart(2, '0')).join('');
+}
+function iguaisSemVazar(a, b) {
+  if (typeof a !== 'string' || typeof b !== 'string' || a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return diff === 0;
+}
+const provaAtlas = (env, sessao, ra) => hmacHex(env.PORTAL_ATLAS_SECRET, 'portal-prova:' + sessao + ':' + ra);
+async function chamarAtlas(env, rota, body) {
+  const r = await fetch(env.ATLAS_API_URL + rota, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + env.PORTAL_ATLAS_SECRET },
+    body: JSON.stringify(body)
+  });
+  let data = null;
+  try { data = await r.json(); } catch {}
+  return { status: r.status, data };
+}
+async function completarComAtlas(env, result) {
+  if (!atlasConfigurado(env) || !result || !result.ok || !result.data || typeof result.data !== 'object' || result.data.status !== 'OK' ||
+      typeof result.data.sessao !== 'string' || !result.data.aluno || typeof result.data.aluno !== 'object') return result;
+  const ra = String(result.data.aluno.matricula ?? '');
+  if (!/^\d{1,15}$/.test(ra)) return result;
+  const aluno = { ...result.data.aluno };
+  try {
+    const r = await chamarAtlas(env, '/api/portal/aluno', { ra });
+    if (r.status === 200 && r.data && r.data.ok && r.data.aluno) {
+      for (const c of ATLAS_CAMPOS) aluno[c] = r.data.aluno[c];
+      aluno.cpfPendente = !aluno.cpf;
+      aluno.atlas = true;
+    }
+  } catch {}
+  aluno.atlasProva = await provaAtlas(env, result.data.sessao, ra);
+  return { ...result, data: { ...result.data, aluno } };
+}
+/* Devolve os argumentos sem a prova (que a planilha não conhece) e, se algo impedir a gravação, a mensagem. */
+async function confirmarNoAtlas(env, args) {
+  const dados = args[1];
+  if (!dados || typeof dados !== 'object' || Array.isArray(dados)) return { args };
+  const { atlas: prova, ...resto } = dados;
+  const limpos = [args[0], resto];
+  if (!atlasConfigurado(env) || prova === undefined) return { args: limpos };
+  const ra = String(prova && prova.ra ? prova.ra : ''), assinatura = String(prova && prova.prova ? prova.prova : '');
+  if (typeof args[0] !== 'string' || !/^\d{1,15}$/.test(ra) || !iguaisSemVazar(await provaAtlas(env, args[0], ra), assinatura)) {
+    return { args: limpos, erro: 'Sessão inválida. Saia e entre de novo para confirmar os dados.' };
+  }
+  try {
+    const r = await chamarAtlas(env, '/api/portal/aluno/confirmar', { ra, dados: resto });
+    if (r.status === 404) return { args: limpos };   // não está na lista do ATLAS: segue só na planilha
+    if (r.status === 400 && r.data && typeof r.data.error === 'string') return { args: limpos, erro: r.data.error };
+    if (r.status !== 200 || !r.data || !r.data.ok) return { args: limpos, erro: ATLAS_ERRO_SALVAR };
+  } catch {
+    return { args: limpos, erro: ATLAS_ERRO_SALVAR };
+  }
+  return { args: limpos };
+}
 export default {
   async fetch(request, env) {
     const origin = request.headers.get('Origin');
@@ -278,11 +351,18 @@ export default {
           !/^\/macros\/s\/[A-Za-z0-9_-]+\/exec$/.test(target.pathname) || target.search || target.hash) {
         return reply({ ok: false, error: 'Conexão não configurada.' }, 503, origin);
       }
-      const body = JSON.stringify({ method: parsed.method, args: parsed.args, secret });
+      let args = parsed.args;
+      if (parsed.method === 'confirmarCadastroAluno') {
+        const c = await confirmarNoAtlas(env, args);
+        if (c.erro) return reply({ ok: false, error: c.erro }, 200, origin);
+        args = c.args;
+      }
+      const body = JSON.stringify({ method: parsed.method, args, secret });
       const result = parsed.method === 'getCatalogoGrupo'
         ? await catalogoComMemo(parsed.args[0], () => callBackend(target.href, body, true))
         : await callBackend(target.href, body, RETRY_METHODS.includes(parsed.method));
-      const safeResult = parsed.method === 'solicitarAlteracaoCadastral' ? sanitizeCorrectionResult(result) : result;
+      let safeResult = parsed.method === 'solicitarAlteracaoCadastral' ? sanitizeCorrectionResult(result) : result;
+      if (ATLAS_METODOS_LOGIN.includes(parsed.method)) safeResult = await completarComAtlas(env, safeResult);
       return reply(safeResult, 200, origin);
     } catch {
       return reply({ ok: false, error: 'A conexão falhou. Verifique o estado antes de repetir uma operação.' }, 502, origin);

@@ -137,6 +137,20 @@ ok('Celular: botões visíveis e sem rolagem para o lado', m.doc <= m.tela && m.
 if (process.env.ATLAS_PNG_DIR) await page.screenshot({ path: process.env.ATLAS_PNG_DIR + '/portal-cadastro-celular.png', fullPage: true });
 await page.close();
 
+/* 8. ATLAS como base (21/11/2026): a prova que veio no login volta dentro dos dados da confirmação */
+page = await entrar({ ...CONF, atlasProva: 'f'.repeat(64) });
+await page.click('#confirmarCadastroBtn');
+await page.waitForSelector('#desempenhoSec:not(.hidden)');
+c = confirmacoes().at(-1);
+ok('Com a prova do ATLAS, a confirmação leva {atlas: {ra, prova}} junto dos contatos', c && c.args[1].atlas && c.args[1].atlas.ra === '99999' && c.args[1].atlas.prova === 'f'.repeat(64) && c.args[1].cpf === '52998224725', JSON.stringify(c));
+await page.close();
+page = await entrar(CONF);
+await page.click('#confirmarCadastroBtn');
+await page.waitForSelector('#desempenhoSec:not(.hidden)');
+c = confirmacoes().at(-1);
+ok('Sem a prova (Worker antigo), a confirmação vai como antes, sem o campo atlas', c && !('atlas' in c.args[1]), JSON.stringify(c));
+await page.close();
+
 await browser.close();
 ok('Sem erro de JavaScript', erros.length === 0, erros.join('|'));
 for (const x of results) console.log(x.join(' | '));

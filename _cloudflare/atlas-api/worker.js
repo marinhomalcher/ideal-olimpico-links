@@ -7,6 +7,7 @@ import { rotaDesempenhoAdm, rotaDesempenhoPortal } from './desempenho.js';
 import { rotaCertificadosPortal } from './certificados.js';
 import { listarPessoas, salvarPessoa } from './pessoas.js';
 import { rotaPessoasPlanilha } from './pessoas-planilha.js';
+import { rotaAlunosAdm, rotaAlunosPortal } from './alunos.js';
 // Administração: login "Entrar com Google", liberado SOMENTE para o e-mail em ADMIN_EMAIL.
 // Professores e Supervisores: login por código no e-mail institucional.
 // Questões: enviadas pelo Professor e analisadas pelo Supervisor da disciplina (tabelas itens/item_versoes/revisoes).
@@ -2033,7 +2034,7 @@ async function rotasSelecoesAdm(request, env, path, url, sessao) {
 // Guarda as tabelas de conteúdo e cadastro; não guarda sessões nem códigos de login.
 // As imagens já ficam no R2 e não são copiadas de novo.
 const TABELAS_BACKUP = ['meta', 'usuarios', 'retiradas', 'grupos', 'grupo_versoes', 'itens', 'item_versoes', 'revisoes', 'consertos', 'selecoes', 'selecao_itens', 'eventos',
-  'redacao_turmas', 'redacao_alunos', 'redacao_equipe', 'redacao_professor_turmas', 'redacao_digitalizador_unidades', 'redacao_importacoes', 'redacao_lotes', 'redacao_paginas', 'redacao_correcoes', 'coordenadores', 'redacao_envios', 'desempenho_documentos'];
+  'redacao_turmas', 'redacao_alunos', 'redacao_equipe', 'redacao_professor_turmas', 'redacao_digitalizador_unidades', 'redacao_importacoes', 'redacao_lotes', 'redacao_paginas', 'redacao_correcoes', 'coordenadores', 'redacao_envios', 'desempenho_documentos', 'alunos'];
 const MANTER_BACKUPS = 60;
 
 async function fazerBackup(env, origem) {
@@ -2376,6 +2377,8 @@ async function rotasAdm(request, env, path) {
   if (redacaoLotes) return redacaoLotes;
   const redacaoAdm = await rotaRedacaoAdm(request, env, path, { readJson, hojeSP, registrar, emailEmUso, sessao });
   if (redacaoAdm) return redacaoAdm;
+  const alunosAdm = await rotaAlunosAdm(request, env, path, { readJson, hojeSP, registrar, sessao });
+  if (alunosAdm) return alunosAdm;
   if (path === '/api/adm/imagens' && request.method === 'POST') return await receberImagem(request, env, sessao.email);
   if (path === '/api/adm/imagens/migrar' && request.method === 'POST') return await migrarImagensAntigas(env, sessao);
   if (path === '/api/adm/imagens/situacao' && request.method === 'GET') {
@@ -2518,6 +2521,13 @@ export default {
       if (url.pathname === '/api/portal/certificados' && request.method === 'POST') {
         if (origin) throw new HttpError(403, 'Origem não permitida.');
         return reply(await certificadosPortal(request, env), 200, null);
+      }
+      if ((url.pathname === '/api/portal/aluno' || url.pathname === '/api/portal/aluno/confirmar') && request.method === 'POST') {
+        // Dados do aluno para o Portal (o ATLAS é a base, 21/11/2026): só servidor a servidor, com o segredo do portal.
+        if (origin) throw new HttpError(403, 'Origem não permitida.');
+        if (!portalConfigurado(env)) throw new HttpError(503, 'Indisponível.');
+        await conferirSegredoPortal(request, env);
+        return reply(await rotaAlunosPortal(env, url.pathname, await readJson(request, 4096), hojeSP), 200, null);
       }
       if (url.pathname === '/api/portal/aviso-aluno' && request.method === 'POST') {
         if (origin) throw new HttpError(403, 'Origem não permitida.');
