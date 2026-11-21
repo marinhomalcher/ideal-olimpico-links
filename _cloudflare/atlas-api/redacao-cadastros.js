@@ -186,27 +186,32 @@ export async function rotaRedacaoAdm(request, env, path, { readJson, hojeSP, reg
   if ((path === '/api/adm/redacao/alunos/previa' || path === '/api/adm/redacao/alunos/importar') && request.method === 'POST') {
     const body = await readJson(request, 2 * 1024 * 1024);
     if (inteiro(body.ano, 2026, 2100) !== ano) erro(400, 'Envie uma planilha do ano atual.');
-    const todas = Array.isArray(body.alunos) ? body.alunos : [];
-    const semEf1 = todas.filter(r => String(r?.segmento ?? '').trim().toUpperCase() !== 'EF1');
-    const p = await prepararImportacao(env, semEf1, ano);
-    const resumo = { ok: true, linhas: p.alunos.length, ignorados_ef1: todas.length - semEf1.length, novos: p.novos, atualizados: p.atualizados,
-      novas_turmas: p.novasTurmas, mudancas: p.mudancas, conflitos: p.conflitos };
-    if (path.endsWith('/previa')) return resumo;
-    if (p.conflitos.length) erro(409, 'A planilha contém mudança de série ou segmento. Corrija os RAs indicados antes de importar.');
-    const turmaOps = p.novasTurmas.map(t => env.DB.prepare('INSERT OR IGNORE INTO redacao_turmas (ano, unidade, segmento, serie, codigo) VALUES (?, ?, ?, ?, ?)').bind(ano, t.unidade, t.segmento, t.serie, t.codigo));
-    if (turmaOps.length) await env.DB.batch(turmaOps);
-    const porTurma = new Map((await todasTurmas(env, ano)).map(t => [chaveTurma(t), t.id]));
-    const ops = p.gravar.map(a => env.DB.prepare(
-      'INSERT INTO redacao_alunos (ra, nome, turma_id, ano, segmento, serie) VALUES (?, ?, ?, ?, ?, ?) ' +
-      'ON CONFLICT(ra) DO UPDATE SET nome = excluded.nome, turma_id = excluded.turma_id, ano = excluded.ano, segmento = excluded.segmento, serie = excluded.serie, atualizado_em = strftime(\'%Y-%m-%dT%H:%M:%SZ\',\'now\')'
-    ).bind(a.ra, a.nome, porTurma.get(chaveTurma(a)), ano, a.segmento, a.serie));
-    for (let i = 0; i < ops.length; i += 100) await env.DB.batch(ops.slice(i, i + 100));
-    await env.DB.prepare('INSERT INTO redacao_importacoes (ano, administrador, linhas, novos, atualizados) VALUES (?, ?, ?, ?, ?)')
-      .bind(ano, sessao.email, p.alunos.length, p.novos, p.atualizados).run();
-    await registrar(env, 'redacao_alunos_importados', { adm: sessao.email, ano, linhas: p.alunos.length, novos: p.novos, atualizados: p.atualizados });
-    return resumo;
+    return await importarAlunosRedacao(env, Array.isArray(body.alunos) ? body.alunos : [], ano, { gravar: path.endsWith('/importar'), sessao, registrar });
   }
   erro(404, 'Rota indisponível.');
+}
+
+/* Lista da Redação (EF2 e EM) a partir das linhas {ra, nome, unidade, segmento, serie, codigo}: a prévia só confere;
+   a importação cria as turmas novas e grava os alunos. Usada pela rota antiga e pelo cadastro completo (alunos.js). */
+export async function importarAlunosRedacao(env, todas, ano, { gravar, sessao, registrar }) {
+  const semEf1 = todas.filter(r => String(r?.segmento ?? '').trim().toUpperCase() !== 'EF1');
+  const p = await prepararImportacao(env, semEf1, ano);
+  const resumo = { ok: true, linhas: p.alunos.length, ignorados_ef1: todas.length - semEf1.length, novos: p.novos, atualizados: p.atualizados,
+    novas_turmas: p.novasTurmas, mudancas: p.mudancas, conflitos: p.conflitos };
+  if (!gravar) return resumo;
+  if (p.conflitos.length) erro(409, 'A planilha contém mudança de série ou segmento. Corrija os RAs indicados antes de importar.');
+  const turmaOps = p.novasTurmas.map(t => env.DB.prepare('INSERT OR IGNORE INTO redacao_turmas (ano, unidade, segmento, serie, codigo) VALUES (?, ?, ?, ?, ?)').bind(ano, t.unidade, t.segmento, t.serie, t.codigo));
+  if (turmaOps.length) await env.DB.batch(turmaOps);
+  const porTurma = new Map((await todasTurmas(env, ano)).map(t => [chaveTurma(t), t.id]));
+  const ops = p.gravar.map(a => env.DB.prepare(
+    'INSERT INTO redacao_alunos (ra, nome, turma_id, ano, segmento, serie) VALUES (?, ?, ?, ?, ?, ?) ' +
+    "ON CONFLICT(ra) DO UPDATE SET nome = excluded.nome, turma_id = excluded.turma_id, ano = excluded.ano, segmento = excluded.segmento, serie = excluded.serie, atualizado_em = strftime('%Y-%m-%dT%H:%M:%SZ','now')"
+  ).bind(a.ra, a.nome, porTurma.get(chaveTurma(a)), ano, a.segmento, a.serie));
+  for (let i = 0; i < ops.length; i += 100) await env.DB.batch(ops.slice(i, i + 100));
+  await env.DB.prepare('INSERT INTO redacao_importacoes (ano, administrador, linhas, novos, atualizados) VALUES (?, ?, ?, ?, ?)')
+    .bind(ano, sessao.email, p.alunos.length, p.novos, p.atualizados).run();
+  await registrar(env, 'redacao_alunos_importados', { adm: sessao.email, ano, linhas: p.alunos.length, novos: p.novos, atualizados: p.atualizados });
+  return resumo;
 }
 
 export async function rotaRedacaoUsuario(request, env, path, { sessaoAtual }) {

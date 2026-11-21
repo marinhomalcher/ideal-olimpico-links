@@ -169,7 +169,7 @@ function processarAutenticacao(r){
 
 function entrarComSessao(r){
   const a=r.aluno||{};
-  alunoAtual={sessao:r.sessao,matricula:a.matricula,nome:a.nome,email:a.email,emailPessoal:a.emailPessoal||'',dataNascimento:a.dataNascimento,unidade:a.unidade,serie:a.serie,segmento:a.segmento,cpfMascarado:a.cpfMascarado,cpfPendente:!!a.cpfPendente,cpf:a.cpf||'',whatsappAluno:a.whatsappAluno||'',responsavelNome:a.responsavelNome||'',responsavelVinculo:a.responsavelVinculo||'',responsavelWhatsapp:a.responsavelWhatsapp||'',contatosConfirmadosAno:a.contatosConfirmadosAno||0,contatosConfirmadosNesteAno:!!a.contatosConfirmadosNesteAno,anoAtual:a.anoAtual||''};
+  alunoAtual={sessao:r.sessao,matricula:a.matricula,nome:a.nome,email:a.email,emailPessoal:a.emailPessoal||'',dataNascimento:a.dataNascimento,unidade:a.unidade,serie:a.serie,segmento:a.segmento,cpfMascarado:a.cpfMascarado,cpfPendente:!!a.cpfPendente,cpf:a.cpf||'',whatsappAluno:a.whatsappAluno||'',responsavelNome:a.responsavelNome||'',responsavelVinculo:a.responsavelVinculo||'',responsavelWhatsapp:a.responsavelWhatsapp||'',contatosConfirmadosAno:a.contatosConfirmadosAno||0,contatosConfirmadosNesteAno:!!a.contatosConfirmadosNesteAno,anoAtual:a.anoAtual||'',atlasProva:typeof a.atlasProva==='string'?a.atlasProva:''};
   grupos={};grupoAtual=null;catalogoAtual=[];carrinho={};pedidoPendenteIds=[];atualizarCarrinho();
   document.getElementById('badgeNome').textContent=a.nome||'Aluno';
   document.getElementById('badgeEmail').textContent=a.email||'';
@@ -311,7 +311,9 @@ function confirmarCadastro(){
     window.scrollTo({top:0,behavior:'smooth'});
   }).withFailureHandler(e=>{
     btn.disabled=false;msg.innerHTML=`<div class="message bad">${esc(e&&e.message?e.message:e)}</div>`;
-  }).confirmarCadastroAluno(alunoAtual.sessao,{whatsappAluno:waAluno,responsavelNome:respNome,responsavelVinculo:respVinculo,responsavelWhatsapp:respWa,emailPessoal,cpf});
+  }).confirmarCadastroAluno(alunoAtual.sessao,{whatsappAluno:waAluno,responsavelNome:respNome,responsavelVinculo:respVinculo,responsavelWhatsapp:respWa,emailPessoal,cpf,
+    // Prova do ATLAS (21/11/2026): o Worker do portal grava a confirmação no cadastro do ATLAS antes da planilha.
+    ...(alunoAtual.atlasProva?{atlas:{ra:alunoAtual.matricula,prova:alunoAtual.atlasProva}}:{})});
 }
 
 function abrirSolicitacaoAlteracao(){

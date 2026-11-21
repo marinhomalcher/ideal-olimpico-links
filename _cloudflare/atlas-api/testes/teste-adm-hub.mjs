@@ -85,7 +85,7 @@ const send=m=>window.top.postMessage(m,parentOrigin);
 window.addEventListener('message',e=>{if(e.source!==window.top||e.origin!==parentOrigin||!e.data)return;const d=e.data;
 if(d.type==='ideal-coord-authorize'&&d.nonce===nonce){authorized=true;send({type:'ideal-coord-connected',nonce});return;}
 if(d.type!=='ideal-coord-call'||!authorized)return;
-if(d.method==='coordenadorTestarAviso')send({type:'ideal-coord-result',id:d.id,ok:false,error:'Acesso restrito à conta autorizada do coordenador.'});
+window.__n=(window.__n||0)+1;if(window.__n===3)send({type:'ideal-coord-result',id:d.id,ok:false,error:'Acesso restrito à conta autorizada do coordenador.'});
 else send({type:'ideal-coord-result',id:d.id,ok:true,data:{mensagem:'Feito: '+d.method+' '+JSON.stringify(d.args)}});});
 send({type:'ideal-coord-ready',nonce});})();
 </script>` });
@@ -117,9 +117,11 @@ ok('Cartão Meu desempenho continua ativo quando a página existe (HEAD 200)', a
 await page.click('#tab-olimpiadas');
 ok('Aba Olimpíadas tem o aviso da etapa 2 e os links externos', await visivel('aba-olimpiadas') && await page.locator('#aba-olimpiadas .card.off').count() === 4 && await page.locator('#aba-olimpiadas a[target=_blank]').count() === 2);
 
-// 2b2. Etapa 2, lote A: cartões que executam as rotinas do menu da planilha pela ponte do coordenador
+// 2b2. Etapa 2, lote A: cartões que executam as rotinas do menu da planilha pela ponte do coordenador.
+// 21/11/2026: a seção "Ações na planilha" da aba Inscrições saiu (sem função); ficam só os dois cartões de Olimpíadas.
 const acoes = await page.evaluate(() => [...document.querySelectorAll('button.card.acao')].map(b => b.dataset.acao));
-ok('Cinco cartões de ação, com os nomes que a ponte da coordenação libera', acoes.join('|') === 'coordenadorDesconectarLembrados|coordenadorAtualizarHistorico|coordenadorTestarAviso|coordenadorAtualizarCatalogo|coordenadorAtualizarConquistas', acoes.join('|'));
+ok('Dois cartões de ação (Olimpíadas), com os nomes que a ponte da coordenação libera', acoes.join('|') === 'coordenadorAtualizarCatalogo|coordenadorAtualizarConquistas', acoes.join('|'));
+ok('Aba Inscrições não tem mais "Ações na planilha" (desconectar, histórico, teste de aviso)', await page.evaluate(() => !document.querySelector('#aba-inscricoes .grupo') && !document.querySelector('#aba-inscricoes button.card.acao')) && !/coordenadorDesconectarLembrados|coordenadorAtualizarHistorico|coordenadorTestarAviso/.test(hub));
 ok('A ponte não é carregada ao abrir a página (só no primeiro clique)', chamadasPonte.length === 0);
 const msgOlimp = () => page.evaluate(() => { const m = document.querySelector('#aba-olimpiadas .acao-msg'); return m.className + ': ' + m.textContent; });
 await page.click('button[data-acao="coordenadorAtualizarCatalogo"]');
@@ -128,17 +130,9 @@ ok('Catálogo: primeiro clique conecta a ponte (uma carga, com ?bridge=coordenad
 await page.click('button[data-acao="coordenadorAtualizarConquistas"]');
 await page.waitForTimeout(400);
 ok('Conquistas: reaproveita a conexão (sem nova carga da ponte)', chamadasPonte.length === 1 && await msgOlimp() === 'acao-msg ok: Feito: coordenadorAtualizarConquistas []', await msgOlimp());
-await page.click('#tab-inscricoes');
-const msgInsc = () => page.evaluate(() => { const m = document.querySelector('#aba-inscricoes .acao-msg'); return m.className + ': ' + m.textContent; });
-await page.click('button[data-acao="coordenadorDesconectarLembrados"]');
-await page.waitForTimeout(200);
-ok('Desconectar: o primeiro clique só pede confirmação (sem chamada)', /Clique de novo/.test(await page.textContent('button[data-acao="coordenadorDesconectarLembrados"] em')) && /Tem certeza/.test(await msgInsc()));
-await page.click('button[data-acao="coordenadorDesconectarLembrados"]');
+await page.click('button[data-acao="coordenadorAtualizarConquistas"]');
 await page.waitForTimeout(400);
-ok('Desconectar: o segundo clique executa', await msgInsc() === 'acao-msg ok: Feito: coordenadorDesconectarLembrados []' && await page.textContent('button[data-acao="coordenadorDesconectarLembrados"] em') === 'Executar', await msgInsc());
-await page.click('button[data-acao="coordenadorTestarAviso"]');
-await page.waitForTimeout(400);
-ok('Erro da planilha aparece em vermelho, sem alert()', /^acao-msg error: Acesso restrito/.test(await msgInsc()), await msgInsc());
+ok('Erro da planilha aparece em vermelho, sem alert()', /^acao-msg error: Acesso restrito/.test(await msgOlimp()), await msgOlimp());
 ok('Cartões voltam a ficar habilitados e sem erro de JavaScript ou CSP', await page.evaluate(() => [...document.querySelectorAll('button.card.acao')].every(b => !b.disabled)) && erros.length === 0 && (await violacoes()).length === 0, erros.join('|'));
 
 // 2c. Recarregar com token válido entra direto na aba do endereço (o ?r= força a recarga: só mudar o # não recarrega)

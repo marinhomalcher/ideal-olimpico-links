@@ -113,6 +113,64 @@ await call('getCatalogoGrupo', ['LIGMAT']);
 ok('Catálogo: resposta com erro não fica na memória', enviados.length === n + 2);
 globalThis.fetch = fetchOriginal;
 
+// --- ATLAS como base dos dados do aluno (21/11/2026) ---
+env.ATLAS_API_URL = 'https://atlas-api.exemplo.workers.dev';
+env.PORTAL_ATLAS_SECRET = 'segredo-atlas-para-os-testes-0123456789';
+const atlasChamadas = [];
+const atlasAluno = { matricula: '99999', nome: 'ALUNO ATLAS', serie: '3ª Série', segmento: 'EM', dataNascimento: '01/01/2010', cpf: '52998224725', emailPessoal: 'familia@example.com', whatsappAluno: '(91) 99999-9999', responsavelNome: '', responsavelVinculo: '', responsavelWhatsapp: '', contatosConfirmadosAno: 2026, contatosConfirmadosNesteAno: true, anoAtual: 2026 };
+const respostaAluno = () => new Response(JSON.stringify({ ok: true, aluno: atlasAluno }));
+let atlasResposta = () => respostaAluno();
+const SESSAO = 'S'.repeat(64);
+globalThis.fetch = async (url, opts) => {
+  if (String(url).startsWith(env.ATLAS_API_URL)) { atlasChamadas.push({ url: String(url), auth: opts.headers.Authorization, body: JSON.parse(opts.body) }); return atlasResposta(String(url)); }
+  const corpo = JSON.parse(opts.body); enviados.push(corpo);
+  if (corpo.method === 'autenticarAlunoCodigo' || corpo.method === 'retomarSessaoAluno') return new Response(JSON.stringify({ ok: true, data: { status: 'OK', sessao: SESSAO, aluno: { matricula: '99999', nome: 'ALUNO PLANILHA', email: '99999@aluno.grupoideal.com.br', unidade: 'Batista Campos', serie: '2ª Série', segmento: 'EM', cpf: '', emailPessoal: 'velho@example.com', contatosConfirmadosNesteAno: false } } }));
+  return new Response(JSON.stringify({ ok: true, data: { eco: corpo.method } }));
+};
+r = await call('autenticarAlunoCodigo', ['99999', '123456']);
+let al = r.data.data.aluno;
+ok('Login: os dados do ATLAS prevalecem (nome, série, contatos, confirmação); unidade e e-mail da planilha ficam', r.status === 200 && al.nome === 'ALUNO ATLAS' && al.serie === '3ª Série' && al.emailPessoal === 'familia@example.com' && al.cpf === '52998224725' && al.contatosConfirmadosNesteAno === true && al.unidade === 'Batista Campos' && al.email === '99999@aluno.grupoideal.com.br' && al.atlas === true, JSON.stringify(al));
+ok('Login consulta o ATLAS com o segredo e a matrícula', atlasChamadas.at(-1).url === env.ATLAS_API_URL + '/api/portal/aluno' && atlasChamadas.at(-1).auth === 'Bearer ' + env.PORTAL_ATLAS_SECRET && atlasChamadas.at(-1).body.ra === '99999');
+const prova = al.atlasProva;
+ok('Login devolve a prova (64 hexadecimais)', /^[0-9a-f]{64}$/.test(prova), prova);
+r = await call('retomarSessaoAluno', ['L' + 'a'.repeat(77)]);
+ok('Acesso lembrado também completa com o ATLAS e recebe a prova da sessão', r.data.data.aluno.nome === 'ALUNO ATLAS' && r.data.data.aluno.atlasProva === prova);
+atlasResposta = () => new Response(JSON.stringify({ ok: true, aluno: null }));
+r = await call('autenticarAlunoCodigo', ['99999', '123456']);
+ok('Aluno fora do ATLAS: ficam os dados da planilha, mas a prova vai junto', r.data.data.aluno.nome === 'ALUNO PLANILHA' && r.data.data.aluno.atlasProva === prova && r.data.data.aluno.atlas === undefined);
+atlasResposta = () => { throw new Error('rede'); };
+r = await call('autenticarAlunoCodigo', ['99999', '123456']);
+ok('ATLAS fora do ar: o login continua com a planilha', r.status === 200 && r.data.ok && r.data.data.aluno.nome === 'ALUNO PLANILHA');
+atlasResposta = () => respostaAluno();
+
+const dados = { whatsappAluno: '(91) 99999-9999', responsavelNome: '', responsavelVinculo: '', responsavelWhatsapp: '', emailPessoal: 'familia@example.com', cpf: '52998224725' };
+n = enviados.length; let nA = atlasChamadas.length;
+r = await call('confirmarCadastroAluno', [SESSAO, { ...dados, atlas: { ra: '99999', prova } }]);
+ok('Confirmação: grava no ATLAS (matrícula da prova) e depois na planilha, já sem a prova', r.status === 200 && r.data.ok && atlasChamadas.length === nA + 1 && atlasChamadas.at(-1).url.endsWith('/api/portal/aluno/confirmar') && atlasChamadas.at(-1).body.ra === '99999' && JSON.stringify(atlasChamadas.at(-1).body.dados) === JSON.stringify(dados) && enviados.length === n + 1 && JSON.stringify(enviados.at(-1).args[1]) === JSON.stringify(dados), JSON.stringify(enviados.at(-1)));
+r = await call('confirmarCadastroAluno', [SESSAO, { ...dados, atlas: { ra: '11111', prova } }]);
+ok('Prova de outra matrícula: recusada antes de gravar em qualquer lugar', r.data.ok === false && /Sessão inválida/.test(r.data.error) && atlasChamadas.length === nA + 1 && enviados.length === n + 1, JSON.stringify(r.data));
+r = await call('confirmarCadastroAluno', ['T'.repeat(64), { ...dados, atlas: { ra: '99999', prova } }]);
+ok('Prova com outra sessão: recusada', r.data.ok === false && atlasChamadas.length === nA + 1 && enviados.length === n + 1);
+r = await call('confirmarCadastroAluno', [SESSAO, dados]);
+ok('Sem prova (login antigo): segue só para a planilha', r.data.ok && atlasChamadas.length === nA + 1 && enviados.length === n + 2);
+atlasResposta = url => url.endsWith('/confirmar') ? new Response(JSON.stringify({ ok: false, error: 'Informe um CPF válido do aluno (11 números).' }), { status: 400 }) : respostaAluno();
+r = await call('confirmarCadastroAluno', [SESSAO, { ...dados, atlas: { ra: '99999', prova } }]);
+ok('Erro de validação do ATLAS volta ao aluno e nada vai à planilha', r.data.ok === false && /CPF válido/.test(r.data.error) && enviados.length === n + 2, JSON.stringify(r.data));
+atlasResposta = url => url.endsWith('/confirmar') ? new Response(JSON.stringify({ ok: false, error: 'Aluno não encontrado na lista do ATLAS.' }), { status: 404 }) : respostaAluno();
+r = await call('confirmarCadastroAluno', [SESSAO, { ...dados, atlas: { ra: '99999', prova } }]);
+ok('Aluno fora da lista do ATLAS: segue só para a planilha', r.data.ok && enviados.length === n + 3);
+atlasResposta = url => url.endsWith('/confirmar') ? new Response('erro', { status: 500 }) : respostaAluno();
+r = await call('confirmarCadastroAluno', [SESSAO, { ...dados, atlas: { ra: '99999', prova } }]);
+ok('ATLAS fora do ar na confirmação: avisa e não grava na planilha', r.data.ok === false && /Não foi possível salvar/.test(r.data.error) && enviados.length === n + 3, JSON.stringify(r.data));
+atlasResposta = () => respostaAluno();
+nA = atlasChamadas.length;
+delete env.PORTAL_ATLAS_SECRET;
+r = await call('autenticarAlunoCodigo', ['99999', '123456']);
+ok('Sem o segredo do ATLAS: login como antes, sem prova e sem consulta', r.data.data.aluno.nome === 'ALUNO PLANILHA' && r.data.data.aluno.atlasProva === undefined && atlasChamadas.length === nA);
+r = await call('confirmarCadastroAluno', [SESSAO, { ...dados, atlas: { ra: '99999', prova } }]);
+ok('Sem o segredo do ATLAS: a confirmação vai à planilha sem a prova', r.data.ok && atlasChamadas.length === nA && JSON.stringify(enviados.at(-1).args[1]) === JSON.stringify(dados));
+globalThis.fetch = fetchOriginal;
+
 for (const x of results) console.log(x.join(' | '));
 const bad = results.filter(x => x[0] !== 'OK  ').length;
 console.log(bad ? `\n${bad} FALHA(S)` : `\nTODOS OS TESTES PASSARAM (${results.length})`);

@@ -27,7 +27,7 @@ async function api(path, method = 'GET', body, token = 'adm-token') {
   const r = await worker.fetch(new Request('https://atlas-api.example' + path, { method, headers: { Origin: origin, Authorization: 'Bearer ' + token, ...(body === undefined ? {} : { 'Content-Type': 'application/json' }) }, body: body === undefined ? undefined : JSON.stringify(body) }), env, { waitUntil() {} });
   return { status: r.status, data: await r.json() };
 }
-ok('Schema 18', db.prepare("SELECT valor FROM meta WHERE chave='schema_versao'").get().valor === '18');
+ok('Schema 19', db.prepare("SELECT valor FROM meta WHERE chave='schema_versao'").get().valor === '19');
 let r = await api('/api/adm/redacao/turmas');
 ok('15 turmas iniciais', r.status === 200 && r.data.turmas.length === 15, r.data.turmas?.length);
 const primeira = r.data.turmas.find(x => x.unidade === 'BC' && x.codigo === '1EMA');
@@ -152,10 +152,14 @@ for (const f of ['admin.html', 'admin-questoes.html', 'admin-enviar.html', 'admi
   ok('Sem o menu lateral antigo; "Voltar ao painel" leva à aba ATLAS do /adm/: ' + f, !html.includes('ÁREA DO ADM') && html.includes('<a class="back-link" href="../adm/#atlas">← Voltar ao painel</a>'));
 }
 ok('Login do ADM volta para a página Alunos', fs.readFileSync(atlas + 'admin.html', 'utf8').includes("['alunos-admin.html','redacao-admin.html','redacao-lotes-admin.html',"));
+/* 21/11/2026: a página Alunos lista pelo cadastro completo (tabela alunos); a rota antiga da Redação não grava nele, então os mesmos alunos entram pela rota nova. */
+r = await api('/api/adm/alunos/importar', 'POST', { ano: 2026, alunos: moved.map(x => ({ nome: x.nome, ra: x.ra, unidade: x.unidade, serie: x.serie, turma: x.codigo, segmento: x.segmento })) });
+ok('Cadastro completo: os alunos da Redação também entram na tabela alunos', r.status === 200 && db.prepare('SELECT COUNT(*) AS n FROM alunos').get().n === 2, r.data.error);
 const turmaAluno = db.prepare("SELECT turma_id FROM redacao_alunos WHERE ra = '12345'").get().turma_id;
+const tAluno = db.prepare('SELECT unidade, segmento, serie, codigo FROM redacao_turmas WHERE id = ?').get(turmaAluno);
 await page.goto(base + '/alunos-admin.html?turma=' + turmaAluno);
 await page.waitForFunction(() => /aluno\(s\) nesta turma/.test(document.querySelector('#consultar-status').textContent), null, { timeout: 10000 }).catch(() => {});
-ok('Página Alunos abre já mostrando a turma pedida', await page.locator('#consultar-turma').inputValue() === String(turmaAluno) && await page.locator('#alunos-lista tr').count() === db.prepare('SELECT COUNT(*) AS n FROM redacao_alunos WHERE turma_id = ?').get(turmaAluno).n, await page.locator('#consultar-status').textContent());
+ok('Página Alunos abre já mostrando a turma pedida', await page.locator('#consultar-turma').inputValue() === tAluno.codigo && await page.locator('#alunos-lista tr').count() === db.prepare('SELECT COUNT(*) AS n FROM alunos WHERE unidade = ? AND segmento = ? AND serie = ? AND turma = ?').get(tAluno.unidade, tAluno.segmento, tAluno.serie, tAluno.codigo).n && await page.locator('#alunos-lista tr').count() === 1, await page.locator('#consultar-status').textContent());
 ok('Página Alunos: filtros Unidade → Segmento → Série → Turma preenchidos pela turma pedida', await page.locator('#c-unidade').inputValue() !== '' && await page.locator('#c-segmento').inputValue() !== '' && await page.locator('#c-serie').inputValue() !== '');
 await page.locator('#c-unidade').selectOption('CN');
 ok('Trocar a unidade limpa a turma até escolher de novo', await page.locator('#consultar-turma').inputValue() === '' || await page.locator('#consultar-turma option').count() >= 1);
@@ -176,7 +180,7 @@ ok('Escolher a turma já mostra os alunos (sem botão)', await page.locator('#co
   ok('Página Alunos confere a planilha', /1 alunos · 1 novos/.test(await page.locator('#previa').textContent()), await page.locator('#alunos-status').textContent());
   await page.locator('#importar-button').click();
   await page.waitForFunction(() => /Importação concluída/.test(document.querySelector('#alunos-status').textContent), null, { timeout: 15000 }).catch(() => {});
-  ok('Página Alunos importa a planilha', db.prepare("SELECT COUNT(*) AS n FROM redacao_alunos WHERE ra = '77777'").get().n === 1, await page.locator('#alunos-status').textContent());
+  ok('Página Alunos importa a planilha (cadastro completo e lista da Redação)', db.prepare("SELECT COUNT(*) AS n FROM redacao_alunos WHERE ra = '77777'").get().n === 1 && db.prepare("SELECT COUNT(*) AS n FROM alunos WHERE ra = '77777'").get().n === 1, await page.locator('#alunos-status').textContent());
 }
 await page.setViewportSize({ width: 390, height: 840 });
 ok('Página Alunos cabe no celular', await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));

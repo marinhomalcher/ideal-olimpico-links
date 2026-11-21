@@ -4,6 +4,7 @@
 #   APPS_SCRIPT_PROD_EXEC_URL  (texto)   URL /exec do Apps Script de produção
 #   PORTAL_PROD_PROXY_SECRET   (segredo) senha compartilhada com o Apps Script
 #   PORTAL_RATE_KEY_SECRET     (segredo) chave usada para anonimizar os limites
+#   PORTAL_ATLAS_SECRET        (segredo) o mesmo segredo do atlas-api: liga o portal ao cadastro de alunos do ATLAS
 name = "ideal-olimpico-producao"
 main = "worker.js"
 compatibility_date = "2026-11-05"
@@ -12,6 +13,10 @@ preview_urls = false
 
 [observability]
 enabled = true
+
+# O ATLAS é a base dos dados do aluno (21/11/2026). Sem o segredo PORTAL_ATLAS_SECRET no painel, o portal segue só na planilha.
+[vars]
+ATLAS_API_URL = "https://atlas-api.marinhomalcher.workers.dev"
 
 [[ratelimits]]
 name = "PORTAL_LOGIN_LIMITER"
