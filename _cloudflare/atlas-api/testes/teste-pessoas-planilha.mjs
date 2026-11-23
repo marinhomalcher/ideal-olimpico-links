@@ -1,5 +1,7 @@
-// "Cadastros e funções" pela planilha (20/11/2026): prévia confere sem gravar; importação grava pelo salvarPessoa
-// e define supervisores; pessoas fora da planilha ficam como estão. Dados fictícios; banco em memória.
+// "Cadastros e funções" pela planilha (23/11/2026): a planilha é só do banco de questões (nome, e-mail,
+// disciplina e função). A prévia confere sem gravar; a importação grava pelo salvarPessoa e define
+// supervisores. Redação, digitalização, coordenação, prazo e ativo/inativo ficam como estão no banco.
+// Dados fictícios; banco em memória.
 import { DatabaseSync } from 'node:sqlite';
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -17,7 +19,7 @@ function stmt(sql, args = []) {
     first: async () => db.prepare(sql).get(...args) ?? null,
     all: async () => ({ results: db.prepare(sql).all(...args) }) };
 }
-const env = { DB: { prepare: sql => stmt(sql), batch: async ops => { for (const o of ops) await o.run(); } }, ADMIN_EMAIL: 'adm@example.com', ATLAS_HOJE_TESTE: '2026-11-20' };
+const env = { DB: { prepare: sql => stmt(sql), batch: async ops => { for (const o of ops) await o.run(); } }, ADMIN_EMAIL: 'adm@example.com', ATLAS_HOJE_TESTE: '2026-11-23' };
 db.prepare('INSERT INTO sessoes (token_hash, tipo, email, usuario_id, expira_em) VALUES (?, ?, ?, ?, ?)').run(createHash('sha256').update('adm-token').digest('hex'), 'adm', 'adm@example.com', null, '2099-01-01T00:00:00Z');
 async function api(path, method = 'GET', body) {
   const r = await worker.fetch(new Request('https://atlas-api.example' + path, { method, headers: { Origin: 'https://idealolimpico.com.br', Authorization: 'Bearer adm-token', ...(body === undefined ? {} : { 'Content-Type': 'application/json' }) }, body: body === undefined ? undefined : JSON.stringify(body) }), env, { waitUntil() {} });
@@ -25,78 +27,139 @@ async function api(path, method = 'GET', body) {
 }
 const conta = sql => db.prepare(sql).get().n;
 const pessoa = email => db.prepare('SELECT id, nome, disciplina, papel, ativo, digitador, classificador, acesso_ate FROM usuarios WHERE email = ?').get(email);
-
-/* Uma pessoa já cadastrada pela tela (fora da planilha): não pode ser tocada. */
-let r = await api('/api/adm/pessoas', 'POST', { nome: 'Fora Da Planilha', email: 'fora@grupoideal.com.br', banco: { tipo: 'professor', disciplina: 'Física', classificador: false }, redacao: { professor: null, digitalizador: null }, coordenacao: [] });
-ok('Cadastro pela tela continua funcionando', r.status === 200, r.data.error);
+const turmasDe = id => db.prepare('SELECT turma_id FROM redacao_professor_turmas WHERE usuario_id = ?').all(id).map(x => x.turma_id);
+const unidadesDe = id => db.prepare('SELECT unidade FROM redacao_digitalizador_unidades WHERE usuario_id = ? ORDER BY unidade').all(id).map(x => x.unidade).join(',');
+const coordDe = id => db.prepare('SELECT serie FROM coordenadores WHERE usuario_id = ? ORDER BY serie').all(id).map(x => x.serie).join('|');
 const turmaBC = db.prepare("SELECT id FROM redacao_turmas WHERE unidade = 'BC' AND codigo = '1EMA'").get().id;
-const turmaAM = db.prepare("SELECT id FROM redacao_turmas WHERE unidade = 'AM' AND codigo = '2EMA'").get().id;
 
+/* Uma pessoa cadastrada pela tela, com TODAS as funções que a planilha não controla. */
+let r = await api('/api/adm/pessoas', 'POST', { nome: 'Marta Completa', email: 'marta@grupoideal.com.br', ativo: false, acesso_ate: '2027-03-31',
+  banco: { tipo: 'professor', disciplina: 'Física', classificador: true },
+  redacao: { professor: { turmas: [turmaBC] }, digitalizador: { unidades: ['BC', 'CN'] } },
+  coordenacao: [{ unidade: 'BC', segmento: 'EM', serie: '1ª Série' }] });
+ok('Cadastro pela tela continua funcionando', r.status === 200, r.data.error);
+const marta = pessoa('marta@grupoideal.com.br');
+
+/* A planilha do dia a dia: nome, e-mail e disciplina. Função vazia = professor. */
 const linhas = [
-  { nome: 'Ana Professora', email: 'ana.prof', banco: 'Supervisor', disciplina: 'matemática', classificador: '', turma: 'BC 1EMA', unidades: '', coordenacao: '', acesso_ate: '', ativo: 'SIM' },
-  { nome: 'Bruno Digitalizador', email: 'bruno.dig@grupoideal.com.br', banco: '', disciplina: '', classificador: '', turma: '', unidades: 'BC; Cidade Nova', coordenacao: 'BC EM 1ª Série; BC EM 2ª série', acesso_ate: '31/12/2026', ativo: '' },
-  { nome: 'Carla Digitadora', email: 'carla.dig', banco: 'DIGITADOR', disciplina: 'Química', classificador: 'SIM', turma: '', unidades: '', coordenacao: '', acesso_ate: '2027-01-15', ativo: 'NÃO' },
-  { nome: 'Fora Da Planilha', email: 'fora@grupoideal.com.br', banco: 'professor', disciplina: 'Física', classificador: 'sim', turma: '', unidades: '', coordenacao: '', acesso_ate: '', ativo: 'SIM' }
+  { linha: 2, nome: 'Anderson Moraes', email: 'anderson.moraes', disciplina: 'Artes', funcao: '' },
+  { linha: 3, nome: 'Juliana Medeiros', email: 'juliana.lima@grupoideal.com.br', disciplina: 'artes', funcao: '' },
+  { linha: 4, nome: 'Ana Supervisora', email: 'ana.sup', disciplina: 'matemática', funcao: 'Supervisor' },
+  { linha: 5, nome: 'Carla Digitadora', email: 'carla.dig', disciplina: '', funcao: 'DIGITADOR' },
+  { linha: 6, nome: 'Marta Completa', email: 'marta@grupoideal.com.br', disciplina: 'Física', funcao: '' }
 ];
 r = await api('/api/adm/pessoas/previa', 'POST', { pessoas: linhas });
-ok('Prévia: 3 novos, 1 atualizado (classificador), nenhum erro', r.status === 200 && r.data.novos === 3 && r.data.atualizados === 1 && r.data.iguais === 0 && r.data.erros.length === 0, JSON.stringify(r.data));
-ok('Prévia lista o supervisor de Matemática', r.data.supervisores.length === 1 && r.data.supervisores[0].disciplina === 'Matemática' && r.data.supervisores[0].nome === 'Ana Professora');
-ok('Prévia não grava nada', conta('SELECT COUNT(*) AS n FROM usuarios') === 1 && conta('SELECT COUNT(*) AS n FROM eventos WHERE acao = \'pessoas_importadas\'') === 0);
+ok('Prévia: 4 novos e 1 sem mudança, nenhum erro', r.status === 200 && r.data.novos === 4 && r.data.iguais === 1 && r.data.atualizados === 0 && r.data.erros.length === 0, JSON.stringify(r.data.erros || r.data));
+ok('Prévia lista o supervisor de Matemática', r.data.supervisores.length === 1 && r.data.supervisores[0].disciplina === 'Matemática' && r.data.supervisores[0].nome === 'Ana Supervisora');
+ok('Prévia não grava nada', conta('SELECT COUNT(*) AS n FROM usuarios') === 1 && conta("SELECT COUNT(*) AS n FROM eventos WHERE acao = 'pessoas_importadas'") === 0);
 
 r = await api('/api/adm/pessoas/importar', 'POST', { pessoas: linhas });
-ok('Importação: grava as 4 pessoas e devolve a lista', r.status === 200 && conta('SELECT COUNT(*) AS n FROM usuarios') === 4 && r.data.pessoas.length === 4, r.data.error);
-const ana = pessoa('ana.prof@grupoideal.com.br'), bruno = pessoa('bruno.dig@grupoideal.com.br'), carla = pessoa('carla.dig@grupoideal.com.br'), fora = pessoa('fora@grupoideal.com.br');
-ok('E-mail sem @ é completado; disciplina em minúsculas vira a oficial; supervisor definido', ana && ana.disciplina === 'Matemática' && ana.papel === 'supervisor' && ana.ativo === 1, JSON.stringify(ana));
-ok('Turma de redação "BC 1EMA" vinculada e equipe marcada como professora', db.prepare('SELECT turma_id FROM redacao_professor_turmas WHERE usuario_id = ?').get(ana.id)?.turma_id === turmaBC && db.prepare('SELECT professor FROM redacao_equipe WHERE usuario_id = ?').get(ana.id)?.professor === 1);
-ok('Digitalizador: unidades por sigla e por nome; coordenação em duas séries; data DD/MM/AAAA aceita', bruno && bruno.disciplina === null && bruno.acesso_ate === '2026-12-31' &&
-  db.prepare('SELECT unidade FROM redacao_digitalizador_unidades WHERE usuario_id = ? ORDER BY unidade').all(bruno.id).map(x => x.unidade).join(',') === 'BC,CN' &&
-  db.prepare('SELECT serie FROM coordenadores WHERE usuario_id = ? ORDER BY serie').all(bruno.id).map(x => x.serie).join('|') === '1ª Série|2ª Série', JSON.stringify(bruno));
-ok('Digitador do banco: sem disciplina nem classificador, inativo, com prazo', carla && carla.digitador === 1 && carla.disciplina === null && carla.classificador === 0 && carla.ativo === 0 && carla.acesso_ate === '2027-01-15', JSON.stringify(carla));
-ok('Pessoa já existente é atualizada pelo e-mail (classificador ligado), sem duplicar', fora && fora.classificador === 1 && conta("SELECT COUNT(*) AS n FROM usuarios WHERE email = 'fora@grupoideal.com.br'") === 1);
+ok('Importação grava as pessoas novas e devolve a lista', r.status === 200 && conta('SELECT COUNT(*) AS n FROM usuarios') === 5 && r.data.pessoas.length === 5, r.data.error);
+const anderson = pessoa('anderson.moraes@grupoideal.com.br'), juliana = pessoa('juliana.lima@grupoideal.com.br');
+ok('Só nome, e-mail e disciplina: vira professor da disciplina (e-mail sem @ é completado)',
+  anderson && anderson.disciplina === 'Artes' && anderson.papel === 'professor' && anderson.digitador === 0 && anderson.ativo === 1, JSON.stringify(anderson));
+ok('Disciplina em minúsculas vira a oficial', juliana && juliana.disciplina === 'Artes', JSON.stringify(juliana));
+const ana = pessoa('ana.sup@grupoideal.com.br'), carla = pessoa('carla.dig@grupoideal.com.br');
+ok('FUNÇÃO SUPERVISOR: vira supervisor da disciplina', ana && ana.papel === 'supervisor' && ana.disciplina === 'Matemática', JSON.stringify(ana));
+ok('FUNÇÃO DIGITADOR: sem disciplina e sem classificador', carla && carla.digitador === 1 && carla.disciplina === null && carla.classificador === 0, JSON.stringify(carla));
+ok('Pessoa nova entra sem prazo de acesso e ativa', anderson.acesso_ate === null && carla.ativo === 1);
 ok('Evento de importação registrado', conta("SELECT COUNT(*) AS n FROM eventos WHERE acao = 'pessoas_importadas'") === 1);
 
-r = await api('/api/adm/pessoas/previa', 'POST', { pessoas: linhas });
-ok('Reenviar a mesma planilha: tudo igual, nada a atualizar', r.status === 200 && r.data.iguais === 4 && r.data.novos === 0 && r.data.atualizados === 0, JSON.stringify(r.data));
+/* O ponto central: a planilha não apaga o que não está nela. */
+const m2 = pessoa('marta@grupoideal.com.br');
+ok('Importar NÃO apaga a turma de redação de quem está na planilha', turmasDe(m2.id).join(',') === String(turmaBC), turmasDe(m2.id).join(','));
+ok('Importar NÃO apaga as unidades do digitalizador', unidadesDe(m2.id) === 'BC,CN', unidadesDe(m2.id));
+ok('Importar NÃO apaga a coordenação', coordDe(m2.id) === '1ª Série', coordDe(m2.id));
+ok('Importar NÃO mexe no prazo de acesso, no ativo/inativo nem no classificador',
+  m2.acesso_ate === '2027-03-31' && m2.ativo === 0 && m2.classificador === 1, JSON.stringify(m2));
+ok('Nome e disciplina de quem já existe continuam os mesmos', m2.nome === 'Marta Completa' && m2.disciplina === 'Física' && m2.id === marta.id);
 
-/* Mover a turma de Ana para outra pessoa da mesma planilha, e Ana vira professora comum; Bruno some da planilha (fica como está). */
-const movida = [
-  { ...linhas[0], banco: 'PROFESSOR', turma: '' },
-  { nome: 'Dora Redação', email: 'dora.red', banco: '', disciplina: '', classificador: '', turma: 'BC 1EMA', unidades: '', coordenacao: '', acesso_ate: '', ativo: 'SIM' }
+/* Reenviar a mesma planilha não muda nada. */
+r = await api('/api/adm/pessoas/previa', 'POST', { pessoas: linhas });
+ok('Reenviar a mesma planilha: tudo igual', r.status === 200 && r.data.iguais === 5 && r.data.novos === 0 && r.data.atualizados === 0, JSON.stringify(r.data));
+
+/* Trocar disciplina e tirar alguém de supervisor. */
+const trocas = [
+  { linha: 2, nome: 'Anderson Moraes Silva', email: 'anderson.moraes', disciplina: 'História', funcao: '' },
+  { linha: 3, nome: 'Ana Supervisora', email: 'ana.sup', disciplina: 'Matemática', funcao: 'PROFESSOR' }
 ];
-r = await api('/api/adm/pessoas/importar', 'POST', { pessoas: movida });
+r = await api('/api/adm/pessoas/previa', 'POST', { pessoas: trocas });
+ok('Prévia vê as duas linhas como atualizadas', r.status === 200 && r.data.atualizados === 2 && r.data.novos === 0, JSON.stringify(r.data));
+r = await api('/api/adm/pessoas/importar', 'POST', { pessoas: trocas });
+ok('Nome e disciplina trocados; quem veio como PROFESSOR deixa de ser supervisor',
+  r.status === 200 && pessoa('anderson.moraes@grupoideal.com.br').disciplina === 'História' &&
+  pessoa('anderson.moraes@grupoideal.com.br').nome === 'Anderson Moraes Silva' &&
+  pessoa('ana.sup@grupoideal.com.br').papel === 'professor', r.data.error);
+ok('Quem ficou fora da planilha não é tocado', unidadesDe(m2.id) === 'BC,CN' && pessoa('carla.dig@grupoideal.com.br').digitador === 1);
+
+/* Pessoa que já existe e não tem função no banco: linha em branco é aceita e não apaga nada. */
+r = await api('/api/adm/pessoas', 'POST', { nome: 'Dora Redação', email: 'dora.red@grupoideal.com.br',
+  banco: null, redacao: { professor: null, digitalizador: { unidades: ['AM'] } }, coordenacao: [] });
 const dora = pessoa('dora.red@grupoideal.com.br');
-ok('Turma passa de uma pessoa para outra na mesma planilha', r.status === 200 && dora && db.prepare('SELECT usuario_id FROM redacao_professor_turmas WHERE turma_id = ?').get(turmaBC)?.usuario_id === dora.id, r.data.error);
-ok('Quem veio como PROFESSOR deixa de ser supervisor; quem ficou fora da planilha não muda', pessoa('ana.prof@grupoideal.com.br').papel === 'professor' && conta('SELECT COUNT(*) AS n FROM redacao_digitalizador_unidades WHERE usuario_id = ' + bruno.id) === 2);
+r = await api('/api/adm/pessoas/importar', 'POST', { pessoas: [{ linha: 2, nome: 'Dora Redação', email: 'dora.red', disciplina: '', funcao: '' }] });
+ok('Quem já existe sem função no banco: linha em branco passa e nada é apagado',
+  r.status === 200 && r.data.iguais === 1 && pessoa('dora.red@grupoideal.com.br').disciplina === null && unidadesDe(dora.id) === 'AM', JSON.stringify(r.data.erros || ''));
+
+/* REDAÇÃO: só cadastra a pessoa, sem função no banco (a turma é escolhida no site). */
+r = await api('/api/adm/pessoas/importar', 'POST', { pessoas: [
+  { linha: 2, nome: 'Rita Redatora', email: 'rita.red', disciplina: 'Redação', funcao: '' },
+  { linha: 3, nome: 'Rui Redator', email: 'rui.red', disciplina: '', funcao: 'REDAÇÃO' }
+] });
+const rita = pessoa('rita.red@grupoideal.com.br'), rui = pessoa('rui.red@grupoideal.com.br');
+ok('REDAÇÃO na disciplina ou na função: cadastra a pessoa sem função no banco',
+  r.status === 200 && rita && rita.disciplina === null && rita.digitador === 0 && rita.ativo === 1 && rui && rui.disciplina === null, JSON.stringify(r.data.erros || [rita, rui]));
+
+/* A mesma pessoa em duas linhas, uma delas só cadastro: a de só cadastro é descartada. */
+r = await api('/api/adm/pessoas/previa', 'POST', { pessoas: [
+  { linha: 2, nome: 'Bia Dupla', email: 'bia.dupla', disciplina: 'Português', funcao: '' },
+  { linha: 3, nome: 'Bia Dupla', email: 'bia.dupla', disciplina: 'Redação', funcao: '' }
+] });
+ok('Professora de Português que também corrige redação: as duas linhas viram uma, sem erro',
+  r.status === 200 && r.data.erros.length === 0 && r.data.novos === 1 && r.data.repetidas === 1, JSON.stringify(r.data));
+r = await api('/api/adm/pessoas/importar', 'POST', { pessoas: [
+  { linha: 2, nome: 'Bia Dupla', email: 'bia.dupla', disciplina: 'Redação', funcao: '' },
+  { linha: 3, nome: 'Bia Dupla', email: 'bia.dupla', disciplina: 'Português', funcao: '' }
+] });
+ok('A ordem das duas linhas não importa: vale a que traz a disciplina',
+  r.status === 200 && pessoa('bia.dupla@grupoideal.com.br')?.disciplina === 'Português', r.data.error);
 
 /* Erros: cada linha com o motivo; importação recusada; nada gravado. */
 const antes = conta('SELECT COUNT(*) AS n FROM usuarios');
 const ruins = [
-  { nome: 'E', email: 'erro1', banco: 'PROFESSOR', disciplina: 'Astrologia', turma: '', unidades: '', coordenacao: '', acesso_ate: '', ativo: '' },
-  { nome: 'Erro Dois', email: 'erro2@gmail.com', banco: '', disciplina: '', turma: 'BC 9ZZZ', unidades: 'XX', coordenacao: 'BC EM 7ª Série', acesso_ate: '2026-13-40', ativo: 'TALVEZ' },
-  { nome: 'Erro Tres', email: 'erro3', banco: 'SUPERVISOR', disciplina: 'Matemática', turma: '', unidades: '', coordenacao: '', acesso_ate: '', ativo: '' },
-  { nome: 'Erro Quatro', email: 'erro3', banco: 'SUPERVISOR', disciplina: 'Matemática', turma: '', unidades: '', coordenacao: '', acesso_ate: '', ativo: '' },
-  { nome: 'Sem Funcao', email: 'erro5', banco: '', disciplina: '', turma: '', unidades: '', coordenacao: '', acesso_ate: '', ativo: '' },
-  { nome: 'Turma Alheia', email: 'erro6', banco: '', disciplina: '', turma: 'BC 1EMA', unidades: '', coordenacao: '', acesso_ate: '', ativo: '' }
+  { linha: 2, nome: 'E', email: 'erro1', disciplina: 'Astrologia', funcao: '' },
+  { linha: 3, nome: 'Erro Dois', email: 'erro2@gmail.com', disciplina: 'Física', funcao: '' },
+  { linha: 4, nome: 'Erro Tres', email: 'erro3', disciplina: 'Química', funcao: 'SUPERVISOR' },
+  { linha: 5, nome: 'Erro Quatro', email: 'erro3', disciplina: 'Química', funcao: 'SUPERVISOR' },
+  { linha: 6, nome: 'Sem Nada', email: 'erro5', disciplina: '', funcao: '' },
+  { linha: 10, nome: 'Duas Disciplinas', email: 'erro8', disciplina: 'Física', funcao: '' },
+  { linha: 11, nome: 'Duas Disciplinas', email: 'erro8', disciplina: 'Literatura', funcao: '' },
+  { linha: 7, nome: 'Funcao Errada', email: 'erro6', disciplina: 'Física', funcao: 'CHEFE' },
+  { linha: 8, nome: 'Supervisor Sem Disciplina', email: 'erro7', disciplina: '', funcao: 'SUPERVISOR' },
+  { linha: 9, nome: 'Marta Completa', email: 'marta@grupoideal.com.br', disciplina: 'Física', funcao: 'SUPERVISOR' }
 ];
 r = await api('/api/adm/pessoas/previa', 'POST', { pessoas: ruins });
 const motivos = Object.fromEntries((r.data.erros || []).map(e => [e.linha, e.motivo]));
-ok('Prévia aponta cada problema com a linha (a linha 4, certa, fica de fora)', r.status === 200 && r.data.erros.map(e => e.linha).join(',') === '2,3,5,6,7', r.data.erros.map(e => e.linha + ': ' + e.motivo).join(' | '));
-ok('Nome curto e disciplina desconhecida', /nome/.test(motivos[2] || '') && /Astrologia/.test(motivos[2] || ''), motivos[2]);
-ok('E-mail fora do domínio, turma, unidade, coordenação, data e ativo inválidos', ['grupoideal', '9ZZZ', 'XX', '7ª Série', 'Data', 'Ativo'].every(t => (motivos[3] || '').includes(t)), motivos[3]);
+ok('Prévia aponta cada problema com a linha (a linha 4, certa, fica de fora)', r.status === 200 && r.data.erros.map(e => e.linha).join(',') === '2,3,5,6,7,8,9,11', r.data.erros.map(e => e.linha + ': ' + e.motivo).join(' | '));
+ok('Nome curto e disciplina desconhecida', /nome/i.test(motivos[2] || '') && /Astrologia/.test(motivos[2] || ''), motivos[2]);
+ok('E-mail fora do domínio (gmail) é recusado', /grupoideal/.test(motivos[3] || ''), motivos[3]);
 ok('E-mail repetido e dois supervisores da mesma disciplina', /repetido/.test(motivos[5] || '') && /Duas pessoas/.test(motivos[5] || ''), motivos[5]);
-ok('Linha sem função nenhuma', /pelo menos uma função/.test(motivos[6] || ''), motivos[6]);
-ok('Turma que é de pessoa fora da planilha', /Dora Redação/.test(motivos[7] || ''), motivos[7]);
+ok('Pessoa nova sem disciplina e sem função é recusada', /Informe a disciplina/.test(motivos[6] || ''), motivos[6]);
+ok('Mesma pessoa com duas disciplinas diferentes continua sendo erro', /repetido/.test(motivos[11] || ''), motivos[11]);
+ok('Função inválida é recusada', /PROFESSOR, SUPERVISOR, DIGITADOR, REDAÇÃO/.test(motivos[7] || ''), motivos[7]);
+ok('Supervisor sem disciplina é recusado', /Informe a disciplina/.test(motivos[8] || ''), motivos[8]);
+ok('Supervisor precisa estar ativo', /ativo/.test(motivos[9] || ''), motivos[9]);
 r = await api('/api/adm/pessoas/importar', 'POST', { pessoas: ruins });
 ok('Importação com erros é recusada (409) e não grava', r.status === 409 && conta('SELECT COUNT(*) AS n FROM usuarios') === antes, r.data.error);
 r = await api('/api/adm/pessoas/previa', 'POST', { pessoas: Array.from({ length: 501 }, () => linhas[0]) });
 ok('Mais de 500 linhas: recusado', r.status === 400);
 
-/* Tela: o quadro existe, carrega o ExcelJS com integridade e monta o modelo com as 10 colunas. */
+/* Tela: o quadro existe, carrega o ExcelJS com integridade e monta o modelo com as 4 colunas. */
 const html = fs.readFileSync(repo + 'atlas/admin.html', 'utf8');
-ok('admin.html tem o quadro "Pessoas pela planilha" com baixar, conferir e importar', /id="sec-planilha"/.test(html) && /id="pl-baixar"/.test(html) && /id="pl-previa"/.test(html) && /id="pl-importar"/.test(html) && /id="pl-arquivo"/.test(html));
+ok('admin.html tem o quadro "Cadastro por planilha" com baixar, conferir e importar', /id="sec-planilha"/.test(html) && /id="pl-baixar"/.test(html) && /id="pl-previa"/.test(html) && /id="pl-importar"/.test(html) && /id="pl-arquivo"/.test(html));
 ok('ExcelJS vem do jsDelivr com integridade (igual à página de alunos)', /exceljs@4\.4\.0\/dist\/exceljs\.min\.js/.test(html) && /integrity='sha384-Pqp51FUN2\/qzfxZxBCtF0stpc9ONI6MYZpVqmo8m20SoaQCzf\+arZvACkLkirlPz'/.test(html));
 const { COLUNAS } = await import('../pessoas-planilha.js');
-ok('Tela e servidor usam as mesmas 10 colunas', COLUNAS.length === 10 && COLUNAS.every(c => html.includes(c)), COLUNAS.filter(c => !html.includes(c)).join('|'));
+ok('Tela e servidor usam as mesmas 4 colunas', COLUNAS.length === 4 && COLUNAS.every(c => html.includes(c)), COLUNAS.filter(c => !html.includes(c)).join('|'));
+ok('A tela não pede mais as colunas que saíram', !/BANCO DE QUESTÕES/.test(html) && !/PROFESSOR DE REDAÇÃO \(TURMA\)/.test(html) && !/COORDENADOR \(UNIDADE SEGMENTO SÉRIE\)/.test(html) && !/'ACESSO ATÉ'/.test(html));
 
 for (const [estado, nome, extra] of results) console.log(estado.padEnd(7), nome, extra ? '— ' + extra : '');
 const falhas = results.filter(x => x[0] === 'FALHOU').length;
