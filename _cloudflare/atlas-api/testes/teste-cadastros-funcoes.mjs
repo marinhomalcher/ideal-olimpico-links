@@ -76,10 +76,10 @@ const turmas = (await api('/api/adm/redacao/turmas')).data.turmas;
 const bc3 = turmas.find(t => t.unidade === 'BC' && t.codigo === '3EMA'), cn1 = turmas.find(t => t.unidade === 'CN' && t.codigo === '1EMA');
 let r;
 // ---------- API ----------
-r = await api('/api/adm/pessoas', 'POST', { nome: 'Ana Multi', email: 'ana.multi', banco: { tipo: 'professor', disciplina: 'Matemática', classificador: true },
+r = await api('/api/adm/pessoas', 'POST', { nome: 'Ana Multi', email: 'ana.multi', banco: { tipo: 'professor', disciplina: 'Português', classificador: true },
   redacao: { professor: { turmas: [bc3.id] }, digitalizador: { unidades: ['BC', 'CN'] } }, coordenacao: [{ unidade: 'BC', segmento: 'EM', serie: '3ª Série' }] });
 const ana = r.data.pessoas?.find(p => p.email === 'ana.multi@grupoideal.com.br');
-ok('Cria pessoa com várias funções (banco + prof. redação + digitalizador + coordenador)', r.status === 200 && ana && ana.disciplina === 'Matemática' && ana.classificador && ana.redacao.professor && ana.redacao.digitalizador &&
+ok('Cria pessoa com várias funções (banco + prof. redação + digitalizador + coordenador)', r.status === 200 && ana && ana.disciplina === 'Português' && ana.classificador && ana.redacao.professor && ana.redacao.digitalizador &&
   ana.redacao.turmas[0] === bc3.id && ana.redacao.unidades.join() === 'BC,CN' && ana.coordenacao.length === 1, JSON.stringify(r.data.error || ana));
 sessao('ana-token', 'usuario', 'ana.multi@grupoideal.com.br', ana.id);
 r = await api('/api/redacao/sessao', 'GET', undefined, 'ana-token');
@@ -101,7 +101,7 @@ r = await api('/api/adm/pessoas');
 ok('Lista única traz todas as pessoas (inclusive quem não é do banco de questões)', r.status === 200 && r.data.pessoas.some(p => p.email === 'coord.so@grupoideal.com.br') && r.data.pessoas.some(p => p.email === 'ana.multi@grupoideal.com.br'));
 r = await api('/api/adm/professores');
 ok('Lista do banco de questões continua só com quem é do banco', !r.data.professores.some(p => p.email === 'coord.so@grupoideal.com.br') && r.data.professores.some(p => p.email === 'ana.multi@grupoideal.com.br'));
-await api('/api/adm/supervisor', 'POST', { disciplina: 'Matemática', usuario_id: ana.id });
+await api('/api/adm/supervisor', 'POST', { disciplina: 'Português', usuario_id: ana.id });
 r = await api('/api/adm/pessoas/' + ana.id, 'PUT', { banco: null });
 const ana2 = r.data.pessoas.find(p => p.id === ana.id);
 ok('Tirar do banco de questões: sem disciplina, deixa de ser supervisora e classificadora; Redação continua', r.status === 200 && !ana2.disciplina && ana2.papel === 'professor' && !ana2.classificador && ana2.redacao.professor && ana2.redacao.digitalizador, JSON.stringify(ana2));
