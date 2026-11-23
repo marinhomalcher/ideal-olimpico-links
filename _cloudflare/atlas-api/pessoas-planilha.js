@@ -2,8 +2,9 @@
 // no Excel (corrige nomes, inclui gente nova, troca disciplina ou função) e manda de volta; a prévia confere
 // tudo sem gravar e a importação grava pelo mesmo salvarPessoa da tela. Uma linha por pessoa:
 //   NOME COMPLETO | E-MAIL | DISCIPLINA
-// Quem tem disciplina é professor dela. Supervisor, digitador e professor de redação são definidos na
-// tela; a planilha não rebaixa ninguém. Quem já tiver uma quarta coluna FUNÇÃO (PROFESSOR, SUPERVISOR,
+// Quem tem disciplina é professor dela; "Redação" na disciplina marca a pessoa como professora de
+// redação (a turma dela é escolhida na tela). Supervisor e digitador são definidos na tela; a planilha
+// não rebaixa ninguém. Quem já tiver uma quarta coluna FUNÇÃO (PROFESSOR, SUPERVISOR,
 // DIGITADOR ou REDAÇÃO) continua sendo atendido, mas o modelo baixado não a traz mais.
 // Redação, digitalização, coordenação, prazo de acesso e ativo/inativo NÃO vêm na planilha: são feitos na
 // tela e a importação os mantém como estão. Quem não está na planilha também não é tocado.
@@ -30,6 +31,7 @@ function lerLinha(l, n, h, atual) {
   // "Redação" não é disciplina do banco de questões: a linha serve só para cadastrar a pessoa, e a turma
   // de redação é escolhida no site. Vale escrito na FUNÇÃO ou na DISCIPLINA (é como o ADM costuma anotar).
   const soCadastro = funcao === 'REDACAO' || disc === 'REDACAO';
+  p.redacao = soCadastro;                                  // escreveu Redação: marca a função de redação
   p.disciplina = (disc && !soCadastro) ? (h.DISCIPLINAS.find(d => chave(d) === disc) || null) : null;
   if (disc && !soCadastro && !p.disciplina) falha('Disciplina desconhecida: ' + texto(l.disciplina, 40) + '.');
   const supervisorHoje = !!atual && atual.papel === 'supervisor' && !!atual.disciplina;
@@ -57,10 +59,11 @@ const soCadastroDaLinha = l => {
 
 /* O que a pessoa é hoje, só nas partes que a planilha controla, para saber se a linha muda algo. */
 const bancoAtual = x => x.digitador ? 'digitador' : x.disciplina ? (x.papel === 'supervisor' ? 'supervisor' : 'professor') : null;
-const retrato = x => JSON.stringify({ nome: x.nome, banco: bancoAtual(x), disciplina: x.disciplina || null });
+const retrato = x => JSON.stringify({ nome: x.nome, banco: bancoAtual(x), disciplina: x.disciplina || null, redacao: !!x.redacao.professor });
 const retratoDaLinha = (p, atual) => JSON.stringify({ nome: p.nome,
   banco: p.banco === undefined ? (atual ? bancoAtual(atual) : null) : p.banco,
-  disciplina: p.banco === undefined ? (atual ? atual.disciplina || null : null) : p.disciplina });
+  disciplina: p.banco === undefined ? (atual ? atual.disciplina || null : null) : p.disciplina,
+  redacao: p.redacao || (atual ? !!atual.redacao.professor : false) });
 
 /* Prévia: confere a planilha inteira sem gravar nada. */
 export async function prepararPessoas(env, linhas, ano, h) {
@@ -94,6 +97,7 @@ export async function prepararPessoas(env, linhas, ano, h) {
     if (problemas.length) { erros.push({ linha: n, email: p.email || texto(l?.email, 60), nome: p.nome || texto(l?.nome, 60), motivo: problemas.join(' ') }); return; }
     p.id = atual ? atual.id : null;
     p.classificador = atual ? !!atual.classificador : false;   // a planilha não mexe no classificador
+    p.atualRedacao = atual ? atual.redacao : null;             // para marcar a redação sem perder turma nem unidades
     p.situacao = !atual ? 'novo' : retrato(atual) === retratoDaLinha(p, atual) ? 'igual' : 'atualizado';
     pessoas.push(p);
   });
@@ -112,6 +116,11 @@ export async function importarPessoas(env, prep, h) {
     if (p.banco !== undefined) {
       c.banco = p.banco === 'digitador' ? { tipo: 'digitador' }
         : { tipo: 'professor', disciplina: p.disciplina, classificador: p.classificador };
+    }
+    /* Só quando a planilha escreveu Redação: marca a função mantendo a turma e as unidades de hoje. */
+    if (p.redacao) {
+      const r = p.atualRedacao || {};
+      c.redacao = { professor: { turmas: r.turmas || [] }, digitalizador: r.digitalizador ? { unidades: r.unidades || [] } : null };
     }
     return c;
   };

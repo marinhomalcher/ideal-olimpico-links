@@ -35,7 +35,7 @@ const turmaAM = db.prepare("SELECT id FROM redacao_turmas WHERE unidade = 'AM' A
 
 /* Uma pessoa cadastrada pela tela, com TODAS as funções que a planilha não controla. */
 let r = await api('/api/adm/pessoas', 'POST', { nome: 'Marta Completa', email: 'marta@grupoideal.com.br', ativo: false, acesso_ate: '2027-03-31',
-  banco: { tipo: 'professor', disciplina: 'Física', classificador: true },
+  banco: { tipo: 'professor', disciplina: 'Português', classificador: true },
   redacao: { professor: { turmas: [turmaBC] }, digitalizador: { unidades: ['BC', 'CN'] } },
   coordenacao: [{ unidade: 'BC', segmento: 'EM', serie: '1ª Série' }] });
 ok('Cadastro pela tela continua funcionando', r.status === 200, r.data.error);
@@ -47,7 +47,7 @@ const linhas = [
   { linha: 3, nome: 'Juliana Medeiros', email: 'juliana.lima@grupoideal.com.br', disciplina: 'artes', funcao: '' },
   { linha: 4, nome: 'Ana Supervisora', email: 'ana.sup', disciplina: 'matemática', funcao: 'Supervisor' },
   { linha: 5, nome: 'Carla Digitadora', email: 'carla.dig', disciplina: '', funcao: 'DIGITADOR' },
-  { linha: 6, nome: 'Marta Completa', email: 'marta@grupoideal.com.br', disciplina: 'Física', funcao: '' }
+  { linha: 6, nome: 'Marta Completa', email: 'marta@grupoideal.com.br', disciplina: 'Português', funcao: '' }
 ];
 r = await api('/api/adm/pessoas/previa', 'POST', { pessoas: linhas });
 ok('Prévia: 4 novos e 1 sem mudança, nenhum erro', r.status === 200 && r.data.novos === 4 && r.data.iguais === 1 && r.data.atualizados === 0 && r.data.erros.length === 0, JSON.stringify(r.data.erros || r.data));
@@ -73,7 +73,7 @@ ok('Importar NÃO apaga as unidades do digitalizador', unidadesDe(m2.id) === 'BC
 ok('Importar NÃO apaga a coordenação', coordDe(m2.id) === '1ª Série', coordDe(m2.id));
 ok('Importar NÃO mexe no prazo de acesso, no ativo/inativo nem no classificador',
   m2.acesso_ate === '2027-03-31' && m2.ativo === 0 && m2.classificador === 1, JSON.stringify(m2));
-ok('Nome e disciplina de quem já existe continuam os mesmos', m2.nome === 'Marta Completa' && m2.disciplina === 'Física' && m2.id === marta.id);
+ok('Nome e disciplina de quem já existe continuam os mesmos', m2.nome === 'Marta Completa' && m2.disciplina === 'Português' && m2.id === marta.id);
 
 /* Reenviar a mesma planilha não muda nada. */
 r = await api('/api/adm/pessoas/previa', 'POST', { pessoas: linhas });
@@ -159,7 +159,7 @@ const ruins = [
   { linha: 11, nome: 'Duas Disciplinas', email: 'erro8', disciplina: 'Literatura', funcao: '' },
   { linha: 7, nome: 'Funcao Errada', email: 'erro6', disciplina: 'Física', funcao: 'CHEFE' },
   { linha: 8, nome: 'Supervisor Sem Disciplina', email: 'erro7', disciplina: '', funcao: 'SUPERVISOR' },
-  { linha: 9, nome: 'Marta Completa', email: 'marta@grupoideal.com.br', disciplina: 'Física', funcao: 'SUPERVISOR' }
+  { linha: 9, nome: 'Marta Completa', email: 'marta@grupoideal.com.br', disciplina: 'Português', funcao: 'SUPERVISOR' }
 ];
 r = await api('/api/adm/pessoas/previa', 'POST', { pessoas: ruins });
 const motivos = Object.fromEntries((r.data.erros || []).map(e => [e.linha, e.motivo]));
@@ -184,14 +184,48 @@ r = await api('/api/adm/pessoas', 'POST', { nome: 'Rosa Só Redação', email: '
   coordenacao: [{ unidade: 'BC', segmento: 'EM', serie: '1ª Série' }] });
 const rosa = pessoa('rosa.red@grupoideal.com.br');
 ok('Pessoa sem disciplina pode ser criada (professora só de redação)', r.status === 200 && rosa && rosa.disciplina === null, r.data.error);
-r = await api('/api/adm/pessoas/' + rosa.id, 'PUT', { banco: { tipo: 'professor', disciplina: 'História', classificador: false } });
+r = await api('/api/adm/pessoas/' + rosa.id, 'PUT', { banco: { tipo: 'professor', disciplina: 'Literatura', classificador: false } });
 ok('Dar disciplina a quem estava sem: entra no banco e mantém turma e coordenação',
-  r.status === 200 && pessoa('rosa.red@grupoideal.com.br').disciplina === 'História' &&
+  r.status === 200 && pessoa('rosa.red@grupoideal.com.br').disciplina === 'Literatura' &&
   turmasDe(rosa.id).join(',') === String(turmaAM) && coordDe(rosa.id) === '1ª Série', r.data.error);
 r = await api('/api/adm/pessoas/' + rosa.id, 'PUT', { banco: null });
 ok('Escolher "sem disciplina" tira do banco e também mantém turma e coordenação',
   r.status === 200 && pessoa('rosa.red@grupoideal.com.br').disciplina === null &&
   turmasDe(rosa.id).join(',') === String(turmaAM) && coordDe(rosa.id) === '1ª Série', r.data.error);
+
+/* Redação: só quem está sem disciplina no banco ou é da área de linguagens. */
+r = await api('/api/adm/pessoas', 'POST', { nome: 'Nina Matematica', email: 'nina.mat@grupoideal.com.br',
+  banco: { tipo: 'professor', disciplina: 'Matemática', classificador: false },
+  redacao: { professor: { turmas: [] }, digitalizador: null }, coordenacao: [] });
+ok('Professora de Matemática não pode corrigir redação', r.status === 400 && /linguagens/.test(r.data.error || ''), r.status + ' ' + r.data.error);
+r = await api('/api/adm/pessoas', 'POST', { nome: 'Nina Matematica', email: 'nina.mat@grupoideal.com.br',
+  banco: { tipo: 'professor', disciplina: 'Matemática', classificador: false },
+  redacao: { professor: null, digitalizador: { unidades: ['BC'] } }, coordenacao: [] });
+ok('Mas pode ser digitalizadora', r.status === 200, r.data.error);
+const nina = pessoa('nina.mat@grupoideal.com.br');
+r = await api('/api/adm/pessoas/' + nina.id, 'PUT', { redacao: { professor: { turmas: [] }, digitalizador: { unidades: ['BC'] } } });
+ok('Nem depois, pela edição', r.status === 400 && /linguagens/.test(r.data.error || ''), r.status + ' ' + r.data.error);
+for (const d of ['Português', 'Literatura', 'Inglês', 'Artes']) {
+  const email = 'ling.' + d.toLowerCase().normalize('NFD').replace(/[^a-z]/g, '') + '@grupoideal.com.br';
+  const x = await api('/api/adm/pessoas', 'POST', { nome: 'Professora de ' + d, email,
+    banco: { tipo: 'professor', disciplina: d, classificador: false },
+    redacao: { professor: { turmas: [] }, digitalizador: null }, coordenacao: [] });
+  ok('Professor(a) de ' + d + ' pode corrigir redação', x.status === 200, x.data.error);
+}
+/* Trocar a disciplina de quem corrige redação para fora de linguagens é recusado. */
+const ling = pessoa('ling.portugues@grupoideal.com.br');
+r = await api('/api/adm/pessoas/' + ling.id, 'PUT', { banco: { tipo: 'professor', disciplina: 'Física', classificador: false } });
+ok('Pôr Física em quem corrige redação é recusado, com recado claro', r.status === 400 && /linguagens/.test(r.data.error || ''), r.status + ' ' + r.data.error);
+
+/* Planilha: Redação na disciplina marca a função (e mantém o que a pessoa já tem). */
+r = await api('/api/adm/pessoas/importar', 'POST', { pessoas: [
+  { linha: 2, nome: 'Vera Redação', email: 'vera.red', disciplina: 'Redação' }
+] });
+const vera = pessoa('vera.red@grupoideal.com.br');
+const veraProf = db.prepare('SELECT professor FROM redacao_equipe WHERE usuario_id = ?').get(vera?.id)?.professor;
+ok('Planilha com Redação cadastra a pessoa JÁ como professora de redação', r.status === 200 && vera && vera.disciplina === null && veraProf === 1, r.data.error);
+r = await api('/api/adm/pessoas/previa', 'POST', { pessoas: [{ linha: 2, nome: 'Vera Redação', email: 'vera.red', disciplina: 'Redação' }] });
+ok('Reenviar a linha de Redação não muda nada', r.status === 200 && r.data.iguais === 1, JSON.stringify(r.data));
 
 /* Tela: o quadro existe, carrega o ExcelJS com integridade e monta o modelo com as 4 colunas. */
 const html = fs.readFileSync(repo + 'atlas/admin.html', 'utf8');
@@ -200,7 +234,9 @@ ok('ExcelJS vem do jsDelivr com integridade (igual à página de alunos)', /exce
 const { COLUNAS } = await import('../pessoas-planilha.js');
 ok('Tela e servidor usam as mesmas 3 colunas', COLUNAS.length === 3 && COLUNAS.every(c => html.includes(c)), COLUNAS.filter(c => !html.includes(c)).join('|'));
 ok('A tela lê o modelo de três colunas e ainda aceita a 4ª coluna FUNÇÃO antiga', html.includes("const temFuncao=titulo(4)==='FUNCAO'") && html.includes("funcao:temFuncao?v(4):''") && html.includes('precisa começar com NOME COMPLETO, E-MAIL e DISCIPLINA'));
-ok('A coluna Disciplina da lista tem o menu também para quem está sem disciplina', html.includes('<option value=""${t.disciplina?\'\':\' selected\'}>— sem disciplina —</option>') && !html.includes("!t.disciplina?'<small>—</small>'"));
+ok('A coluna Disciplina da lista tem menu para todos, com “sem disciplina” e Redação', html.includes('— sem disciplina —') && html.includes('<option value="__red__"') && !html.includes("!t.disciplina?'<small>—</small>'"));
+ok('Escolher Redação marca a função de redação sem mexer no digitalizador', html.includes("if(valor==='__red__')return {banco:null,redacao:{professor:{turmas:r.turmas||[]},digitalizador:dig}}"));
+ok('A tela avisa e desliga a função de redação fora da área de linguagens', html.includes("const LINGUAGENS=['Português','Literatura','Inglês','Artes']") && html.includes("$('#f-red-prof').disabled=!podeRedacao") && html.includes('id="red-prof-aviso"'));
 ok('Escolher \'sem disciplina\' manda banco:null (não uma disciplina vazia)', html.includes('{banco:null}') && html.includes("'Pessoa retirada do banco de questões.'"));
 ok('A tela não pede mais as colunas que saíram', !/BANCO DE QUESTÕES/.test(html) && !/PROFESSOR DE REDAÇÃO \(TURMA\)/.test(html) && !/COORDENADOR \(UNIDADE SEGMENTO SÉRIE\)/.test(html) && !/'ACESSO ATÉ'/.test(html));
 

@@ -7,6 +7,9 @@ import { RedacaoError, validarTurmaDaProfessora } from './redacao-cadastros.js';
 const erro = (status, mensagem) => { throw new RedacaoError(status, mensagem); };
 const UNIDADES = ['BC', 'AM', 'CN'];
 const SEGMENTOS = ['EF2', 'EM'];
+// Quem corrige redação: ou não tem disciplina no banco de questões (professor de redação mesmo),
+// ou é da área de linguagens. Professor de Matemática, Física e afins não corrige redação.
+export const LINGUAGENS = Object.freeze(['Português', 'Literatura', 'Inglês', 'Artes']);
 
 export async function listarPessoas(env) {
   const pessoas = (await env.DB.prepare(
@@ -36,6 +39,12 @@ export async function salvarPessoa(env, id, body, h) {
   const { limparNome, limparEmail, limparAcessoAte, emailEmUso, DISCIPLINAS, registrar, sessao } = h;
   if (!body || typeof body !== 'object') erro(400, 'Dados inválidos.');
   if (id === null) {
+    /* Confere a regra da redação ANTES de inserir, para não deixar cadastro pela metade. */
+    const bNovo = body.banco;
+    const discNova = bNovo && bNovo.tipo === 'professor' ? bNovo.disciplina : null;
+    if (body.redacao?.professor && discNova && !LINGUAGENS.includes(discNova)) {
+      erro(400, 'Professor de redação só pode ser quem não tem disciplina no banco de questões ou é da área de linguagens (' + LINGUAGENS.join(', ') + ').');
+    }
     const selecao = body.redacao?.professor?.turmas;
     if (Array.isArray(selecao)) await validarTurmaDaProfessora(env, [...new Set(selecao.map(Number))]);
     const nome = limparNome(body.nome), email = limparEmail(body.email);
@@ -63,6 +72,13 @@ export async function salvarPessoa(env, id, body, h) {
   }
   /* Quem muda de disciplina, sai do banco, vira digitador ou é desativado deixa de ser supervisor. */
   const papel = (disciplina !== atual.disciplina || !ativo || digitador || !disciplina) ? 'professor' : atual.papel;
+  /* A função de redação vale com o estado final: se a parte da redação não veio no corpo, olha o banco. */
+  const profRedacao = body.redacao !== undefined
+    ? !!(body.redacao || {}).professor
+    : ((await env.DB.prepare('SELECT professor FROM redacao_equipe WHERE usuario_id = ?').bind(id).first())?.professor === 1);
+  if (profRedacao && disciplina && !LINGUAGENS.includes(disciplina)) {
+    erro(400, 'Professor de redação só pode ser quem não tem disciplina no banco de questões ou é da área de linguagens (' + LINGUAGENS.join(', ') + ').');
+  }
   const ops = [env.DB.prepare('UPDATE usuarios SET nome = ?, email = ?, disciplina = ?, ativo = ?, papel = ?, digitador = ?, acesso_ate = ?, classificador = ? WHERE id = ?')
     .bind(nome, email, disciplina, ativo, papel, digitador, acessoAte, classificador, id)];
   if (!classificador || !ativo || disciplina !== atual.disciplina) ops.push(env.DB.prepare('DELETE FROM reservas WHERE usuario_id = ?').bind(id));
