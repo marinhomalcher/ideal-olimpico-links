@@ -172,8 +172,13 @@ function blocoVersos(t,centro){const d=document.createElement('div');d.className
       limparTextos(){for(const b of [...area.querySelectorAll('.texto-extra')]){rich.remover(b.querySelector('.rich-editor').id);b.remove()}numerar()},
       limparAlternativas(){for(const l of 'abcde'){const x=refsAlt[l];if(x){x.ta.value='';x.caixa.hidden=true;x.link.hidden=false}}}
     }}
+  // A largura da imagem é salva em % do campo do editor (que ocupa a tela toda), não da prova.
+  // Na prévia, a % aplicada à caixa estreita encolhia a imagem; aqui ela volta ao tamanho do editor
+  // (em px) e só é reduzida se não couber na coluna / na largura total (max-width:100%).
+  function imagensNaPrevia(previa){const eds=[...document.querySelectorAll('.rich-editor')].filter(e=>e.clientWidth>0);const ref=eds.length?Math.max(200,...eds.map(e=>e.clientWidth-24)):720;
+    previa.querySelectorAll('img').forEach(img=>{const p=widthPct(img.style.width);if(p){img.style.width=Math.round(p/100*ref)+'px';img.style.maxWidth='100%'}})}
   // Barra "Ver na coluna / Ver em largura total" no topo de uma prévia.
-  function barraLargura(previa,layout){const alvo=previa;const bar=document.createElement('div');bar.className='largura-bar';bar.innerHTML='<span>Ver como fica na prova:</span><button type="button" data-l="coluna">Na coluna (2 colunas)</button><button type="button" data-l="pagina">Largura total</button><span class="largura-nota"></span>';
+  function barraLargura(previa,layout){const alvo=previa;imagensNaPrevia(previa);const bar=document.createElement('div');bar.className='largura-bar';bar.innerHTML='<span>Ver como fica na prova:</span><button type="button" data-l="coluna">Na coluna (2 colunas)</button><button type="button" data-l="pagina">Largura total</button><span class="largura-nota"></span>';
     const aplicar=l=>{alvo.classList.toggle('largura-col',l==='coluna');alvo.classList.toggle('largura-total',l==='pagina');bar.querySelectorAll('button').forEach(b=>b.classList.toggle('on',b.dataset.l===l));bar.querySelector('.largura-nota').textContent=l==='coluna'?'(largura aproximada de uma coluna da prova)':''};
     bar.querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>aplicar(b.dataset.l)));previa.prepend(bar);aplicar(layout==='pagina'?'pagina':'coluna');return bar}
   window.AtlasRich={setup,clean,oldText,mathMarkup,ids,formatarReferencia,textosHTML,altRefHTML,refHTML,layoutNome,extras,barraLargura};
