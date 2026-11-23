@@ -31,6 +31,7 @@ const turmasDe = id => db.prepare('SELECT turma_id FROM redacao_professor_turmas
 const unidadesDe = id => db.prepare('SELECT unidade FROM redacao_digitalizador_unidades WHERE usuario_id = ? ORDER BY unidade').all(id).map(x => x.unidade).join(',');
 const coordDe = id => db.prepare('SELECT serie FROM coordenadores WHERE usuario_id = ? ORDER BY serie').all(id).map(x => x.serie).join('|');
 const turmaBC = db.prepare("SELECT id FROM redacao_turmas WHERE unidade = 'BC' AND codigo = '1EMA'").get().id;
+const turmaAM = db.prepare("SELECT id FROM redacao_turmas WHERE unidade = 'AM' AND codigo = '2EMA'").get().id;
 
 /* Uma pessoa cadastrada pela tela, com TODAS as funções que a planilha não controla. */
 let r = await api('/api/adm/pessoas', 'POST', { nome: 'Marta Completa', email: 'marta@grupoideal.com.br', ativo: false, acesso_ate: '2027-03-31',
@@ -176,6 +177,22 @@ ok('Importação com erros é recusada (409) e não grava', r.status === 409 && 
 r = await api('/api/adm/pessoas/previa', 'POST', { pessoas: Array.from({ length: 501 }, () => linhas[0]) });
 ok('Mais de 500 linhas: recusado', r.status === 400);
 
+/* Pela lista: quem está sem disciplina pode receber uma, e quem tem pode sair do banco, sem perder
+   as outras funções (é o menu "— sem disciplina —" da coluna Disciplina). */
+r = await api('/api/adm/pessoas', 'POST', { nome: 'Rosa Só Redação', email: 'rosa.red@grupoideal.com.br',
+  banco: null, redacao: { professor: { turmas: [turmaAM] }, digitalizador: null },
+  coordenacao: [{ unidade: 'BC', segmento: 'EM', serie: '1ª Série' }] });
+const rosa = pessoa('rosa.red@grupoideal.com.br');
+ok('Pessoa sem disciplina pode ser criada (professora só de redação)', r.status === 200 && rosa && rosa.disciplina === null, r.data.error);
+r = await api('/api/adm/pessoas/' + rosa.id, 'PUT', { banco: { tipo: 'professor', disciplina: 'História', classificador: false } });
+ok('Dar disciplina a quem estava sem: entra no banco e mantém turma e coordenação',
+  r.status === 200 && pessoa('rosa.red@grupoideal.com.br').disciplina === 'História' &&
+  turmasDe(rosa.id).join(',') === String(turmaAM) && coordDe(rosa.id) === '1ª Série', r.data.error);
+r = await api('/api/adm/pessoas/' + rosa.id, 'PUT', { banco: null });
+ok('Escolher "sem disciplina" tira do banco e também mantém turma e coordenação',
+  r.status === 200 && pessoa('rosa.red@grupoideal.com.br').disciplina === null &&
+  turmasDe(rosa.id).join(',') === String(turmaAM) && coordDe(rosa.id) === '1ª Série', r.data.error);
+
 /* Tela: o quadro existe, carrega o ExcelJS com integridade e monta o modelo com as 4 colunas. */
 const html = fs.readFileSync(repo + 'atlas/admin.html', 'utf8');
 ok('admin.html tem o quadro "Cadastro por planilha" com baixar, conferir e importar', /id="sec-planilha"/.test(html) && /id="pl-baixar"/.test(html) && /id="pl-previa"/.test(html) && /id="pl-importar"/.test(html) && /id="pl-arquivo"/.test(html));
@@ -183,6 +200,8 @@ ok('ExcelJS vem do jsDelivr com integridade (igual à página de alunos)', /exce
 const { COLUNAS } = await import('../pessoas-planilha.js');
 ok('Tela e servidor usam as mesmas 3 colunas', COLUNAS.length === 3 && COLUNAS.every(c => html.includes(c)), COLUNAS.filter(c => !html.includes(c)).join('|'));
 ok('A tela lê o modelo de três colunas e ainda aceita a 4ª coluna FUNÇÃO antiga', html.includes("const temFuncao=titulo(4)==='FUNCAO'") && html.includes("funcao:temFuncao?v(4):''") && html.includes('precisa começar com NOME COMPLETO, E-MAIL e DISCIPLINA'));
+ok('A coluna Disciplina da lista tem o menu também para quem está sem disciplina', html.includes('<option value=""${t.disciplina?\'\':\' selected\'}>— sem disciplina —</option>') && !html.includes("!t.disciplina?'<small>—</small>'"));
+ok('Escolher \'sem disciplina\' manda banco:null (não uma disciplina vazia)', html.includes('{banco:null}') && html.includes("'Pessoa retirada do banco de questões.'"));
 ok('A tela não pede mais as colunas que saíram', !/BANCO DE QUESTÕES/.test(html) && !/PROFESSOR DE REDAÇÃO \(TURMA\)/.test(html) && !/COORDENADOR \(UNIDADE SEGMENTO SÉRIE\)/.test(html) && !/'ACESSO ATÉ'/.test(html));
 
 for (const [estado, nome, extra] of results) console.log(estado.padEnd(7), nome, extra ? '— ' + extra : '');
