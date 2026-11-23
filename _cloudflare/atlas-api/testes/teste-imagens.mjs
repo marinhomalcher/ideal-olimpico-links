@@ -113,7 +113,7 @@ await page.mouse.move(hb2.x,hb2.y);await page.mouse.down();await page.mouse.move
 ok('Nunca fica menor que 10%', (await ratio('#texto-base img')).style==='10%');
 await page.click('#texto-base img');const hb3=await page.$eval('.atlas-img-handle',h=>{const r=h.getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2}});
 await page.mouse.move(hb3.x,hb3.y);await page.mouse.down();await page.mouse.move(hb3.x+260,hb3.y,{steps:6});await page.mouse.up();
-const finalStyle=(await ratio('#texto-base img')).style;
+const fim=await ratio('#texto-base img');const finalStyle=fim.style,finalW=fim.w;
 await page.click('h1');ok('Clicar fora esconde a alça', !(await page.isVisible('.atlas-img-handle')));
 // imagem nas alternativas também
 await pasteImage('#alt-a',900,600);
@@ -122,8 +122,12 @@ await page.selectOption('#assunto','Romantismo');const subs=await page.$$eval('#
 await page.selectOption('#origem','autoral');await page.selectOption('#dificuldade','Fácil');await page.selectOption('#bloom','Lembrar');
 await paste('#comando','O gráfico que melhor representa é:');for(const l of 'bcde')await paste('#alt-'+l,'Opção '+l);await page.selectOption('#gabarito','B');
 await page.evaluate(()=>{try{if(typeof tagsCampo!=='undefined'&&tagsCampo.get().length<2)tagsCampo.set(['teste','ui'])}catch{}});await page.click('#visualizar');
-const pv=await page.$eval('#previsao .stem img',i=>i.style.width);
-ok('Prévia usa o mesmo tamanho', pv===finalStyle, pv+' vs '+finalStyle);
+/* A prévia converte a % do editor em px e só encolhe se não couber na caixa (max-width:100%);
+   por isso o estilo não é mais o mesmo texto do editor — o que tem de bater é o tamanho em pixels. */
+const pv=await page.$eval('#previsao .stem img',i=>({style:i.style.width,max:i.style.maxWidth,w:i.getBoundingClientRect().width,caixa:(i.closest('.stem')||i.parentElement).clientWidth}));
+ok('Prévia usa o mesmo tamanho do editor (ou o máximo que cabe na caixa)',
+  /px$/.test(pv.style) && pv.max==='100%' && Math.abs(pv.w-Math.min(finalW,pv.caixa))<=2,
+  JSON.stringify({...pv,editor:Math.round(finalW),estiloEditor:finalStyle}));
 await page.evaluate(()=>{try{if(typeof tagsCampo!=='undefined'&&tagsCampo.get().length<2)tagsCampo.set(['teste','ui'])}catch{}});await page.click('#enviar');
 await page.waitForFunction(()=>/Código: L\d{7}/.test(document.querySelector('#status').textContent),null,{timeout:8000}).catch(()=>{});
 const cod=((await page.textContent('#status')).match(/L\d{7}/)||[])[0];
