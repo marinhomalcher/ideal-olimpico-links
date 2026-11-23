@@ -1,14 +1,18 @@
 // "Cadastros e funções" pela planilha (23/11/2026): a planilha é só do banco de questões. O ADM baixa, edita
 // no Excel (corrige nomes, inclui gente nova, troca disciplina ou função) e manda de volta; a prévia confere
 // tudo sem gravar e a importação grava pelo mesmo salvarPessoa da tela. Uma linha por pessoa:
-//   NOME COMPLETO | E-MAIL | DISCIPLINA | FUNÇÃO (vazio = PROFESSOR; ou SUPERVISOR, DIGITADOR, REDAÇÃO)
+//   NOME COMPLETO | E-MAIL | DISCIPLINA
+// Quem tem disciplina é professor dela. Supervisor, digitador e professor de redação são definidos na
+// tela; a planilha não rebaixa ninguém. Quem já tiver uma quarta coluna FUNÇÃO (PROFESSOR, SUPERVISOR,
+// DIGITADOR ou REDAÇÃO) continua sendo atendido, mas o modelo baixado não a traz mais.
 // Redação, digitalização, coordenação, prazo de acesso e ativo/inativo NÃO vêm na planilha: são feitos na
 // tela e a importação os mantém como estão. Quem não está na planilha também não é tocado.
 import { RedacaoError } from './redacao-cadastros.js';
 import { listarPessoas, salvarPessoa } from './pessoas.js';
 
 const erro = (status, mensagem) => { throw new RedacaoError(status, mensagem); };
-export const COLUNAS = Object.freeze(['NOME COMPLETO', 'E-MAIL', 'DISCIPLINA', 'FUNÇÃO']);
+export const COLUNAS = Object.freeze(['NOME COMPLETO', 'E-MAIL', 'DISCIPLINA']);
+export const COLUNA_OPCIONAL = 'FUNÇÃO';
 const MAX_LINHAS = 500;
 
 const semAcento = s => String(s ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '');
@@ -16,7 +20,7 @@ const chave = s => semAcento(s).trim().toUpperCase().replace(/\s+/g, ' ');
 const texto = (s, max) => String(s ?? '').replace(/\s+/g, ' ').trim().slice(0, max);
 
 /* Lê uma linha da planilha e devolve o cadastro pronto (ou a lista de problemas dela). */
-function lerLinha(l, n, h, jaExiste) {
+function lerLinha(l, n, h, atual) {
   const problemas = [], p = { linha: n };
   const falha = m => { problemas.push(m); };
   try { p.nome = h.limparNome(l.nome); } catch (e) { falha(e.message); }
@@ -28,16 +32,20 @@ function lerLinha(l, n, h, jaExiste) {
   const soCadastro = funcao === 'REDACAO' || disc === 'REDACAO';
   p.disciplina = (disc && !soCadastro) ? (h.DISCIPLINAS.find(d => chave(d) === disc) || null) : null;
   if (disc && !soCadastro && !p.disciplina) falha('Disciplina desconhecida: ' + texto(l.disciplina, 40) + '.');
+  const supervisorHoje = !!atual && atual.papel === 'supervisor' && !!atual.disciplina;
   if (soCadastro) p.banco = undefined;                     // só cadastro: não mexe no banco de questões
   else if (['PROFESSOR', 'PROFESSORA', 'PROF'].includes(funcao)) p.banco = 'professor';
   else if (['SUPERVISOR', 'SUPERVISORA'].includes(funcao)) p.banco = 'supervisor';
   else if (['DIGITADOR', 'DIGITADORA'].includes(funcao)) p.banco = 'digitador';
   else if (funcao) falha('Função: use PROFESSOR, SUPERVISOR, DIGITADOR, REDAÇÃO ou deixe em branco (em branco com disciplina = professor).');
+  // Sem a coluna FUNÇÃO a planilha não diz se a pessoa é professor ou supervisor: quem já é supervisor
+  // da mesma disciplina continua supervisor. Para rebaixar alguém, escreva PROFESSOR na FUNÇÃO ou use a tela.
+  else if (p.disciplina && supervisorHoje && p.disciplina === atual.disciplina) p.banco = 'supervisor';
   else if (p.disciplina) p.banco = 'professor';          // o caso comum: basta nome, e-mail e disciplina
   else p.banco = undefined;                              // sem função no banco: não mexe no que a pessoa já é
   if ((p.banco === 'professor' || p.banco === 'supervisor') && !p.disciplina && !disc) falha('Informe a disciplina.');
   if (p.banco === 'digitador') p.disciplina = null;      // digitador do ADM não tem disciplina
-  if (p.banco === undefined && !soCadastro && !jaExiste) falha('Informe a disciplina (ou a função DIGITADOR ou REDAÇÃO) para cadastrar alguém novo.');
+  if (p.banco === undefined && !soCadastro && !atual) falha('Informe a disciplina para cadastrar alguém novo.');
   return { p, problemas };
 }
 
@@ -73,7 +81,7 @@ export async function prepararPessoas(env, linhas, ano, h) {
     const email = email_(l);
     if (email && soCadastroDaLinha(l) && comBanco.has(email)) { repetidas++; return; }
     const atual = email ? porEmail.get(email) : null;
-    const { p, problemas } = lerLinha(l || {}, n, h, !!atual);
+    const { p, problemas } = lerLinha(l || {}, n, h, atual);
     if (p.email) {
       if (vistos.has(p.email)) problemas.push('E-mail repetido na planilha (linha ' + vistos.get(p.email) + ').');
       vistos.set(p.email, n);

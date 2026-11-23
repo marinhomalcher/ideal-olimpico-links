@@ -1,5 +1,5 @@
-// "Cadastros e funções" pela planilha (23/11/2026): a planilha é só do banco de questões (nome, e-mail,
-// disciplina e função). A prévia confere sem gravar; a importação grava pelo salvarPessoa e define
+// "Cadastros e funções" pela planilha (23/11/2026): a planilha é só do banco de questões
+// (nome, e-mail e disciplina). A prévia confere sem gravar; a importação grava pelo salvarPessoa e define
 // supervisores. Redação, digitalização, coordenação, prazo e ativo/inativo ficam como estão no banco.
 // Dados fictícios; banco em memória.
 import { DatabaseSync } from 'node:sqlite';
@@ -123,6 +123,29 @@ r = await api('/api/adm/pessoas/importar', 'POST', { pessoas: [
 ok('A ordem das duas linhas não importa: vale a que traz a disciplina',
   r.status === 200 && pessoa('bia.dupla@grupoideal.com.br')?.disciplina === 'Português', r.data.error);
 
+/* Planilha de três colunas: não diz nada sobre supervisor, logo não pode rebaixar quem já é. */
+await api('/api/adm/pessoas/importar', 'POST', { pessoas: [{ linha: 2, nome: 'Ana Supervisora', email: 'ana.sup', disciplina: 'Matemática', funcao: 'SUPERVISOR' }] });
+r = await api('/api/adm/pessoas/importar', 'POST', { pessoas: [
+  { linha: 2, nome: 'Ana Supervisora', email: 'ana.sup', disciplina: 'Matemática' }
+] });
+ok('Sem a coluna FUNÇÃO, quem já é supervisor da mesma disciplina continua supervisor',
+  r.status === 200 && pessoa('ana.sup@grupoideal.com.br')?.papel === 'supervisor', r.data.error);
+r = await api('/api/adm/pessoas/previa', 'POST', { pessoas: [
+  { linha: 2, nome: 'Ana Supervisora', email: 'ana.sup', disciplina: 'Matemática' }
+] });
+ok('E a prévia vê a linha como sem mudança', r.status === 200 && r.data.iguais === 1, JSON.stringify(r.data));
+r = await api('/api/adm/pessoas/importar', 'POST', { pessoas: [
+  { linha: 2, nome: 'Ana Supervisora', email: 'ana.sup', disciplina: 'Matemática', funcao: 'PROFESSOR' }
+] });
+ok('Escrevendo PROFESSOR na FUNÇÃO, aí sim ela deixa de ser supervisora',
+  r.status === 200 && pessoa('ana.sup@grupoideal.com.br')?.papel === 'professor', r.data.error);
+r = await api('/api/adm/pessoas/importar', 'POST', { pessoas: [
+  { linha: 2, nome: 'Ana Supervisora', email: 'ana.sup', disciplina: 'Geografia', funcao: 'SUPERVISOR' },
+  { linha: 3, nome: 'Ana Supervisora 2', email: 'ana.sup2', disciplina: 'Geografia' }
+] });
+ok('Trocar a disciplina do supervisor não arrasta o cargo para a disciplina nova sem querer',
+  r.status === 200 && pessoa('ana.sup@grupoideal.com.br')?.papel === 'supervisor' && pessoa('ana.sup2@grupoideal.com.br')?.papel === 'professor', r.data.error);
+
 /* Erros: cada linha com o motivo; importação recusada; nada gravado. */
 const antes = conta('SELECT COUNT(*) AS n FROM usuarios');
 const ruins = [
@@ -143,7 +166,7 @@ ok('Prévia aponta cada problema com a linha (a linha 4, certa, fica de fora)', 
 ok('Nome curto e disciplina desconhecida', /nome/i.test(motivos[2] || '') && /Astrologia/.test(motivos[2] || ''), motivos[2]);
 ok('E-mail fora do domínio (gmail) é recusado', /grupoideal/.test(motivos[3] || ''), motivos[3]);
 ok('E-mail repetido e dois supervisores da mesma disciplina', /repetido/.test(motivos[5] || '') && /Duas pessoas/.test(motivos[5] || ''), motivos[5]);
-ok('Pessoa nova sem disciplina e sem função é recusada', /Informe a disciplina/.test(motivos[6] || ''), motivos[6]);
+ok('Pessoa nova sem disciplina é recusada', /Informe a disciplina/.test(motivos[6] || ''), motivos[6]);
 ok('Mesma pessoa com duas disciplinas diferentes continua sendo erro', /repetido/.test(motivos[11] || ''), motivos[11]);
 ok('Função inválida é recusada', /PROFESSOR, SUPERVISOR, DIGITADOR, REDAÇÃO/.test(motivos[7] || ''), motivos[7]);
 ok('Supervisor sem disciplina é recusado', /Informe a disciplina/.test(motivos[8] || ''), motivos[8]);
@@ -158,7 +181,8 @@ const html = fs.readFileSync(repo + 'atlas/admin.html', 'utf8');
 ok('admin.html tem o quadro "Cadastro por planilha" com baixar, conferir e importar', /id="sec-planilha"/.test(html) && /id="pl-baixar"/.test(html) && /id="pl-previa"/.test(html) && /id="pl-importar"/.test(html) && /id="pl-arquivo"/.test(html));
 ok('ExcelJS vem do jsDelivr com integridade (igual à página de alunos)', /exceljs@4\.4\.0\/dist\/exceljs\.min\.js/.test(html) && /integrity='sha384-Pqp51FUN2\/qzfxZxBCtF0stpc9ONI6MYZpVqmo8m20SoaQCzf\+arZvACkLkirlPz'/.test(html));
 const { COLUNAS } = await import('../pessoas-planilha.js');
-ok('Tela e servidor usam as mesmas 4 colunas', COLUNAS.length === 4 && COLUNAS.every(c => html.includes(c)), COLUNAS.filter(c => !html.includes(c)).join('|'));
+ok('Tela e servidor usam as mesmas 3 colunas', COLUNAS.length === 3 && COLUNAS.every(c => html.includes(c)), COLUNAS.filter(c => !html.includes(c)).join('|'));
+ok('A tela lê o modelo de três colunas e ainda aceita a 4ª coluna FUNÇÃO antiga', html.includes("const temFuncao=titulo(4)==='FUNCAO'") && html.includes("funcao:temFuncao?v(4):''") && html.includes('precisa começar com NOME COMPLETO, E-MAIL e DISCIPLINA'));
 ok('A tela não pede mais as colunas que saíram', !/BANCO DE QUESTÕES/.test(html) && !/PROFESSOR DE REDAÇÃO \(TURMA\)/.test(html) && !/COORDENADOR \(UNIDADE SEGMENTO SÉRIE\)/.test(html) && !/'ACESSO ATÉ'/.test(html));
 
 for (const [estado, nome, extra] of results) console.log(estado.padEnd(7), nome, extra ? '— ' + extra : '');
