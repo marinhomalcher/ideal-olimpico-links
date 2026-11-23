@@ -7,7 +7,7 @@ Cole o bloco abaixo como primeira mensagem.
 MIGRAÇÃO DO PORTAL DE INSCRIÇÕES PARA O ATLAS — começar em dezembro/2026
 
 Contexto
-- Repositório: C:\ATLAS\ideal-olimpico-links (público; nada de segredo nem dado real de aluno no código).
+- Repositório: C:\ATLAS\ATLAS (público; nada de segredo nem dado real de aluno no código).
 - Leia antes de tudo: _cloudflare/atlas-api/CONTINUIDADE.md e as memórias do projeto. Fale comigo sempre em português, em respostas curtas, e só implemente depois do meu "pode fazer".
 - Hoje o Portal do aluno (inscricoes/) usa como banco uma planilha do Google + Apps Script (código fora do repositório). O Worker _cloudflare/ideal-olimpico-producao repassa as chamadas do portal.js ao Apps Script. A coordenação (inscricoes/coordenador/) abre o Apps Script numa ponte em iframe e pede um segundo login Google.
 - O ATLAS (Cloudflare Worker atlas-api + banco D1, telas em atlas/ e painel em adm/) já é a base do cadastro de alunos desde 21/11/2026 (PR #151): tabela alunos (schema 19, _cloudflare/atlas-api/alunos.js), tela atlas/alunos-admin.html, rotas /api/portal/aluno e /api/portal/aluno/confirmar. O Worker do portal, com o segredo PORTAL_ATLAS_SECRET, lê e grava o cadastro do aluno no ATLAS.
