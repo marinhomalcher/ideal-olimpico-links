@@ -7,7 +7,16 @@
   function mathValid(latex,displayMode=false){try{katex.renderToString(String(latex),{...options,displayMode});return true}catch{return false}}
   function equation(latex,displayMode=false){const span=document.createElement('span');span.className='atlas-equation';span.contentEditable='false';span.dataset.latex=latex;if(displayMode)span.dataset.display='block';span.title='Clique duas vezes para editar a equação';span.innerHTML=mathMarkup(latex,displayMode);return span}
   // Converte somente os comandos textuais anunciados na interface. Fórmulas continuam sob o KaTeX.
-  function latexDocument(source){const input=String(source).replace(/\r\n?/g,'\n');let pos=0;
+  /* LaTeX colado sem delimitadores (24/11/2026): uma linha que é só fórmula (\frac, ^{…}, \cdot…) e que o KaTeX aceita
+     ganha $…$ sozinha, para o editor reconhecer os dois formatos: com e sem os delimitadores. */
+  const CMD_TEXTO=/\\(?:textbf|textit|emph|medskip|smallskip|bigskip|par|newline)\b/;
+  function pareceFormula(linha){const t=linha.trim();if(!t||t.length>400||/\$|\\\(|\\\[/.test(t)||CMD_TEXTO.test(t))return false;
+    if(!/\\[A-Za-z]+|[\^_]\{|[\^_][A-Za-z0-9]/.test(t))return false;
+    if((t.match(/[A-Za-zÀ-ÿ]{4,}/g)||[]).filter(w=>!t.includes('\\'+w)).length>2)return false;
+    return mathValid(t)}
+  function delimitarMatematica(text){const t=String(text??'').replace(/\r\n?/g,'\n');if(/\$|\\\(|\\\[/.test(t))return t;return t.split('\n').map(l=>pareceFormula(l)?'$'+l.trim()+'$':l).join('\n')}
+  function limparDelimitadores(latex){let t=String(latex??'').trim();for(const [a,b] of [['$$','$$'],['\\[','\\]'],['\\(','\\)'],['$','$']]){if(t.startsWith(a)&&t.endsWith(b)&&t.length>a.length+b.length){t=t.slice(a.length,-b.length).trim();break}}return t}
+  function latexDocument(source){const input=delimitarMatematica(source);let pos=0;
     function parse(group=false){const out=document.createDocumentFragment();let plain='';const flush=()=>{if(plain){out.append(document.createTextNode(plain));plain=''}};
       function addMath(open,close,display){pos+=open.length;let end=pos;while(end<input.length){if(input.startsWith(close,end))break;if(input[end]==='\\'){end+=2;continue}end++}if(end>=input.length)throw Error('Falta fechar a fórmula '+open+'.');const value=input.slice(pos,end).trim();if(!value||!mathValid(value,display))throw Error('Revise a fórmula entre '+open+' e '+close+'.');flush();out.append(equation(value,display));pos=end+close.length}
       while(pos<input.length){const ch=input[pos];if(ch==='}'){if(!group)throw Error('Há uma chave } sem abertura.');flush();pos++;return out}
@@ -26,7 +35,7 @@
         plain+=ch;pos++}
       if(group)throw Error('Falta fechar uma chave }.');flush();return out}
     const wrapper=document.createElement('span');wrapper.className='atlas-latex-document';wrapper.append(parse());return wrapper}
-  function looksLikeLatex(text){return /\\(?:textbf|textit|emph|medskip|smallskip|bigskip|par|newline)\b/.test(text)||text.includes('\\(')||text.includes('\\[')||/\$\$[\s\S]+?\$\$|\$[^$\n]+\$/.test(text)}
+  function looksLikeLatex(text){return CMD_TEXTO.test(text)||text.includes('\\(')||text.includes('\\[')||/\$\$[\s\S]+?\$\$|\$[^$\n]+\$/.test(text)||delimitarMatematica(text)!==String(text??'').replace(/\r\n?/g,'\n')}
   function widthPct(value){const m=String(value||'').match(/^(\d{1,3}(?:\.\d+)?)%$/);if(!m)return 0;return Math.max(10,Math.min(100,Math.round(Number(m[1]))))}
   function clean(html){const template=document.createElement('template');template.innerHTML=String(html||'');const allowed=new Set(['P','DIV','BR','B','STRONG','I','EM','U','UL','OL','LI','TABLE','TBODY','THEAD','TR','TD','TH']);
     function scrub(node){if(node.nodeType===Node.TEXT_NODE)return document.createTextNode(node.textContent);if(node.nodeType!==Node.ELEMENT_NODE)return null;
@@ -109,7 +118,7 @@ function blocoVersos(t,centro){const d=document.createElement('div');d.className
     if(!document.getElementById('atlas-img-style')){const st=document.createElement('style');st.id='atlas-img-style';st.textContent='.atlas-img-handle{position:absolute;width:18px;height:18px;background:#98151d;border:2px solid #fff;border-radius:4px;box-shadow:0 1px 4px #0006;cursor:nwse-resize;z-index:50;touch-action:none}.atlas-img-badge{position:absolute;background:#98151dd9;color:#fff;font:bold 11px Arial,sans-serif;padding:2px 6px;border-radius:4px;z-index:50;pointer-events:none}.rich-editor img.atlas-img-selected{outline:2px solid #98151d;outline-offset:2px}.rich-editor img{cursor:pointer}';document.head.append(st)}
     const eqDialog=document.getElementById('equation-dialog'),eqInput=document.getElementById('equation-input'),eqPreview=document.getElementById('equation-preview');let editedEquation=null;
     function openEquation(node){editedEquation=node;document.getElementById('eq-title').textContent='Editar equação';document.getElementById('equation-insert').textContent='Salvar';eqInput.value=node.dataset.latex||'';updateEquationPreview();eqDialog.showModal();eqInput.focus()}
-    function updateEquationPreview(){const latex=eqInput.value.trim(),valid=!!latex&&mathValid(latex);eqPreview.innerHTML=latex?mathMarkup(latex):'';document.getElementById('equation-error').hidden=!latex||valid;document.getElementById('equation-insert').disabled=!valid}eqInput.addEventListener('input',updateEquationPreview);document.getElementById('equation-insert').addEventListener('click',()=>{const latex=eqInput.value.trim();if(!latex||!mathValid(latex)){eqInput.focus();return}if(editedEquation){editedEquation.replaceWith(equation(latex));active.dispatchEvent(new Event('input',{bubbles:true}))}else insert(equation(latex));eqDialog.close()});
+    function updateEquationPreview(){const latex=limparDelimitadores(eqInput.value),valid=!!latex&&mathValid(latex);eqPreview.innerHTML=latex?mathMarkup(latex):'';document.getElementById('equation-error').hidden=!latex||valid;document.getElementById('equation-insert').disabled=!valid}eqInput.addEventListener('input',updateEquationPreview);document.getElementById('equation-insert').addEventListener('click',()=>{const latex=limparDelimitadores(eqInput.value);if(!latex||!mathValid(latex)){eqInput.focus();return}if(editedEquation){editedEquation.replaceWith(equation(latex));active.dispatchEvent(new Event('input',{bubbles:true}))}else insert(equation(latex));eqDialog.close()});
     return {adicionar:id=>registrar(id),remover:id=>{if(active===editors.get(id))active=null;editors.delete(id)},read:id=>clean(editors.get(id).innerHTML),write:(id,html)=>{editors.get(id).innerHTML=clean(html)},valid:id=>{const e=editors.get(id);return !!(e.textContent.trim()||e.querySelector('img,table,.atlas-equation'))},clear:()=>{for(const e of editors.values())e.replaceChildren();active=null;savedRange=null}};
   }
 
