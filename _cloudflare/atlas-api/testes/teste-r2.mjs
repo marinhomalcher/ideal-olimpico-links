@@ -99,6 +99,10 @@ const link=r.data?.url;
 ok('Professor envia imagem: recebe link assinado', r.status===200 && /^https:\/\/atlas-api\.marinhomalcher\.workers\.dev\/img\/[0-9a-f]{32}\?e=\d+&s=[0-9a-f]{64}$/.test(link), link);
 ok('Imagem guardada no R2 com tipo', r2store.size===1 && [...r2store.values()][0].o.httpMetadata.contentType==='image/png');
 let g=await getImg(link);
+// "Copiar imagem" nas páginas busca a imagem com fetch: a rota /img/ libera CORS só para as origens do site.
+{const u=new URL(link);const com=await worker.fetch(new Request("https://atlas-api.test"+u.pathname+u.search,{headers:{Origin:ORIGIN}}),env);const sem=await worker.fetch(new Request("https://atlas-api.test"+u.pathname+u.search),env);const outra=await worker.fetch(new Request("https://atlas-api.test"+u.pathname+u.search,{headers:{Origin:"https://outro.site"}}),env);
+ok("/img/ com Origin do site devolve Access-Control-Allow-Origin", com.headers.get("access-control-allow-origin")===ORIGIN && /Origin/.test(com.headers.get("vary")||""));
+ok("/img/ sem Origin ou com origem estranha não libera CORS", !sem.headers.get("access-control-allow-origin") && !outra.headers.get("access-control-allow-origin"));}
 ok('Link assinado entrega a imagem', g.status===200 && g.type==='image/png' && g.bytes.length===png.length);
 g=await getImg(link.replace(/s=./,'s='+(link.match(/s=(.)/)[1]==='0'?'1':'0')));
 ok('Assinatura adulterada: 404', g.status===404);
