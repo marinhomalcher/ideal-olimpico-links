@@ -1,7 +1,8 @@
 // "Cadastros e funções": cadastro único de pessoas. Uma pessoa pode acumular funções:
 // banco de questões (professor da disciplina, supervisor, classificador ou digitador),
 // Redação (professor de redação com turmas, digitalizador com unidades) e coordenador
-// (unidade/segmento/série; por enquanto só recebe o Excel das notas).
+// (unidade/segmento/série; por enquanto só recebe o Excel das notas) e Diagramador (recebe por e-mail o caderno
+// de cada prova fechada; não entra no ATLAS).
 import { RedacaoError, validarTurmaDaProfessora } from './redacao-cadastros.js';
 
 const erro = (status, mensagem) => { throw new RedacaoError(status, mensagem); };
@@ -13,7 +14,7 @@ export const LINGUAGENS = Object.freeze(['Português', 'Literatura', 'Inglês', 
 
 export async function listarPessoas(env) {
   const pessoas = (await env.DB.prepare(
-    "SELECT id, nome, email, disciplina, papel, ativo, digitador, acesso_ate, classificador FROM usuarios WHERE papel IN ('professor','supervisor') ORDER BY nome COLLATE NOCASE"
+    "SELECT id, nome, email, disciplina, papel, ativo, digitador, acesso_ate, classificador, diagramador FROM usuarios WHERE papel IN ('professor','supervisor') ORDER BY nome COLLATE NOCASE"
   ).all()).results;
   const equipe = new Map((await env.DB.prepare('SELECT usuario_id, professor, digitalizador, ativo FROM redacao_equipe').all()).results.map(e => [e.usuario_id, e]));
   const turmas = (await env.DB.prepare('SELECT usuario_id, turma_id FROM redacao_professor_turmas').all()).results;
@@ -22,7 +23,7 @@ export async function listarPessoas(env) {
   return pessoas.map(p => {
     const e = equipe.get(p.id);
     return {
-      ...p, ativo: p.ativo === 1, digitador: p.digitador === 1, classificador: p.classificador === 1,
+      ...p, ativo: p.ativo === 1, digitador: p.digitador === 1, classificador: p.classificador === 1, diagramador: p.diagramador === 1,
       banco: !!p.disciplina || p.digitador === 1,
       redacao: {
         professor: !!e && e.professor === 1, digitalizador: !!e && e.digitalizador === 1,
@@ -34,7 +35,7 @@ export async function listarPessoas(env) {
   });
 }
 
-/* Cria (id = null) ou altera uma pessoa. Só mexe nas partes enviadas: banco, redacao, coordenacao. */
+/* Cria (id = null) ou altera uma pessoa. Só mexe nas partes enviadas: banco, redacao, coordenacao, diagramador. */
 export async function salvarPessoa(env, id, body, h) {
   const { limparNome, limparEmail, limparAcessoAte, emailEmUso, DISCIPLINAS, registrar, sessao } = h;
   if (!body || typeof body !== 'object') erro(400, 'Dados inválidos.');
@@ -53,14 +54,15 @@ export async function salvarPessoa(env, id, body, h) {
       .bind(nome, email, limparAcessoAte(body.acesso_ate)).run();
     id = r.meta?.last_row_id;
   }
-  const atual = await env.DB.prepare("SELECT id, nome, email, disciplina, papel, ativo, digitador, acesso_ate, classificador FROM usuarios WHERE id = ? AND papel IN ('professor','supervisor')").bind(id).first();
+  const atual = await env.DB.prepare("SELECT id, nome, email, disciplina, papel, ativo, digitador, acesso_ate, classificador, diagramador FROM usuarios WHERE id = ? AND papel IN ('professor','supervisor')").bind(id).first();
   if (!atual) erro(404, 'Pessoa não encontrada.');
   const nome = body.nome !== undefined ? limparNome(body.nome) : atual.nome;
   const email = body.email !== undefined ? limparEmail(body.email) : atual.email;
   if (email.toLowerCase() !== String(atual.email).toLowerCase() && await emailEmUso(env, email, id)) erro(409, 'Este e-mail já está cadastrado.');
   const ativo = body.ativo !== undefined ? (body.ativo ? 1 : 0) : atual.ativo;
   const acessoAte = body.acesso_ate !== undefined ? limparAcessoAte(body.acesso_ate) : atual.acesso_ate;
-  let { disciplina, digitador, classificador } = atual;
+  let { disciplina, digitador, classificador, diagramador } = atual;
+  if (body.diagramador !== undefined) diagramador = body.diagramador ? 1 : 0;
   if (body.banco !== undefined) {
     const b = body.banco;
     if (!b) { disciplina = null; digitador = 0; classificador = 0; }
@@ -79,8 +81,8 @@ export async function salvarPessoa(env, id, body, h) {
   if (profRedacao && disciplina && !LINGUAGENS.includes(disciplina)) {
     erro(400, 'Professor de redação só pode ser quem não tem disciplina no banco de questões ou é da área de linguagens (' + LINGUAGENS.join(', ') + ').');
   }
-  const ops = [env.DB.prepare('UPDATE usuarios SET nome = ?, email = ?, disciplina = ?, ativo = ?, papel = ?, digitador = ?, acesso_ate = ?, classificador = ? WHERE id = ?')
-    .bind(nome, email, disciplina, ativo, papel, digitador, acessoAte, classificador, id)];
+  const ops = [env.DB.prepare('UPDATE usuarios SET nome = ?, email = ?, disciplina = ?, ativo = ?, papel = ?, digitador = ?, acesso_ate = ?, classificador = ?, diagramador = ? WHERE id = ?')
+    .bind(nome, email, disciplina, ativo, papel, digitador, acessoAte, classificador, diagramador, id)];
   if (!classificador || !ativo || disciplina !== atual.disciplina) ops.push(env.DB.prepare('DELETE FROM reservas WHERE usuario_id = ?').bind(id));
 
   if (body.redacao !== undefined) {
@@ -124,7 +126,12 @@ export async function salvarPessoa(env, id, body, h) {
     }
   }
   await env.DB.batch(ops);
-  await registrar(env, 'pessoa_salva', { adm: sessao.email, id, nome, email, ativo, disciplina, digitador, classificador,
+  await registrar(env, 'pessoa_salva', { adm: sessao.email, id, nome, email, ativo, disciplina, digitador, classificador, diagramador,
     redacao: body.redacao, coordenacao: body.coordenacao });
   return id;
+}
+
+/* Diagramadores ativos: recebem por e-mail o caderno de cada prova fechada. */
+export async function listarDiagramadores(env) {
+  return (await env.DB.prepare("SELECT id, nome, email FROM usuarios WHERE diagramador = 1 AND ativo = 1 AND papel IN ('professor','supervisor') ORDER BY nome COLLATE NOCASE").all()).results;
 }

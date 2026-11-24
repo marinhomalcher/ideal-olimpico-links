@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="pt-BR">
 <head>
-<meta name="atlas-versao" content="20261123d"><script src="atlas-versao.js?v=20261123d" defer></script>
+<meta name="atlas-versao" content="20261124a"><script src="atlas-versao.js?v=20261124a" defer></script>
 <meta charset="utf-8"><meta name="robots" content="noindex, nofollow"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="referrer" content="strict-origin-when-cross-origin">
 <title>ATLAS | Seleções recebidas</title>
@@ -81,8 +81,8 @@ dialog.preview-dialog{width:min(860px,calc(100% - 30px));max-height:88vh;overflo
 </section>
 </main></div>
 <script src="https://cdn.jsdelivr.net/npm/katex@0.19.1/dist/katex.min.js" integrity="sha384-a1WQdjRj162i159OYq041X6I4K8NenkrI09LlPmiHg0YOb7CR+wJOraXwK9abpnE" crossorigin="anonymous"></script>
-<script src="atlas-editor.js?v=20261123d"></script>
-<script src="atlas-tags.js?v=20261123d"></script>
+<script src="atlas-editor.js?v=20261124a"></script>
+<script src="atlas-tags.js?v=20261124a"></script>
 <script>
 const API='https://atlas-api.marinhomalcher.workers.dev',GOOGLE_CLIENT_ID='432003570373-cscu1nvoldack2luihm9lnlsi9q2p115.apps.googleusercontent.com',TOKEN_KEY='atlas_adm_token';
 const $=s=>document.querySelector(s);
@@ -142,7 +142,8 @@ async function abrir(id){let data;try{data=await api('/api/adm/selecoes/'+id)}ca
   $('#det-info').innerHTML='<p class="hint">'+escapeHTML((atual.titulo?atual.titulo+' · ':'')+atual.itens.length+' questões · Supervisor: '+atual.supervisor+' · enviada em '+quando(atual.enviada_em)+(atual.aplicada_em?' · aplicada em '+quando(atual.aplicada_em):''))+'</p>';
   let html='';atual.itens.forEach((i,k)=>{let d=i.dados||{};const g=i.grupo&&i.grupo.codigo,ant=k>0&&atual.itens[k-1].grupo&&atual.itens[k-1].grupo.codigo;if(g&&g!==ant){let n=0;for(let j=k;j<atual.itens.length&&atual.itens[j].grupo&&atual.itens[j].grupo.codigo===g;j++)n++;html+='<div class="qnum" style="border-top:2px solid #e8cdd1"><span><strong>Texto para as questões '+(k+1)+' a '+(k+n)+'</strong> · grupo '+escapeHTML(g)+'</span></div><div class="question"><div class="stem">'+AtlasRich.clean(d['texto-base']||'')+'</div>'+(d.referencia?'<p class="hint">'+escapeHTML(d.referencia)+'</p>':'')+'</div>'}if(g)d={...d,'texto-base':'',referencia:''};html+='<div class="qnum"><span><strong>Questão '+(k+1)+'</strong> · '+escapeHTML(i.codigo)+' · '+escapeHTML(d.assunto||'')+(d.subtema?' › '+escapeHTML(d.subtema):'')+'</span><span class="hint">'+escapeHTML([d.dificuldade,d.bloom,i.autor].filter(Boolean).join(' · '))+(i.versao_atual>i.versao?' · <b>há versão mais nova (v'+i.versao_atual+')</b>':'')+'</span></div>'+questaoHTML(d)});
   html+='<h3 style="color:#6e2026;margin-top:26px">Gabarito</h3><div class="table-wrap"><table class="gab-table"><thead><tr><th>Questão</th>'+atual.itens.map((_,k)=>'<th>'+(k+1)+'</th>').join('')+'</tr></thead><tbody><tr><td><b>Resposta</b></td>'+atual.itens.map(i=>'<td>'+escapeHTML(i.dados?.gabarito||'')+'</td>').join('')+'</tr><tr><td class="hint">Código</td>'+atual.itens.map(i=>'<td class="hint">'+escapeHTML(i.codigo)+'</td>').join('')+'</tr></tbody></table></div>';
-  $('#det-corpo').innerHTML=html;const env=atual.situacao==='enviada';$('#aplicar').hidden=!env;$('#devolver').hidden=!env;
+  $('#det-corpo').innerHTML=html;const env=atual.situacao==='enviada';$('#aplicar').hidden=!env||!!atual.prova;$('#devolver').hidden=!env;
+  if(atual.prova){const p=atual.prova;const a=document.createElement('p');a.className='hint';a.style.cssText='margin:-6px 0 12px;font-size:13px';a.innerHTML='Esta seleção faz parte da prova <b></b> (aplicação em <b></b>). A prova inteira é acompanhada e marcada como aplicada em <a href="admin-avaliacoes.html" style="color:#98151d;font-weight:bold">Avaliações</a>.';const bs=a.querySelectorAll('b');bs[0].textContent=p.serie+'ª série · '+p.tipo+' · '+({PART:'Simulado particular',ENEM1:'Simulado ENEM · 1º dia',ENEM2:'Simulado ENEM · 2º dia'}[p.modalidade]||p.modalidade);bs[1].textContent=String(p.aplicacao||'').slice(0,10).split('-').reverse().join('/');$('#det-info').append(a)}
   $('#lista-panel').hidden=true;$('#details').hidden=false;$('#details').scrollIntoView({behavior:'smooth',block:'start'})}
 document.querySelectorAll('[data-tab]').forEach(b=>b.addEventListener('click',()=>{tab=b.dataset.tab;document.querySelectorAll('[data-tab]').forEach(o=>{o.classList.toggle('active',o===b);o.setAttribute('aria-selected',String(o===b))});carregarLista()}));
 $('#voltar').addEventListener('click',()=>{atual=null;history.replaceState(null,'','admin-selecoes.html');$('#details').hidden=true;$('#lista-panel').hidden=false;carregarLista()});

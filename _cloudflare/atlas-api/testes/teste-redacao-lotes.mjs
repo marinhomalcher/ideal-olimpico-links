@@ -45,7 +45,7 @@ async function api(path, method = 'GET', body, token = 'adm-token', contentType 
   const response = await worker.fetch(request, env, { waitUntil() {} });
   return { status: response.status, data: response.headers.get('Content-Type')?.includes('json') ? await response.json() : Buffer.from(await response.arrayBuffer()), headers: response.headers };
 }
-ok('Schema 20', db.prepare("SELECT valor FROM meta WHERE chave='schema_versao'").get().valor === '20');
+ok('Schema 21', db.prepare("SELECT valor FROM meta WHERE chave='schema_versao'").get().valor === '21');
 { /* migração 0017 aplicada sobre o schema v16 */
   const m = new DatabaseSync(':memory:'), sql = fs.readFileSync(repo + '_cloudflare/atlas-api/schema.sql', 'utf8');
   m.exec(sql.split('-- ---------- v17 ----------')[0]); m.exec(fs.readFileSync(repo + '_cloudflare/atlas-api/migrations/0017_redacao_envios.sql', 'utf8'));

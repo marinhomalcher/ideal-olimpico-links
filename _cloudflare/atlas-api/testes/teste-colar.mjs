@@ -152,6 +152,18 @@ await page.evaluate(()=>{const e=document.querySelector('#comando');e.innerHTML=
 await page.click('#bar-comando .btn-versos');
 ok('Botão Versos com um trecho selecionado transforma os parágrafos em linhas do bloco', await page.evaluate(()=>{const v=document.querySelector('#comando .versos');return !!v && v.innerHTML==='Primeira linha<br>Segunda linha'}), await page.innerHTML('#comando'));
 ok('Alternativas não ganham a barra de versos', !(await page.$('#bar-alt-a')));
+// LaTeX colado sem os delimitadores $…$ (pedido de 24/11/2026): a linha que é só fórmula vira equação; com $…$ continua igual
+await colarMisto('#texto-base',{texto:'A curva de crescimento segue a função\nP = \\frac{800}{200 \\cdot e^{-0{,}24t} + 1}\nem que t é o tempo em dias.',html:null,png:false});
+ok('LaTeX sem $ vira equação editável e o texto em volta fica texto', (await page.$$('#texto-base .atlas-equation')).length===1 && (await page.$eval('#texto-base .atlas-equation',e=>e.dataset.latex))==='P = \\frac{800}{200 \\cdot e^{-0{,}24t} + 1}' && (await page.textContent('#texto-base')).includes('tempo em dias'), await page.innerHTML('#texto-base'));
+await colarMisto('#comando',{texto:'Calcule $\\frac{1}{2}$ e responda.',html:null,png:false});
+ok('LaTeX com $ continua funcionando', (await page.$$('#comando .atlas-equation')).length===1 && (await page.textContent('#comando')).includes('responda'));
+await page.evaluate(()=>{for(const id of ['alt-a','alt-b','alt-c'])document.getElementById(id).replaceChildren()});
+await colarMisto('#alt-a',{texto:'A pressão do gás e o volume da garrafa',html:null,png:false});
+ok('Frase comum não vira equação', !(await page.$('#alt-a .atlas-equation')) && (await page.textContent('#alt-a')).includes('pressão do gás'), await page.innerHTML('#alt-a'));
+await colarMisto('#alt-b',{texto:'\\(x^2 - 4x + 4 = 0\\)',html:null,png:false});
+ok('Formato \\(…\\) também', (await page.$$('#alt-b .atlas-equation')).length===1, await page.innerHTML('#alt-b'));
+await colarMisto('#alt-c',{texto:'x^2 - 4x + 4 = 0',html:null,png:false});
+ok('Alternativa só com fórmula sem $ também vira equação', (await page.$$('#alt-c .atlas-equation')).length===1, (await page.$$('#alt-c .atlas-equation')).length+' '+await page.innerHTML('#alt-c'));
 ok('Sem erros de JavaScript', errors.length===0, errors.join(' | '));
 await browser.close(); server.close();
 for (const x of results) console.log(x.join(' | '));

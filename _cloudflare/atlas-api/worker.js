@@ -8,6 +8,7 @@ import { rotaCertificadosPortal } from './certificados.js';
 import { listarPessoas, salvarPessoa } from './pessoas.js';
 import { rotaPessoasPlanilha } from './pessoas-planilha.js';
 import { rotaAlunosAdm, rotaAlunosPortal } from './alunos.js';
+import { rotaProvasAdm, provaDaSelecao, provasAbertasDaDisciplina, provaParaNovaSelecao, ligarSelecao, desligarSelecao, fecharProvaSeCompleta, aoDevolverSelecao, entregarProva } from './provas.js';
 // Administração: login "Entrar com Google", liberado SOMENTE para o e-mail em ADMIN_EMAIL.
 // Professores e Supervisores: login por código no e-mail institucional.
 // Questões: enviadas pelo Professor e analisadas pelo Supervisor da disciplina (tabelas itens/item_versoes/revisoes).
@@ -287,13 +288,21 @@ async function tokenDaMicrosoft(env) {
   tokenMicrosoft = { valor: dados.access_token, cliente: env.MS_CLIENT_ID, expira: Date.now() + Number(dados.expires_in || 3000) * 1000 };
   return tokenMicrosoft.valor;
 }
-async function enviarPelaMicrosoft(env, para, assunto, texto) {
+function base64DeBytes(u) {
+  let s = '';
+  for (let i = 0; i < u.length; i += 0x8000) s += String.fromCharCode.apply(null, u.subarray(i, i + 0x8000));
+  return btoa(s);
+}
+// para: um e-mail ou uma lista; anexos: [{ nome, tipo, bytes }] (só pela Microsoft).
+async function enviarPelaMicrosoft(env, para, assunto, texto, anexos = []) {
   const token = await tokenDaMicrosoft(env);
+  const lista = Array.isArray(para) ? para : [para];
   const resp = await fetch('https://graph.microsoft.com/v1.0/users/' + encodeURIComponent(env.MS_REMETENTE) + '/sendMail', {
     method: 'POST',
     headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      message: { subject: assunto, body: { contentType: 'Text', content: texto }, toRecipients: [{ emailAddress: { address: para } }] },
+      message: { subject: assunto, body: { contentType: 'Text', content: texto }, toRecipients: lista.map(a => ({ emailAddress: { address: a } })),
+        ...(anexos.length ? { attachments: anexos.map(a => ({ '@odata.type': '#microsoft.graph.fileAttachment', name: a.nome, contentType: a.tipo, contentBytes: base64DeBytes(a.bytes) })) } : {}) },
       saveToSentItems: true
     })
   });
@@ -302,6 +311,27 @@ async function enviarPelaMicrosoft(env, para, assunto, texto) {
     if (resp.status === 401) tokenMicrosoft = null;
     throw new Error('envio Microsoft recusado (' + resp.status + ' ' + (erro?.error?.code || '') + ')');
   }
+}
+// E-mail com anexos (caderno da prova ao Diagramador). Pela Microsoft vai com o arquivo; pelo enviador reserva
+// (Apps Script) vai só o texto, que já traz o link do arquivo. Devolve true se algum caminho aceitou.
+async function enviarEmailComAnexos(env, para, assunto, texto, anexos) {
+  const lista = (Array.isArray(para) ? para : [para]).filter(Boolean);
+  if (!lista.length) return false;
+  if (microsoftConfigurado(env)) {
+    try { await enviarPelaMicrosoft(env, lista, assunto, texto, anexos); return true; }
+    catch (error) { console.warn('ATLAS e-mail com anexo pela Microsoft falhou; tentando o enviador reserva:', error && error.message); }
+  }
+  if (!env.ATLAS_MAILER_URL || !env.ATLAS_MAILER_SECRET) return false;
+  let algum = false;
+  for (const email of lista) {
+    try {
+      const response = await fetch(env.ATLAS_MAILER_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ segredo: env.ATLAS_MAILER_SECRET, tipo: 'aviso', email, assunto, texto }) });
+      const resultado = await response.json().catch(() => null);
+      if (response.ok && resultado?.ok === true) algum = true;
+    } catch { /* tenta o próximo */ }
+  }
+  return algum;
 }
 // Envio único usado por códigos e avisos. Devolve true se algum caminho aceitou.
 async function enviarEmail(env, para, assunto, texto, reservaAppsScript) {
@@ -363,10 +393,14 @@ async function solicitarCodigoAcesso(request, env) {
   }
 
   const user = await env.DB.prepare(
-    "SELECT id, nome, email, disciplina, papel FROM usuarios " +
+    "SELECT id, nome, email, disciplina, papel, digitador, diagramador, (SELECT 1 FROM redacao_equipe e WHERE e.usuario_id = usuarios.id AND e.ativo = 1) AS redacao FROM usuarios " +
     "WHERE email = ? COLLATE NOCASE AND ativo = 1 AND papel IN ('professor','supervisor') AND (acesso_ate IS NULL OR acesso_ate >= date('now','-3 hours'))"
   ).bind(email).first();
   if (!user) return { ok: true };
+  // Diagramador não entra no ATLAS: recebe os cadernos por e-mail (decisão do Marinho em 23/11/2026).
+  if (user.diagramador === 1 && !user.disciplina && user.digitador !== 1 && !user.redacao) {
+    throw new HttpError(403, 'O Diagramador não entra no ATLAS: ele recebe os cadernos das provas por e-mail.');
+  }
 
   const codigo = gerarCodigoAcesso();
   const codigoHash = await hmacHex(env.ATLAS_MAILER_SECRET, 'codigo:' + user.id + ':' + codigo);
@@ -1728,7 +1762,7 @@ async function rotasAdmItens(request, env, path, sessao) {
 // nos anos seguintes (aplicada na 1ª série em X não é oferecida à 2ª em X+1 nem à 3ª em X+2, mesmo tipo).
 // "Aplicada" só quando o ADM marca a prova como enviada aos alunos.
 const SERIES_SELECAO = [1, 2, 3];
-const TIPOS_SELECAO = ['REG', 'MED'];
+const TIPOS_SELECAO = ['REG', 'MED', 'MIL'];
 const MAX_ITENS_SELECAO = 200;
 const NOME_SERIE = s => s + 'ª série';
 
@@ -1760,7 +1794,7 @@ function validarSerieTipo(body) {
   const serie = Number(body.serie);
   const tipo = String(body.tipo || '').toUpperCase();
   if (!SERIES_SELECAO.includes(serie)) throw new HttpError(400, 'Escolha a série (1ª, 2ª ou 3ª).');
-  if (!TIPOS_SELECAO.includes(tipo)) throw new HttpError(400, 'Escolha o tipo (REG ou MED).');
+  if (!TIPOS_SELECAO.includes(tipo)) throw new HttpError(400, 'Escolha a turma (REG, MED ou MIL).');
   return { serie, tipo };
 }
 function validarTitulo(v) {
@@ -1857,23 +1891,40 @@ async function rotasSelecoesSupervisor(request, env, path, url, user) {
 
   if (path === '/api/supervisor/selecoes' && request.method === 'GET') {
     const { results } = await env.DB.prepare(
-      "SELECT s.id, s.serie, s.tipo, s.titulo, s.situacao, s.ano, s.motivo_devolucao, s.criado_em, s.atualizado_em, s.enviada_em, s.aplicada_em, " +
+      "SELECT s.id, s.serie, s.tipo, s.titulo, s.situacao, s.ano, s.motivo_devolucao, s.criado_em, s.atualizado_em, s.enviada_em, s.aplicada_em, s.prova_id, " +
       "u.nome AS supervisor, (SELECT COUNT(*) FROM selecao_itens si WHERE si.selecao_id = s.id) AS total " +
       "FROM selecoes s JOIN usuarios u ON u.id = s.supervisor_id WHERE s.disciplina = ? " +
       "ORDER BY CASE s.situacao WHEN 'rascunho' THEN 0 WHEN 'enviada' THEN 1 ELSE 2 END, s.id DESC LIMIT 300"
     ).bind(user.disciplina).all();
-    return { ok: true, disciplina: user.disciplina, ano, selecoes: results };
+    const selecoes = [];
+    for (const s of results) selecoes.push({ ...s, prova: await provaDaSelecao(env, { prova_id: s.prova_id, disciplina: user.disciplina }) });
+    return { ok: true, disciplina: user.disciplina, ano, selecoes, provas: await provasAbertasDaDisciplina(env, user.disciplina) };
   }
 
   if (path === '/api/supervisor/selecoes' && request.method === 'POST') {
     const body = await readJson(request);
-    const { serie, tipo } = validarSerieTipo(body);
     const titulo = validarTitulo(body.titulo);
+    // Seleção de uma prova do bimestre (fluxo atual): série e turma vêm da prova. Sem prova, vale o fluxo antigo (série + tipo).
+    const prova = body.prova_id ? await provaParaNovaSelecao(env, user.disciplina, body.prova_id) : null;
+    const { serie, tipo } = prova ? { serie: prova.serie, tipo: prova.tipo } : validarSerieTipo(body);
+    // Reaproveitar: a seleção de origem é conferida antes de criar a nova (para não deixar rascunho pela metade).
+    const origem = body.reaproveitar ? await env.DB.prepare('SELECT id FROM selecoes WHERE id = ? AND disciplina = ?').bind(Number(body.reaproveitar), user.disciplina).first() : null;
+    if (body.reaproveitar && !origem) throw new HttpError(404, 'Seleção para reaproveitar não encontrada.');
     const row = await env.DB.prepare(
-      'INSERT INTO selecoes (disciplina, supervisor_id, serie, tipo, titulo) VALUES (?, ?, ?, ?, ?) RETURNING id'
-    ).bind(user.disciplina, user.id, serie, tipo, titulo).first();
-    await registrar(env, 'selecao_criada', { selecao: row.id, serie, tipo }, user.id);
-    return { ok: true, selecao: { id: row.id } };
+      'INSERT INTO selecoes (disciplina, supervisor_id, serie, tipo, titulo, prova_id) VALUES (?, ?, ?, ?, ?, ?) RETURNING id'
+    ).bind(user.disciplina, user.id, serie, tipo, titulo, prova ? prova.id : null).first();
+    if (prova) await ligarSelecao(env, prova.id, user.disciplina, row.id);
+    await registrar(env, 'selecao_criada', { selecao: row.id, serie, tipo, prova: prova ? prova.id : null }, user.id);
+    // Reaproveitar: começa com as questões de outra seleção do supervisor (as já aplicadas para a turma nova ficam de fora).
+    let copiadas = 0, ignoradas = [];
+    if (origem) {
+      const { results: its } = await env.DB.prepare('SELECT i.codigo FROM selecao_itens si JOIN itens i ON i.id = si.item_id WHERE si.selecao_id = ? ORDER BY si.ordem').bind(origem.id).all();
+      const sel = await selecaoDaDisciplina(env, row.id, user.disciplina);
+      const r = await gravarItensSelecao(env, user, sel, { serie, tipo, titulo, codigos: its.map(i => i.codigo), tolerante: true });
+      copiadas = r.total; ignoradas = r.ignoradas;
+      await registrar(env, 'selecao_reaproveitada', { selecao: row.id, origem: origem.id, copiadas, ignoradas }, user.id);
+    }
+    return { ok: true, selecao: { id: row.id }, copiadas, ignoradas };
   }
 
   const m = path.match(/^\/api\/supervisor\/selecoes\/(\d+)(\/enviar)?$/);
@@ -1881,11 +1932,11 @@ async function rotasSelecoesSupervisor(request, env, path, url, user) {
   const sel = await selecaoDaDisciplina(env, m[1], user.disciplina);
 
   if (!m[2] && request.method === 'GET') {
-    return { ok: true, ano, selecao: { ...sel, itens: await itensDaSelecao(env, sel, false) } };
+    return { ok: true, ano, selecao: { ...sel, prova: await provaDaSelecao(env, sel), itens: await itensDaSelecao(env, sel, false) } };
   }
 
   if (sel.situacao !== 'rascunho') {
-    throw new HttpError(409, sel.situacao === 'enviada' ? 'Esta seleção já foi enviada ao administrador.' : 'Esta seleção já foi aplicada.');
+    throw new HttpError(409, sel.situacao === 'enviada' ? (sel.prova_id ? 'Esta seleção já foi finalizada.' : 'Esta seleção já foi enviada ao administrador.') : 'Esta seleção já foi aplicada.');
   }
 
   if (!m[2] && request.method === 'DELETE') {
@@ -1893,15 +1944,65 @@ async function rotasSelecoesSupervisor(request, env, path, url, user) {
       env.DB.prepare('DELETE FROM selecao_itens WHERE selecao_id = ?').bind(sel.id),
       env.DB.prepare("DELETE FROM selecoes WHERE id = ? AND situacao = 'rascunho'").bind(sel.id)
     ]);
+    await desligarSelecao(env, sel.id);
     await registrar(env, 'selecao_excluida', { selecao: sel.id }, user.id);
     return { ok: true };
   }
 
   if (!m[2] && request.method === 'PUT') {
     const body = await readJson(request);
-    const { serie, tipo } = validarSerieTipo({ serie: body.serie ?? sel.serie, tipo: body.tipo ?? sel.tipo });
+    // Seleção de uma prova: série e turma são da prova e não mudam pelo corpo.
+    const { serie, tipo } = sel.prova_id ? { serie: sel.serie, tipo: sel.tipo } : validarSerieTipo({ serie: body.serie ?? sel.serie, tipo: body.tipo ?? sel.tipo });
     const titulo = body.titulo === undefined ? sel.titulo : validarTitulo(body.titulo);
     const codigos = Array.isArray(body.itens) ? body.itens.map(c => String(c).toUpperCase()) : [];
+    const r = await gravarItensSelecao(env, user, sel, { serie, tipo, titulo, codigos, tolerante: false });
+    return { ok: true, selecao: { id: sel.id, total: r.total } };
+  }
+
+  if (m[2] && request.method === 'POST') {
+    const itens = await itensDaSelecao(env, sel, false);
+    if (!itens.length) throw new HttpError(400, 'Adicione pelo menos uma questão antes de enviar.');
+    const problemas = itens.filter(i => i.bloqueado || i.situacao_item !== 'aprovado').map(i => i.codigo);
+    if (problemas.length) throw new HttpError(409, 'Retire da seleção as questões que não estão mais disponíveis: ' + problemas.join(', ') + '.');
+    const prova = await provaDaSelecao(env, sel);
+    if (sel.prova_id && !prova) throw new HttpError(409, 'A prova desta seleção não existe mais.');
+    // Trava da prova: só finaliza com a quantidade exata definida pelo ADM (decisão do Marinho em 24/11/2026).
+    if (prova && itens.length !== prova.quantidade) {
+      throw new HttpError(409, itens.length < prova.quantidade ? 'Faltam ' + (prova.quantidade - itens.length) + ' questões: a prova pede exatamente ' + prova.quantidade + ' de ' + user.disciplina + '.'
+        : 'Há ' + (itens.length - prova.quantidade) + ' questões a mais: a prova pede exatamente ' + prova.quantidade + ' de ' + user.disciplina + '.');
+    }
+    if (prova && prova.situacao !== 'aberta') throw new HttpError(409, 'Esta prova já foi fechada.');
+    const enviada = await env.DB.prepare(
+      "UPDATE selecoes SET situacao = 'enviada', enviada_em = strftime('%Y-%m-%dT%H:%M:%SZ','now'), atualizado_em = strftime('%Y-%m-%dT%H:%M:%SZ','now'), motivo_devolucao = NULL " +
+      "WHERE id = ? AND situacao = 'rascunho' RETURNING id"
+    ).bind(sel.id).first();
+    if (!enviada) throw new HttpError(409, 'Esta seleção acabou de ser alterada.');
+    await env.DB.prepare('UPDATE selecao_itens SET versao = (SELECT versao_atual FROM itens WHERE itens.id = selecao_itens.item_id), ' +
+      'grupo_versao = (SELECT g.versao_atual FROM grupos g JOIN itens it ON it.grupo_id = g.id WHERE it.id = selecao_itens.item_id) WHERE selecao_id = ?')
+      .bind(sel.id).run();
+    await registrar(env, 'selecao_enviada', { selecao: sel.id, total: itens.length, prova: sel.prova_id }, user.id);
+    if (prova) {
+      await ligarSelecao(env, prova.id, user.disciplina, sel.id);
+      avisar(env, env.ADMIN_EMAIL, 'ATLAS: ' + user.disciplina + ' finalizou a seleção da prova ' + NOME_SERIE(prova.serie) + ' ' + prova.tipo,
+        user.nome + ' (Supervisor de ' + user.disciplina + ') finalizou a seleção #' + sel.id + ' com ' + itens.length + ' questões para a prova ' + NOME_SERIE(prova.serie) + ' ' + prova.tipo +
+        ' (' + prova.bimestre + 'º bimestre).\n\n' + LINK_ATLAS + 'admin-avaliacoes.html');
+      const f = await fecharProvaSeCompleta(env, prova.id, ajudantesProvas(env));
+      return { ok: true, selecao: { id: sel.id, situacao: 'enviada' }, prova_fechada: !!f.fechada, prova_enviada: !!f.enviada, faltam: f.faltam || [] };
+    }
+    avisar(env, env.ADMIN_EMAIL, 'ATLAS: seleção de ' + user.disciplina + ' recebida (' + NOME_SERIE(sel.serie) + ' ' + sel.tipo + ')',
+      user.nome + ' (Supervisor de ' + user.disciplina + ') enviou a seleção #' + sel.id + (sel.titulo ? ' — ' + sel.titulo : '') +
+      ', com ' + itens.length + ' questões para a ' + NOME_SERIE(sel.serie) + ' ' + sel.tipo + '.\n\n' + LINK_ATLAS + 'admin-selecoes.html?id=' + sel.id);
+    return { ok: true, selecao: { id: sel.id, situacao: 'enviada' } };
+  }
+  throw new HttpError(404, 'Rota indisponível.');
+}
+
+// Grava as questões de um rascunho (PUT e reaproveitar). Com tolerante = true, as que não podem entrar ficam de fora
+// (devolvidas em "ignoradas") em vez de recusar tudo.
+async function gravarItensSelecao(env, user, sel, { serie, tipo, titulo, codigos, tolerante }) {
+  const ano = anoAtualSP();
+  {
+    codigos = codigos.map(c => String(c).toUpperCase());
     if (codigos.length > MAX_ITENS_SELECAO) throw new HttpError(400, 'Uma seleção pode ter até ' + MAX_ITENS_SELECAO + ' questões.');
     if (new Set(codigos).size !== codigos.length) throw new HttpError(400, 'Há questões repetidas na seleção.');
     // Candidatas válidas: aprovadas, da disciplina, do Ensino Médio e elegíveis para a série/tipo.
@@ -1910,11 +2011,12 @@ async function rotasSelecoesSupervisor(request, env, path, url, user) {
       "WHERE i.disciplina = ? AND i.situacao = 'aprovado' AND json_extract(v.dados, '$.etapa') = 'em' AND NOT " + SQL_ITEM_BLOQUEADO + " AND " + SQL_GRUPO_DISPONIVEL
     ).bind(user.disciplina, tipo, ano, serie, ano, tipo, ano, serie, ano).all();
     const validas = new Map(results.map(r => [r.codigo, r]));
-    const invalidas = codigos.filter(c => !validas.has(c));
-    if (invalidas.length) {
+    const ignoradas = codigos.filter(c => !validas.has(c));
+    if (ignoradas.length && !tolerante) {
       throw new HttpError(409, 'Estas questões não podem entrar nesta seleção (não aprovadas, de outra disciplina ou já usadas para ' +
-        NOME_SERIE(serie) + ' ' + tipo + '): ' + invalidas.slice(0, 20).join(', ') + '.');
+        NOME_SERIE(serie) + ' ' + tipo + '): ' + ignoradas.slice(0, 20).join(', ') + '.');
     }
+    if (tolerante) codigos = codigos.filter(c => validas.has(c));
     // Grupo (testlet) vai inteiro e com as questões juntas, na ordem do grupo.
     const membrosGrupo = new Map();
     for (const r of results) if (r.grupo_id) { if (!membrosGrupo.has(r.grupo_id)) membrosGrupo.set(r.grupo_id, []); membrosGrupo.get(r.grupo_id).push(r); }
@@ -1926,10 +2028,13 @@ async function rotasSelecoesSupervisor(request, env, path, url, user) {
       if (gruposPostos.has(r.grupo_id)) continue;
       const membros = membrosGrupo.get(r.grupo_id);
       const faltam = membros.filter(m => !codigos.includes(m.codigo)).map(m => m.codigo);
-      if (faltam.length) throw new HttpError(409, 'Questões de grupo (texto compartilhado) entram juntas. Inclua também: ' + faltam.join(', ') + '.');
+      if (faltam.length) {
+        if (tolerante) { gruposPostos.add(r.grupo_id); ignoradas.push(...membros.map(m => m.codigo).filter(x => codigos.includes(x))); continue; }
+        throw new HttpError(409, 'Questões de grupo (texto compartilhado) entram juntas. Inclua também: ' + faltam.join(', ') + '.');
+      }
       gruposPostos.add(r.grupo_id); for (const m of membros) ordenados.push(m.codigo);
     }
-    codigos.splice(0, codigos.length, ...ordenados);
+    codigos = ordenados;
     const ops = [
       env.DB.prepare("UPDATE selecoes SET serie = ?, tipo = ?, titulo = ?, atualizado_em = strftime('%Y-%m-%dT%H:%M:%SZ','now') WHERE id = ? AND situacao = 'rascunho'")
         .bind(serie, tipo, titulo, sel.id),
@@ -1938,39 +2043,41 @@ async function rotasSelecoesSupervisor(request, env, path, url, user) {
         .bind(sel.id, validas.get(c).id, k + 1, validas.get(c).versao_atual))
     ];
     await env.DB.batch(ops);
-    return { ok: true, selecao: { id: sel.id, total: codigos.length } };
+    return { total: codigos.length, ignoradas };
   }
-
-  if (m[2] && request.method === 'POST') {
-    const itens = await itensDaSelecao(env, sel, false);
-    if (!itens.length) throw new HttpError(400, 'Adicione pelo menos uma questão antes de enviar.');
-    const problemas = itens.filter(i => i.bloqueado || i.situacao_item !== 'aprovado').map(i => i.codigo);
-    if (problemas.length) throw new HttpError(409, 'Retire da seleção as questões que não estão mais disponíveis: ' + problemas.join(', ') + '.');
-    const enviada = await env.DB.prepare(
-      "UPDATE selecoes SET situacao = 'enviada', enviada_em = strftime('%Y-%m-%dT%H:%M:%SZ','now'), atualizado_em = strftime('%Y-%m-%dT%H:%M:%SZ','now'), motivo_devolucao = NULL " +
-      "WHERE id = ? AND situacao = 'rascunho' RETURNING id"
-    ).bind(sel.id).first();
-    if (!enviada) throw new HttpError(409, 'Esta seleção acabou de ser alterada.');
-    await env.DB.prepare('UPDATE selecao_itens SET versao = (SELECT versao_atual FROM itens WHERE itens.id = selecao_itens.item_id), ' +
-      'grupo_versao = (SELECT g.versao_atual FROM grupos g JOIN itens it ON it.grupo_id = g.id WHERE it.id = selecao_itens.item_id) WHERE selecao_id = ?')
-      .bind(sel.id).run();
-    await registrar(env, 'selecao_enviada', { selecao: sel.id, total: itens.length }, user.id);
-    avisar(env, env.ADMIN_EMAIL, 'ATLAS: seleção de ' + user.disciplina + ' recebida (' + NOME_SERIE(sel.serie) + ' ' + sel.tipo + ')',
-      user.nome + ' (Supervisor de ' + user.disciplina + ') enviou a seleção #' + sel.id + (sel.titulo ? ' — ' + sel.titulo : '') +
-      ', com ' + itens.length + ' questões para a ' + NOME_SERIE(sel.serie) + ' ' + sel.tipo + '.\n\n' + LINK_ATLAS + 'admin-selecoes.html?id=' + sel.id);
-    return { ok: true, selecao: { id: sel.id, situacao: 'enviada' } };
-  }
-  throw new HttpError(404, 'Rota indisponível.');
 }
 
+// Marca uma seleção enviada como aplicada (as questões deixam de ser oferecidas para a turma). Devolve o ano.
+async function aplicarSelecao(env, sel) {
+  const ano = anoAtualSP();
+  const { results: conflitos } = await env.DB.prepare(
+    "SELECT i.codigo FROM selecao_itens si JOIN itens i ON i.id = si.item_id WHERE si.selecao_id = ? AND " + SQL_ITEM_BLOQUEADO
+  ).bind(sel.id, sel.tipo, ano, sel.serie, ano).all();
+  if (conflitos.length) {
+    throw new HttpError(409, 'Estas questões já foram aplicadas para esta turma (' + NOME_SERIE(sel.serie) + ' ' + sel.tipo + '): ' +
+      conflitos.map(c => c.codigo).join(', ') + '. Devolva a seleção ao Supervisor para trocá-las.');
+  }
+  const ok = await env.DB.prepare(
+    "UPDATE selecoes SET situacao = 'aplicada', ano = ?, aplicada_em = strftime('%Y-%m-%dT%H:%M:%SZ','now'), atualizado_em = strftime('%Y-%m-%dT%H:%M:%SZ','now') " +
+    "WHERE id = ? AND situacao = 'enviada' RETURNING id"
+  ).bind(ano, sel.id).first();
+  if (!ok) throw new HttpError(409, 'Esta seleção acabou de ser alterada.');
+  return ano;
+}
+// Ajudantes que o módulo das provas usa (fechamento, Word, e-mail, aplicação).
+function ajudantesProvas(env, sessao = null) {
+  return { readJson, registrar, sessao, hojeSP: () => hojeSP(env), DISCIPLINAS, itensDaSelecao, aplicarSelecao, avisar, enviarEmailComAnexos,
+    hmacHex, segredo: () => segredoImagens(env) };
+}
 async function rotasSelecoesAdm(request, env, path, url, sessao) {
   if (!path.startsWith('/api/adm/selecoes')) return null;
   if (path === '/api/adm/selecoes' && request.method === 'GET') {
     const situacao = url.searchParams.get('situacao') || 'enviada';
     if (!['enviada', 'aplicada'].includes(situacao)) throw new HttpError(400, 'Situação inválida.');
     const { results } = await env.DB.prepare(
-      "SELECT s.id, s.disciplina, s.serie, s.tipo, s.titulo, s.situacao, s.ano, s.enviada_em, s.aplicada_em, u.nome AS supervisor, " +
-      "(SELECT COUNT(*) FROM selecao_itens si WHERE si.selecao_id = s.id) AS total " +
+      "SELECT s.id, s.disciplina, s.serie, s.tipo, s.titulo, s.situacao, s.ano, s.enviada_em, s.aplicada_em, s.prova_id, u.nome AS supervisor, " +
+      "(SELECT COUNT(*) FROM selecao_itens si WHERE si.selecao_id = s.id) AS total, " +
+      "(SELECT p.modalidade FROM provas p WHERE p.id = s.prova_id) AS prova_modalidade, (SELECT p.bimestre FROM provas p WHERE p.id = s.prova_id) AS prova_bimestre " +
       "FROM selecoes s JOIN usuarios u ON u.id = s.supervisor_id WHERE s.situacao = ? ORDER BY " +
       (situacao === 'enviada' ? 's.enviada_em ASC' : 's.aplicada_em DESC') + " LIMIT 300"
     ).bind(situacao).all();
@@ -1982,25 +2089,14 @@ async function rotasSelecoesAdm(request, env, path, url, sessao) {
   if (sel.situacao === 'rascunho') throw new HttpError(404, 'Seleção não encontrada.');
 
   if (!m[2] && request.method === 'GET') {
-    return { ok: true, selecao: { ...sel, itens: await itensDaSelecao(env, sel, true) } };
+    return { ok: true, selecao: { ...sel, prova: await provaDaSelecao(env, sel), itens: await itensDaSelecao(env, sel, true) } };
   }
   if (sel.situacao !== 'enviada') throw new HttpError(409, 'Esta seleção já foi aplicada.');
   const admId = await admUsuarioId(env);
 
   if (m[2] === '/aplicar' && request.method === 'POST') {
-    const ano = anoAtualSP();
-    const { results: conflitos } = await env.DB.prepare(
-      "SELECT i.codigo FROM selecao_itens si JOIN itens i ON i.id = si.item_id WHERE si.selecao_id = ? AND " + SQL_ITEM_BLOQUEADO
-    ).bind(sel.id, sel.tipo, ano, sel.serie, ano).all();
-    if (conflitos.length) {
-      throw new HttpError(409, 'Estas questões já foram aplicadas para esta turma (' + NOME_SERIE(sel.serie) + ' ' + sel.tipo + '): ' +
-        conflitos.map(c => c.codigo).join(', ') + '. Devolva a seleção ao Supervisor para trocá-las.');
-    }
-    const ok = await env.DB.prepare(
-      "UPDATE selecoes SET situacao = 'aplicada', ano = ?, aplicada_em = strftime('%Y-%m-%dT%H:%M:%SZ','now'), atualizado_em = strftime('%Y-%m-%dT%H:%M:%SZ','now') " +
-      "WHERE id = ? AND situacao = 'enviada' RETURNING id"
-    ).bind(ano, sel.id).first();
-    if (!ok) throw new HttpError(409, 'Esta seleção acabou de ser alterada.');
+    if (sel.prova_id) throw new HttpError(409, 'Esta seleção faz parte de uma prova: marque a prova inteira como aplicada em Avaliações.');
+    const ano = await aplicarSelecao(env, sel);
     await registrar(env, 'selecao_aplicada', { adm: sessao.email, selecao: sel.id, ano }, admId);
     return { ok: true, selecao: { id: sel.id, situacao: 'aplicada', ano } };
   }
@@ -2009,6 +2105,7 @@ async function rotasSelecoesAdm(request, env, path, url, sessao) {
     const body = await readJson(request);
     const motivo = String(body.motivo ?? '').trim();
     if (motivo.length < 3 || motivo.length > 2000) throw new HttpError(400, 'Explique ao Supervisor o que precisa mudar.');
+    await aoDevolverSelecao(env, sel);
     const ok = await env.DB.prepare(
       "UPDATE selecoes SET situacao = 'rascunho', motivo_devolucao = ?, atualizado_em = strftime('%Y-%m-%dT%H:%M:%SZ','now') WHERE id = ? AND situacao = 'enviada' RETURNING id"
     ).bind(motivo, sel.id).first();
@@ -2034,7 +2131,7 @@ async function rotasSelecoesAdm(request, env, path, url, sessao) {
 // Guarda as tabelas de conteúdo e cadastro; não guarda sessões nem códigos de login.
 // As imagens já ficam no R2 e não são copiadas de novo.
 const TABELAS_BACKUP = ['meta', 'usuarios', 'retiradas', 'grupos', 'grupo_versoes', 'itens', 'item_versoes', 'revisoes', 'consertos', 'selecoes', 'selecao_itens', 'eventos',
-  'redacao_turmas', 'redacao_alunos', 'redacao_equipe', 'redacao_professor_turmas', 'redacao_digitalizador_unidades', 'redacao_importacoes', 'redacao_lotes', 'redacao_paginas', 'redacao_correcoes', 'coordenadores', 'redacao_envios', 'desempenho_documentos', 'desempenho_gabaritos', 'alunos'];
+  'redacao_turmas', 'redacao_alunos', 'redacao_equipe', 'redacao_professor_turmas', 'redacao_digitalizador_unidades', 'redacao_importacoes', 'redacao_lotes', 'redacao_paginas', 'redacao_correcoes', 'coordenadores', 'redacao_envios', 'desempenho_documentos', 'desempenho_gabaritos', 'alunos', 'provas', 'prova_disciplinas'];
 const MANTER_BACKUPS = 60;
 
 async function fazerBackup(env, origem) {
@@ -2397,6 +2494,8 @@ async function rotasAdm(request, env, path) {
   if (backupAdm) return backupAdm;
   const selecoesAdm = await rotasSelecoesAdm(request, env, path, new URL(request.url), sessao);
   if (selecoesAdm) return selecoesAdm;
+  const provasAdm = await rotaProvasAdm(request, env, path, new URL(request.url), ajudantesProvas(env, sessao));
+  if (provasAdm) return provasAdm;
   const itensAdm = await rotasAdmItens(request, env, path, sessao);
   if (itensAdm) return itensAdm;
 
@@ -2564,6 +2663,11 @@ export default {
       if (url.pathname.startsWith('/img/') && request.method === 'GET') {
         return await entregarImagem(request, env, url);
       }
+      if (url.pathname.startsWith('/provas/') && request.method === 'GET') {
+        const a = await entregarProva(env, url, ajudantesProvas(env));
+        if (a) return new Response(a.corpo, { status: 200, headers: { 'Content-Type': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'Cache-Control': 'no-store',
+          'Content-Disposition': 'attachment; filename="' + a.nome + '"', 'X-Content-Type-Options': 'nosniff' } });
+      }
       if (url.pathname === '/api/imagens/links' && request.method === 'POST') {
         // Renova links vencidos (ex.: rascunho guardado no navegador por alguns dias).
         if (!ALLOWED_ORIGINS.includes(origin)) throw new HttpError(403, 'Origem não permitida.');
@@ -2600,7 +2704,7 @@ export default {
         const resultado = await rotasAdm(request, env, url.pathname);
         if (resultado?.__pdf) return respostaPdf(resultado, origin);
         if (resultado && resultado.__arquivo) {
-          const headers = { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store',
+          const headers = { 'Content-Type': resultado.tipo || 'application/json; charset=utf-8', 'Cache-Control': 'no-store',
             'Content-Disposition': 'attachment; filename="' + resultado.nome + '"', 'X-Content-Type-Options': 'nosniff', 'Vary': 'Origin',
             'Access-Control-Allow-Origin': origin };
           return new Response(resultado.corpo, { status: 200, headers });

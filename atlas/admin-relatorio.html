@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="pt-BR">
 <head>
-<meta name="atlas-versao" content="20261123d"><script src="atlas-versao.js?v=20261123d" defer></script>
+<meta name="atlas-versao" content="20261124a"><script src="atlas-versao.js?v=20261124a" defer></script>
 <meta charset="utf-8"><meta name="robots" content="noindex, nofollow"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="referrer" content="strict-origin-when-cross-origin">
 <title>ATLAS | Relatório de produção</title>
@@ -84,7 +84,7 @@ function opcoesValor(){const r=$('#f-recorte').value,box=$('#f-valor-box'),sel=$
   else if(r==='professor'){$('#f-valor-label').textContent='Professor';const ps=professores.slice().sort((a,b)=>String(a.nome).localeCompare(String(b.nome),'pt-BR'));sel.replaceChildren(...ps.map(p=>new Option(p.nome+(p.digitador?' (digitador)':p.disciplina?' · '+p.disciplina:''),String(p.id))))}}
 $('#f-recorte').addEventListener('change',opcoesValor);
 function tituloRecorte(d){if(d.recorte==='area')return NOME_AREA[d.valor]||d.valor;if(d.recorte==='disciplina')return d.valor;if(d.recorte==='professor'){const l=d.linhas[0];return l?l.nome:'Professor'}return 'Todas as disciplinas'}
-const NOME_TIPO={digitador:'Digitador',adm:'ADM',supervisor:'Supervisor'};
+const NOME_TIPO={digitador:'Colaborador',adm:'ADM',supervisor:'Supervisor'};
 async function gerar(){const b=$('#f-gerar');b.disabled=true;msg('Gerando relatório…');
   const p=new URLSearchParams({ano:$('#f-ano').value,recorte:$('#f-recorte').value});if($('#f-recorte').value!=='todos')p.set('valor',$('#f-valor').value);
   try{const d=await api('/api/adm/relatorio?'+p.toString());ultimo=d;desenhar(d);msg('');$('#f-excel').disabled=false}
@@ -101,7 +101,7 @@ function desenhar(d){
   const tb=document.createElement('tbody');
   for(const l of d.linhas){const tr=document.createElement('tr');if(!l.ativo)tr.className='inativo';const td=document.createElement('td');td.textContent=l.nome;
     if(NOME_TIPO[l.tipo]&&l.tipo!=='adm'){const s=document.createElement('span');s.className='tipo '+l.tipo;s.textContent=NOME_TIPO[l.tipo];td.append(s)}
-    const sub=document.createElement('small');sub.textContent=l.tipo==='adm'?'Enviadas pela Administração':l.tipo==='digitador'?'Digitação de questões':(l.disciplina||'')+(l.ativo?'':' · inativo');td.append(sub);tr.append(td);
+    const sub=document.createElement('small');sub.textContent=l.tipo==='adm'?'Enviadas pela Administração':l.tipo==='digitador'?'Colaborador (digitação de questões)':(l.disciplina||'')+(l.ativo?'':' · inativo');td.append(sub);tr.append(td);
     l.meses.forEach(n=>tr.append(celula(n)));tr.append(celula(l.total,'sep'),celula(l.aprovado),celula(l.analise),celula(l.ajustes),celula(l.descartado),celula(l.corrigidas,'sep'),celula(l.classificadas||0));tb.append(tr)}
   const tr=document.createElement('tr');tr.className='tot';const td=document.createElement('td');td.textContent='Total';tr.append(td);t.meses.forEach(n=>tr.append(celula(n)));tr.append(celula(t.total,'sep'),celula(t.aprovado),celula(t.analise),celula(t.ajustes),celula(t.descartado),celula(t.corrigidas,'sep'),celula(t.classificadas||0));tb.append(tr);
   tab.append(tb);box.replaceChildren(tab)}
@@ -113,7 +113,7 @@ $('#f-excel').addEventListener('click',async()=>{if(!ultimo)return;const b=$('#f
     ws.mergeCells(2,1,2,cab.length);ws.getCell(2,1).value='Gerado em '+new Date().toLocaleString('pt-BR');ws.getCell(2,1).font={italic:true,color:{argb:'FF70676B'}};
     const h=ws.getRow(4);h.values=cab;h.font={bold:true,color:{argb:'FFFFFFFF'}};h.alignment={horizontal:'center',vertical:'middle',wrapText:true};h.height=32;
     h.eachCell(c=>{c.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FF98151D'}}});
-    const tipoTxt={professor:'Professor',supervisor:'Supervisor',digitador:'Digitador',adm:'ADM'};
+    const tipoTxt={professor:'Professor',supervisor:'Supervisor',digitador:'Colaborador',adm:'ADM'};
     const linha=(v)=>{const r=ws.addRow(v);for(let k=4;k<=cab.length;k++)r.getCell(k).alignment={horizontal:'center'};return r};
     for(const l of d.linhas)linha([l.nome,tipoTxt[l.tipo]||'',l.tipo==='adm'?'Todas':l.disciplina||'',...l.meses,l.total,l.aprovado,l.analise,l.ajustes,l.descartado,l.corrigidas,l.classificadas||0]);
     const t=d.totais;const rt=linha(['Total','','',...t.meses,t.total,t.aprovado,t.analise,t.ajustes,t.descartado,t.corrigidas,t.classificadas||0]);rt.font={bold:true};rt.eachCell(c=>{c.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFFBECEF'}};c.border={top:{style:'medium',color:{argb:'FF98151D'}}}});

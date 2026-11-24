@@ -232,8 +232,10 @@ ok('Tela Sup: clicar no código abre a outra questão', (await page.textContent(
 // seleção pela tela com o grupo
 const membrosT=db.prepare('SELECT i.codigo c FROM itens i JOIN grupos g ON g.id=i.grupo_id WHERE g.codigo=? ORDER BY i.ordem_grupo').all(GT).map(x=>x.c);
 for(const c of membrosT)await decidir(c,'aprovar');
+// a seleção nasce de uma prova do bimestre (3ª REG, simulado particular, 2 questões de Literatura)
+const anoG=new Date().getFullYear();const provaG=(await call('/api/adm/provas',{method:'POST',token:tAdm,body:{ano:anoG,bimestre:4,serie:3,tipo:'REG',modalidade:'PART',aplicacao:anoG+'-12-20',disciplinas:[{disciplina:'Literatura',quantidade:2}]}})).data.prova.id;
 await page.goto('https://idealolimpico.com.br/atlas/supervisor-selecoes.html');await page.waitForSelector('#lista');
-await page.click('#nova');await page.check('input[name=serie][value="3"]');await page.check('input[name=tipo][value="REG"]');await page.click('#nova-form button[type=submit]');
+await page.click('#nova');await page.waitForSelector('input[name=prova]');await page.check('input[name=prova][value="'+provaG+'"]');await page.click('#nova-form button[type=submit]');
 await page.waitForSelector('#sel-view:not([hidden])');await page.fill('#f-q',membrosT[0]);
 await page.waitForFunction(c=>document.querySelector('#q-corpo .cod')?.textContent===c&&!!document.querySelector('#q-corpo .q-grupo')&&document.querySelector('#nav-total').textContent==='2',membrosT[0]);
 ok('Tela Sel: questão de grupo mostra o grupo e oferece adicionar o grupo', (await page.textContent('#q-corpo .q-grupo')).includes('questão 1 de 2') && (await page.textContent('#add')).includes('Adicionar o grupo (2 questões)'));

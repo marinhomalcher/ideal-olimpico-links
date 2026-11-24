@@ -5,10 +5,10 @@ import sys, re, glob, json, os
 V = sys.argv[1]
 R = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', 'atlas') + os.sep
 for p in glob.glob(R + '*.html'):
-    s = open(p, encoding='utf-8').read()
+    s = open(p, encoding='utf-8', newline='').read()   # newline='' preserva o LF do repositório (no Windows, o padrão trocaria por CRLF)
     s = re.sub(r'<meta name="atlas-versao" content="[^"]*">', f'<meta name="atlas-versao" content="{V}">', s)
     s = re.sub(r'((?:auth|atlas-[a-z-]+))\.js\?v=[0-9a-z]+', lambda m: f'{m.group(1)}.js?v={V}', s)
     assert f'content="{V}"' in s, p
-    open(p, 'w', encoding='utf-8').write(s)
+    open(p, 'w', encoding='utf-8', newline='').write(s)
 open(R + 'versao.json', 'w').write(json.dumps({'versao': V}) + '\n')
 print('versão', V)

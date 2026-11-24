@@ -261,10 +261,10 @@ const xp=S+'rel-teste.xlsx';await dl.saveAs(xp);
 ok('Tela Relatório: Excel baixado', fs.statSync(xp).size>4000&&/\.xlsx$/.test(dl.suggestedFilename()), dl.suggestedFilename());
 // --- ADM: cadastro com digitador ---
 await page.goto('https://idealolimpico.com.br/atlas/admin.html');await page.waitForSelector('#list table');
-ok('Tela Cadastros: etiqueta Digitador na tabela', (await page.textContent('#list')).includes('Digitador'));
+ok('Tela Cadastros: etiqueta Colaborador na tabela (o digitador aparece assim desde 24/11/2026)', (await page.textContent('#list')).includes('Colaborador') && !(await page.textContent('#list')).includes('Digitador'));
 await page.click('#add');await page.fill('#name','Outro Digitador');await page.fill('#email','outro.dig');await page.check('#is-digitador');
 ok('Tela Cadastros: marcar digitador esconde a disciplina', await page.isHidden('#subject-row'));
-await page.fill('#acesso-ate','2099-06-30');await page.click('#save');await page.waitForFunction(()=>document.querySelector('#app-status').textContent.includes('Digitador cadastrado'));
+await page.fill('#acesso-ate','2099-06-30');await page.click('#save');await page.waitForFunction(()=>document.querySelector('#app-status').textContent.includes('Colaborador cadastrado'));
 const novo=db.prepare("SELECT digitador,acesso_ate,disciplina FROM usuarios WHERE email='outro.dig@grupoideal.com.br'").get();
 ok('Tela Cadastros: digitador salvo com prazo', novo&&novo.digitador===1&&novo.acesso_ate==='2099-06-30'&&novo.disciplina===null, JSON.stringify(novo));
 ok('Tela Cadastros: supervisores não oferecem digitador', !(await page.textContent('#supervisors')).includes('Outro Digitador'));
