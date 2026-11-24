@@ -1253,6 +1253,23 @@ async function rotasItens(request, env, path) {
   throw new HttpError(404, 'Rota indisponível.');
 }
 
+// O supervisor não vê quem enviou ou classificou a questão (decisão do Marinho, 24/11/2026): nas respostas
+// das rotas do supervisor, os nomes de professores viram null; o tipo (professor/digitador/adm) fica.
+const CHAVES_NOME_PROFESSOR = new Set(['autor', 'classificada_por', 'professores']);
+function ocultarProfessores(valor, chave) {
+  if (Array.isArray(valor)) return chave === 'professores' ? [] : valor.map(v => ocultarProfessores(v));
+  if (valor && typeof valor === 'object') {
+    const o = {};
+    for (const k of Object.keys(valor)) {
+      if (CHAVES_NOME_PROFESSOR.has(k)) o[k] = k === 'professores' ? [] : null;
+      else if (k === 'classificacao' && valor[k] && typeof valor[k] === 'object') o[k] = { ...valor[k], por: null };
+      else o[k] = ocultarProfessores(valor[k], k);
+    }
+    return o;
+  }
+  return valor;
+}
+
 async function rotasSupervisor(request, env, path, url) {
   const user = await usuarioDaSessao(request, env);
   if (user.papel !== 'supervisor') throw new HttpError(403, 'Área restrita ao Supervisor da disciplina.');
@@ -2697,7 +2714,7 @@ export default {
       }
       if (url.pathname.startsWith('/api/supervisor/')) {
         if (!ALLOWED_ORIGINS.includes(origin)) throw new HttpError(403, 'Origem não permitida.');
-        return await replyAssinado(env, await rotasSupervisor(request, env, url.pathname, url), 200, origin);
+        return await replyAssinado(env, ocultarProfessores(await rotasSupervisor(request, env, url.pathname, url)), 200, origin);
       }
       if (url.pathname.startsWith('/api/adm/')) {
         if (!ALLOWED_ORIGINS.includes(origin)) throw new HttpError(403, 'Origem não permitida.');

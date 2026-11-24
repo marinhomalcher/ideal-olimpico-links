@@ -122,7 +122,7 @@ ok('Professor não acessa fila do supervisor', r.status===403);
 r=await call('/api/supervisor/fila',{token:tSupQ});
 ok('Fila de Química vazia', r.status===200 && r.data.itens.length===0);
 r=await call('/api/supervisor/fila',{token:tMarcio});
-ok('Supervisor de Literatura vê 2 na fila', r.status===200 && r.data.itens.length===2 && r.data.itens[0].autor==='Edi Franco');
+ok('Supervisor de Literatura vê 2 na fila', r.status===200 && r.data.itens.length===2 && r.data.itens[0].autor===null && r.data.itens[0].autor_tipo==='professor');
 r=await call('/api/supervisor/itens/'+cod+'/decisao',{method:'POST',token:tMarcio,body:{decisao:'ajuste',motivo:'',versao:1}});
 ok('Ajuste sem motivo recusado', r.status===400);
 r=await call('/api/supervisor/itens/'+cod+'/decisao',{method:'POST',token:tMarcio,body:{decisao:'ajuste',motivo:'Revise a alternativa C.',versao:1}});
