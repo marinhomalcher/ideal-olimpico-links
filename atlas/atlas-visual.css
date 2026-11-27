@@ -1,0 +1,55 @@
+/* Visual novo do ATLAS, lote 1 (27/11/2026): áreas do Professor e do Supervisor.
+   Cada função tem uma cor; botões e cartões arredondados; menu com ícones. Ativado por body.vn. */
+
+body.vn { --vn1: #e8506a; --vn2: #98151d; --vn-soft: #fdeef0; --vn-ink: #6e2026; --vn-line: #efe4e7; background: #f6f3f4 }
+body.vn.vn-supervisor { --vn1: #4f5bd5; --vn2: #7a4fd8; --vn-soft: #eef0fb; --vn-ink: #3b44a8; --vn-line: #e6e8f6 }
+
+/* Cabeçalho em degradê da cor da função; logo Ideal em bloco branco reto, colado na borda */
+body.vn header { background: linear-gradient(90deg, var(--vn1), var(--vn2)); border-bottom: 0; box-shadow: 0 4px 18px #0002; color: #fff;
+  padding-top: 0; padding-bottom: 0; min-height: 66px }
+body.vn header .brand, body.vn header .brand span { color: #fff }
+body.vn header .brand span { border-left-color: #ffffff66 }
+body.vn header .role, body.vn header .role * { color: #fff }
+body.vn header .role .back-link { opacity: .92 }
+body.vn header .role button { border: 0 !important; color: #fff !important; background: #ffffff33 !important; border-radius: 999px !important; padding: 7px 18px !important; font-weight: 600 }
+body.vn header .role button:hover { background: #ffffff55 !important }
+body.vn header > img.ideal-dir { height: 46px; width: auto; margin-left: 22px; padding: 10px 26px; box-sizing: content-box; object-fit: contain; background: #fff;
+  box-shadow: -8px 0 14px -8px #0005 }
+body.vn header:has(> img.ideal-dir) { padding-right: 0 }
+
+/* Menu lateral com ícones em quadrados coloridos */
+body.vn aside { background: transparent; border-right: 0; padding: 24px 16px }
+body.vn aside small { color: #7b7075; margin-left: 10px }
+body.vn aside a { display: flex; align-items: center; gap: 12px; padding: 9px 12px; border-radius: 14px; font-weight: 600; color: #2a2326; background: transparent }
+body.vn aside a::before { content: ""; flex: 0 0 34px; height: 34px; border-radius: 11px; --t: var(--vn1);
+  background: var(--ic) center / 19px no-repeat, linear-gradient(145deg, color-mix(in srgb, var(--t) 68%, #fff), var(--t));
+  box-shadow: inset 0 1px 0 #ffffff80, inset 0 -2px 0 #00000020, 0 6px 14px color-mix(in srgb, var(--t) 42%, transparent) }
+body.vn aside a:hover { background: #ffffff99 }
+body.vn aside a.active, body.vn aside a.on { background: #fff; color: #2a2326; box-shadow: 0 3px 14px #0001 }
+body.vn aside a#aba-nova { --ic: url("data:image/svg+xml,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20viewBox=%220%200%2024%2024%22%20fill=%22none%22%20stroke=%22white%22%20stroke-width=%222%22%20stroke-linecap=%22round%22%20stroke-linejoin=%22round%22%3E%3Cpath%20d=%22M12%2020h9%22/%3E%3Cpath%20d=%22M16.4%203.6a2.1%202.1%200%200%201%203%203L7.4%2018.6l-4%201%201-4z%22/%3E%3C/svg%3E"); --t: #e8506a }
+body.vn aside a#aba-resumo { --ic: url("data:image/svg+xml,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20viewBox=%220%200%2024%2024%22%20fill=%22none%22%20stroke=%22white%22%20stroke-width=%222%22%20stroke-linecap=%22round%22%20stroke-linejoin=%22round%22%3E%3Cpath%20d=%22M3%203v16a2%202%200%200%200%202%202h16%22/%3E%3Cpath%20d=%22M18%2017V9%22/%3E%3Cpath%20d=%22M13%2017V5%22/%3E%3Cpath%20d=%22M8%2017v-3%22/%3E%3C/svg%3E"); --t: #14a38b }
+body.vn aside a[href="supervisor.html"] { --ic: url("data:image/svg+xml,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20viewBox=%220%200%2024%2024%22%20fill=%22none%22%20stroke=%22white%22%20stroke-width=%222%22%20stroke-linecap=%22round%22%20stroke-linejoin=%22round%22%3E%3Ccircle%20cx=%2211%22%20cy=%2211%22%20r=%227.5%22/%3E%3Cpath%20d=%22m21%2021-4.3-4.3%22/%3E%3C/svg%3E"); --t: #4f5bd5 }
+body.vn aside a[href="supervisor-selecoes.html"] { --ic: url("data:image/svg+xml,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20viewBox=%220%200%2024%2024%22%20fill=%22none%22%20stroke=%22white%22%20stroke-width=%222%22%20stroke-linecap=%22round%22%20stroke-linejoin=%22round%22%3E%3Crect%20x=%228%22%20y=%222%22%20width=%228%22%20height=%224%22%20rx=%221%22/%3E%3Cpath%20d=%22M16%204h2a2%202%200%200%201%202%202v14a2%202%200%200%201-2%202H6a2%202%200%200%201-2-2V6a2%202%200%200%201%202-2h2%22/%3E%3Cpath%20d=%22M12%2011h4%22/%3E%3Cpath%20d=%22M12%2016h4%22/%3E%3Cpath%20d=%22M8%2011h.01%22/%3E%3Cpath%20d=%22M8%2016h.01%22/%3E%3C/svg%3E"); --t: #f2a20c }
+
+/* Cartões, botões e campos arredondados */
+body.vn .panel { border-radius: 20px; border: 1px solid var(--vn-line); box-shadow: 0 4px 18px #2a232612 }
+body.vn .primary { border: 0; border-radius: 999px; padding: 11px 24px; background: linear-gradient(90deg, var(--vn1), var(--vn2)); box-shadow: 0 5px 14px color-mix(in srgb, var(--vn1) 40%, transparent) }
+body.vn .primary:hover:not(:disabled) { filter: brightness(1.06) }
+body.vn .secondary { border: 1.5px solid #e4d9dc; border-radius: 999px; padding: 9px 18px; background: #fff; color: #2a2326 }
+body.vn .secondary:hover:not(:disabled) { border-color: var(--vn1); color: var(--vn-ink) }
+body.vn input, body.vn select, body.vn textarea, body.vn .rich-editor { border-radius: 12px }
+body.vn .modo-cadastro .modo-op { border-radius: 16px }
+body.vn .modo-cadastro .modo-op.on, body.vn .modo-cadastro .modo-op:has(input:checked) { border-color: var(--vn1); background: var(--vn-soft) }
+
+body.vn.vn-supervisor .panel h1, body.vn.vn-supervisor .panel h2, body.vn.vn-supervisor .panel h3, body.vn.vn-supervisor main h2 { color: var(--vn-ink) }
+body.vn.vn-supervisor .back-link, body.vn.vn-supervisor .voltar-sel, body.vn.vn-supervisor #voltar { color: var(--vn-ink) }
+
+/* Abas, selos e tabelas */
+body.vn table { border-collapse: separate; border-spacing: 0 8px }
+body.vn th { border: 0; background: none; color: #7b7075; font-weight: 700 }
+body.vn td { background: #fff; border-top: 1px solid var(--vn-line); border-bottom: 1px solid var(--vn-line) }
+body.vn td:first-child { border-left: 1px solid var(--vn-line); border-radius: 14px 0 0 14px }
+body.vn td:last-child { border-right: 1px solid var(--vn-line); border-radius: 0 14px 14px 0 }
+body.vn .tabs button, body.vn .tabs a { border-radius: 999px }
+body.vn .badge-edit, body.vn .selo-classificar, body.vn .selo-repetida { border-radius: 999px }
+body.vn .notice, body.vn .aviso-classificar, body.vn .validation-summary { border-radius: 14px }
