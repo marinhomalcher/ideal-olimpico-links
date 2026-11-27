@@ -111,7 +111,7 @@ const server = http.createServer(async (req, res) => {
   res.writeHead(response.status, Object.fromEntries(response.headers)); res.end(Buffer.from(await response.arrayBuffer()));
 }).listen(8788);
 const browser = await chromium.launch(); const ctx = await browser.newContext();
-await ctx.route('https://idealolimpico.com.br/atlas/**', route => { const f = new URL(route.request().url()).pathname.replace('/atlas/','')||'index.html'; const p = REPO+'atlas/'+f; if(!fs.existsSync(p)) return route.fulfill({status:404,body:'nf'}); route.fulfill({status:200,contentType:f.endsWith('.html')?'text/html':f.endsWith('.js')?'application/javascript':f.endsWith('.json')?'application/json':'image/png',body:fs.readFileSync(p)}); });
+await ctx.route('https://idealolimpico.com.br/atlas/**', route => { const f = new URL(route.request().url()).pathname.replace('/atlas/','')||'index.html'; const p = REPO+'atlas/'+f; if(!fs.existsSync(p)) return route.fulfill({status:404,body:'nf'}); route.fulfill({status:200,contentType:f.endsWith('.html')?'text/html':f.endsWith('.js')?'application/javascript':f.endsWith('.json')?'application/json':f.endsWith('.css')?'text/css':'image/png',body:fs.readFileSync(p)}); });
 await ctx.route('https://cdn.jsdelivr.net/**', r2 => r2.fulfill({status:200,contentType:'text/plain',body:''}));
 await ctx.route('https://atlas-api.marinhomalcher.workers.dev/**', async route => { const u = route.request().url().replace('https://atlas-api.marinhomalcher.workers.dev','http://localhost:8788'); const resp = await route.fetch({ url: u, headers: { ...route.request().headers(), origin: ORIGIN } }); route.fulfill({ response: resp }); });
 const page = await ctx.newPage();
