@@ -303,7 +303,7 @@ function atualizarAcao(){const add=$('#add'),st=$('#q-status');const c=nav[pos],
   add.className=na?'secondary':'primary';
   add.textContent=na?(i.grupo?'Remover o grupo da prova':'Remover da prova'):(i.grupo?'+ Adicionar o grupo ('+nG+' questões)':'+ Adicionar questão');
   st.className=na?'na-prova':'';st.textContent=na?'✓ Esta questão já está na prova (nº '+(escolhidas.indexOf(c)+1)+').':''}
-function dadosHTML(i){const linhasD=[['Código',i.codigo],['Assunto',i.assunto],['Subtema',i.subtema],['Dificuldade',i.dificuldade],['Bloom',i.bloom],['Origem',originLabel[i.origem]||i.origem],['Fonte',i.fonte]].filter(([,v])=>v);
+function dadosHTML(i){const linhasD=[['Código',i.codigo],['Autor (código)',i.autor],['Assunto',i.assunto],['Subtema',i.subtema],['Dificuldade',i.dificuldade],['Bloom',i.bloom],['Origem',originLabel[i.origem]||i.origem],['Fonte',i.fonte]].filter(([,v])=>v);
   let h='<dl class="dados">'+linhasD.map(([n,v])=>'<dt>'+escapeHTML(n)+'</dt><dd>'+escapeHTML(v)+'</dd>').join('')+'</dl>';
   if(i.tags&&i.tags.length)h+='<div class="qtags" style="margin-top:8px">'+AtlasTags.html(i.tags,escapeHTML)+'</div>';
   const usos=i.usos||[];h+='<p style="margin:10px 0 0;font-weight:bold;font-size:13px;color:#7a676c">Histórico de uso</p>'+(usos.length?'<ul class="usos">'+usos.map(u=>'<li>'+escapeHTML(usoTexto(u))+'</li>').join('')+'</ul>':'<p class="vazio" style="margin:2px 0 0">Nunca aplicada.</p>');
@@ -352,7 +352,7 @@ for(const id of ['#f-assunto','#f-dificuldade','#f-bloom'])$(id).addEventListene
 let tq;$('#f-q').addEventListener('input',()=>{clearTimeout(tq);tq=setTimeout(buscar,400)});
 async function verQuestao(codigo){let item;try{item=await carregarCompleto(codigo)}catch(e){msg(e.message,true);return}
   const d=item.dados||{};$('#preview-titulo').textContent='Questão '+item.codigo;
-  const meta=[['Assunto',d.assunto],['Subtema',d.subtema],['Dificuldade prevista',d.dificuldade],['Origem',originLabel[d.origem]||d.origem],['Fonte',d.fonte],['Bloom',d.bloom]].filter(([,v])=>v);
+  const meta=[['Autor (código)',item.autor],['Assunto',d.assunto],['Subtema',d.subtema],['Dificuldade prevista',d.dificuldade],['Origem',originLabel[d.origem]||d.origem],['Fonte',d.fonte],['Bloom',d.bloom]].filter(([,v])=>v);
   $('#preview-corpo').innerHTML='<div class="meta">'+meta.map(([n,v])=>'<p><strong>'+escapeHTML(n)+'</strong>'+escapeHTML(v)+'</p>').join('')+'</div>'+questaoHTML(d);$('#preview').showModal()}
 function desenharLeitura(){const box=$('#leitura');box.replaceChildren();if(!atual.itens.length){box.innerHTML='<div class="empty">Seleção vazia.</div>';return}
   atual.itens.forEach((i,k)=>box.append(cartao(i,{ordem:k+1,botoes:[]})))}

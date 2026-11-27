@@ -12,7 +12,10 @@ const SEGMENTOS = ['EF2', 'EM'];
 // ou é da área de linguagens. Professor de Matemática, Física e afins não corrige redação.
 export const LINGUAGENS = Object.freeze(['Português', 'Literatura', 'Inglês', 'Artes']);
 
+import { tabelaDeCodigos } from './codigo-supervisor.js';
+
 export async function listarPessoas(env) {
+  const codigos = (await tabelaDeCodigos(env, { obrigatorio: false })).porId; // código que o Supervisor vê no lugar do nome
   const pessoas = (await env.DB.prepare(
     "SELECT id, nome, email, disciplina, papel, ativo, digitador, acesso_ate, classificador, diagramador FROM usuarios WHERE papel IN ('professor','supervisor') ORDER BY nome COLLATE NOCASE"
   ).all()).results;
@@ -23,7 +26,7 @@ export async function listarPessoas(env) {
   return pessoas.map(p => {
     const e = equipe.get(p.id);
     return {
-      ...p, ativo: p.ativo === 1, digitador: p.digitador === 1, classificador: p.classificador === 1, diagramador: p.diagramador === 1,
+      ...p, codigo_supervisor: codigos.get(p.id) || null, ativo: p.ativo === 1, digitador: p.digitador === 1, classificador: p.classificador === 1, diagramador: p.diagramador === 1,
       banco: !!p.disciplina || p.digitador === 1,
       redacao: {
         professor: !!e && e.professor === 1, digitalizador: !!e && e.digitalizador === 1,
