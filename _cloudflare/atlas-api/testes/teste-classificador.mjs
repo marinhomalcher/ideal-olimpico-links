@@ -162,9 +162,17 @@ r=await call('/api/classificar/liberar',{method:'POST',token:tCaio,body:{}});
 ok('"Parar por agora" libera a reserva', r.status===200&&!db.prepare('SELECT 1 FROM reservas WHERE usuario_id=?').get(caioId));
 // supervisor
 r=await call('/api/supervisor/fila?situacao=analise',{token:tSupMat});
-ok('Fila do supervisor: a classificada vem primeiro, com quem classificou', r.data.itens[0]?.codigo===qA&&r.data.itens[0].classificada_por==='Clara Class'&&!r.data.itens[0].classificar, JSON.stringify(r.data.itens.map(i=>i.codigo+':'+i.classificada_por)));
+const PADRAO=/^P-[ABCDEFGHJKMNPQRSTUVWXYZ23456789]{4}$/;
+{ const rp=await call('/api/adm/pessoas',{token:tAdm}); const clara=rp.data.pessoas.find(p=>p.nome==='Clara Class'); globalThis.codClara=clara?.codigo_supervisor;
+  ok('ADM: lista de pessoas traz o código que o Supervisor vê (P-xxxx) e nomes continuam visíveis ao ADM', PADRAO.test(codClara||'')&&clara.nome==='Clara Class', JSON.stringify(clara));
+  const cods=rp.data.pessoas.map(p=>p.codigo_supervisor); ok('ADM: códigos são únicos entre as pessoas', new Set(cods).size===cods.length, JSON.stringify(cods));
+  const { resolverCodigos } = await import('../codigo-supervisor.js');
+  const fake=async(chave,n)=>chave==='id:2'&&n===0?'P-AAAA':'P-'+chave.replace('id:','').padStart(2,'X')+(n||'0')+'Z';
+  const m=await resolverCodigos([{id:1,chave:'id:1'},{id:2,chave:'id:2'},{id:3,chave:'id:3'}],async(c,n)=>c==='id:3'&&n===0?'P-AAAA':c==='id:2'&&n===0?'P-AAAA':fake(c,n));
+  ok('Colisão: quem vem antes fica com o código base e o seguinte ganha outro', m.get(2)==='P-AAAA'&&m.get(3)!=='P-AAAA'&&new Set(m.values()).size===3, JSON.stringify([...m])); }
+ok('Fila do supervisor: a classificada vem primeiro, com quem classificou', r.data.itens[0]?.codigo===qA&&PADRAO.test(r.data.itens[0].classificada_por)&&r.data.itens[0].classificada_por===codClara&&!r.data.itens[0].classificar, JSON.stringify(r.data.itens.map(i=>i.codigo+':'+i.classificada_por)));
 r=await call('/api/itens/'+qA,{token:tSupMat});
-ok('Detalhe mostra quem classificou e o que mudou', r.data.item.classificacao?.por==='Clara Class'&&r.data.item.classificacao.mudou.includes('Comando')&&r.data.item.versoes.some(v=>v.pelo_classificador), JSON.stringify(r.data.item.classificacao));
+ok('Detalhe mostra quem classificou e o que mudou', PADRAO.test(r.data.item.classificacao?.por||'')&&r.data.item.classificacao.por===codClara&&r.data.item.classificacao.mudou.includes('Comando')&&r.data.item.versoes.some(v=>v.pelo_classificador), JSON.stringify(r.data.item.classificacao));
 r=await call('/api/supervisor/itens/'+qA+'/decisao',{method:'POST',token:tSupMat,body:{decisao:'aprovar',versao:verA+1}});
 ok('Supervisor aprova a classificada (vira M)', r.status===200&&r.data.item.codigo==='M'+qA.slice(1), JSON.stringify(r.data));
 // relatório
@@ -221,7 +229,7 @@ ok('Tela: professor comum que abre classificar.html volta para a sua área', pag
 await loginVia('Supervisor','sup.mat');await page.waitForURL(/supervisor\.html/);await page.waitForSelector('.selo-pronta');
 ok('Tela Sup: selo "pronta para aprovar" na fila', (await page.textContent('.selo-pronta')).includes('pronta para aprovar'));
 await page.evaluate(c=>openItem(c),qC);await page.waitForSelector('#details:not([hidden])');
-ok('Tela Sup: aviso de quem classificou', (await page.textContent('.aviso-pronta')).includes('Clara Class'));
+ok('Tela Sup: aviso de quem classificou', (await page.textContent('.aviso-pronta')).includes(codClara)&&!(await page.textContent('body')).includes('Clara Class'));
 // ADM
 await page.goto('https://idealolimpico.com.br/atlas/admin.html');await page.evaluate(t=>sessionStorage.setItem('atlas_adm_token',t),tAdm);await page.reload();await page.waitForSelector('table');
 ok('Tela ADM: lista marca o classificador', (await page.textContent('body')).includes('Classificador'));

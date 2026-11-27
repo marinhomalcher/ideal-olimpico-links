@@ -273,7 +273,7 @@ await page.evaluate(()=>{sessionStorage.clear();localStorage.removeItem('atlas_u
 db.exec('DELETE FROM login_rate_limits');await page.goto('https://idealolimpico.com.br/atlas/');await page.click('[data-role="Supervisor"]');await page.fill('#email','sup.mat');await page.click('#loginButton');await page.waitForSelector('#code-step:not([hidden])');await page.fill('#code',lastCode());await page.click('#verifyButton');
 await page.waitForURL(/supervisor\.html/);await page.waitForSelector('.selo-classificar');
 ok('Tela Sup: selo CLASSIFICAR na fila', (await page.$$('.selo-classificar')).length>=1);
-ok('Tela Sup: autor aparece como digitador', (await page.textContent('#queue, body')).includes('(digitador)'));
+ok('Tela Sup: autor aparece como Digitador, sem o nome', (await page.textContent('#queue, body')).includes('Digitador'));
 await page.locator('tr:has(.selo-classificar) button, tr:has(.selo-classificar) a').first().click();
 await page.waitForSelector('.aviso-classificar');
 ok('Tela Sup: aviso de classificação no detalhe', (await page.textContent('.aviso-classificar')).includes('digitador'));

@@ -6,6 +6,7 @@ import { encerrarAnoAutomatico } from './redacao-encerrar.js';
 import { rotaDesempenhoAdm, rotaDesempenhoPortal } from './desempenho.js';
 import { rotaCertificadosPortal } from './certificados.js';
 import { listarPessoas, salvarPessoa } from './pessoas.js';
+import { tabelaDeCodigos, codificarNomes, origemDoSegredo } from './codigo-supervisor.js';
 import { rotaPessoasPlanilha } from './pessoas-planilha.js';
 import { rotaAlunosAdm, rotaAlunosPortal } from './alunos.js';
 import { rotaProvasAdm, provaDaSelecao, provasAbertasDaDisciplina, provaParaNovaSelecao, ligarSelecao, desligarSelecao, fecharProvaSeCompleta, aoDevolverSelecao, entregarProva } from './provas.js';
@@ -1256,6 +1257,10 @@ async function rotasItens(request, env, path) {
   }
   throw new HttpError(404, 'Rota indisponível.');
 }
+
+// O supervisor não vê quem enviou ou classificou a questão (decisão do Marinho, 24 e 27/11/2026): nas respostas
+// das rotas do supervisor, todo nome de pessoa vira um código fixo (P-xxxx; ver codigo-supervisor.js). O tipo
+// de quem enviou (professor/digitador/adm) fica. Só o ADM vê a relação código → nome.
 
 async function rotasSupervisor(request, env, path, url) {
   const user = await usuarioDaSessao(request, env);
@@ -2610,7 +2615,7 @@ export default {
     try {
       if (url.pathname === '/api/saude' && request.method === 'GET') {
         const row = await env.DB.prepare("SELECT valor FROM meta WHERE chave = 'schema_versao'").first();
-        return reply({ ok: true, modo: 'teste', banco: 'conectado', schema: row ? row.valor : null, avisos_ativos: env.ATLAS_AVISOS_ATIVOS === '1', envio: microsoftConfigurado(env) ? 'microsoft' : 'apps-script', portal_aluno: portalConfigurado(env) }, 200, origin);
+        return reply({ ok: true, modo: 'teste', banco: 'conectado', schema: row ? row.valor : null, avisos_ativos: env.ATLAS_AVISOS_ATIVOS === '1', codigo_supervisor: origemDoSegredo(env), envio: microsoftConfigurado(env) ? 'microsoft' : 'apps-script', portal_aluno: portalConfigurado(env) }, 200, origin);
       }
       if (url.pathname === '/api/portal/codigo-aluno' && request.method === 'POST') {
         // Só servidor a servidor: navegador (com Origin) é recusado.
@@ -2693,7 +2698,10 @@ export default {
       }
       if (url.pathname === '/api/itens' || url.pathname.startsWith('/api/itens/')) {
         if (!ALLOWED_ORIGINS.includes(origin)) throw new HttpError(403, 'Origem não permitida.');
-        return await replyAssinado(env, await rotasItens(request, env, url.pathname), 200, origin);
+        let respItens = await rotasItens(request, env, url.pathname);
+        // O detalhe da questão (/api/itens/:codigo) também é usado pelo Supervisor: nomes viram código para ele.
+        if ((await usuarioDaSessao(request, env)).papel === 'supervisor') respItens = await codificarNomes(respItens, await tabelaDeCodigos(env));
+        return await replyAssinado(env, respItens, 200, origin);
       }
       if (url.pathname.startsWith('/api/classificar/')) {
         if (!ALLOWED_ORIGINS.includes(origin)) throw new HttpError(403, 'Origem não permitida.');
@@ -2701,7 +2709,7 @@ export default {
       }
       if (url.pathname.startsWith('/api/supervisor/')) {
         if (!ALLOWED_ORIGINS.includes(origin)) throw new HttpError(403, 'Origem não permitida.');
-        return await replyAssinado(env, await rotasSupervisor(request, env, url.pathname, url), 200, origin);
+        return await replyAssinado(env, await codificarNomes(await rotasSupervisor(request, env, url.pathname, url), await tabelaDeCodigos(env)), 200, origin);
       }
       if (url.pathname.startsWith('/api/adm/')) {
         if (!ALLOWED_ORIGINS.includes(origin)) throw new HttpError(403, 'Origem não permitida.');

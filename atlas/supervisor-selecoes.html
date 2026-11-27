@@ -1,10 +1,10 @@
 <!doctype html>
 <html lang="pt-BR">
 <head>
-<meta name="atlas-versao" content="20261127e"><script src="atlas-versao.js?v=20261127e" defer></script>
+<meta name="atlas-versao" content="20261127f"><script src="atlas-versao.js?v=20261127f" defer></script>
 <meta charset="utf-8"><meta name="robots" content="noindex, nofollow"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>ATLAS | Seleções para provas</title>
-<script src="auth.js?v=20261127e"></script>
+<script src="auth.js?v=20261127f"></script>
 <style>
 .question img{display:block;max-width:100%;max-height:380px;height:auto;margin:10px 0}.question table{border-collapse:collapse;margin:12px 0;max-width:100%;width:auto}.question td,.question th{border:1px solid #a99498;padding:7px 10px;min-width:64px}.question .atlas-equation{display:inline-block;vertical-align:middle;max-width:100%;overflow-x:auto}
 
@@ -104,7 +104,7 @@ body.modo-editor header{position:sticky;top:0;z-index:7}
 @media(max-width:1100px){.tres{grid-template-columns:1fr}.col{position:static;max-height:none}.col-centro{order:-1}.navq .atalhos{display:none}}
 </style>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.19.1/dist/katex.min.css" integrity="sha384-WwGtaC6ywCHxA5cstpj/3+xIZvTez8dq2IcBQaXRkenHZ7FVVq1ZROtURwfbtTlG" crossorigin="anonymous">
-<link rel="icon" type="image/png" href="atlas-favicon.png"><link rel="stylesheet" href="atlas-marca.css?v=20261127e"></head>
+<link rel="icon" type="image/png" href="atlas-favicon.png"><link rel="stylesheet" href="atlas-marca.css?v=20261127f"></head>
 <body>
 <header><div class="brand"><img class="brand-atlas" src="atlas-horizontal-claro.png" alt="ATLAS"></div><div class="role"><a class="back-link" href="index.html">← Voltar ao início</a>Área do Supervisor <button type="button" onclick="ATLAS_SAIR()" style="margin-left:12px;border:1px solid #cbaeb2;background:#fff;color:#98151d;border-radius:8px;padding:6px 10px;cursor:pointer">Sair</button></div><img class="ideal-dir" src="ideal-logo-hd.png" alt="Ideal 50 anos"></header>
 <div class="shell"><aside><small>ÁREA DO SUPERVISOR</small><a href="supervisor.html">Fila de análise</a><a href="supervisor-selecoes.html" class="atual">Seleções para provas</a></aside><main>
@@ -171,8 +171,8 @@ body.modo-editor header{position:sticky;top:0;z-index:7}
 <dialog id="escolhidas-dialog" class="preview-dialog" aria-labelledby="esc-titulo"><h2 id="esc-titulo">Questões escolhidas (<span id="qtd-d">0</span>)</h2><p class="hint">Use ↑ ↓ para mudar a ordem da prova.</p><div id="escolhidas"></div><div class="modal-actions"><button type="button" class="secondary" onclick="this.closest('dialog').close()">Fechar</button></div></dialog>
 <dialog id="preview" class="preview-dialog" aria-labelledby="preview-titulo"><h2 id="preview-titulo">Questão</h2><div id="preview-corpo"></div><div class="modal-actions"><button type="button" class="secondary" onclick="this.closest('dialog').close()">Fechar</button></div></dialog>
 <script src="https://cdn.jsdelivr.net/npm/katex@0.19.1/dist/katex.min.js" integrity="sha384-a1WQdjRj162i159OYq041X6I4K8NenkrI09LlPmiHg0YOb7CR+wJOraXwK9abpnE" crossorigin="anonymous"></script>
-<script src="atlas-editor.js?v=20261127e"></script>
-<script src="atlas-tags.js?v=20261127e"></script>
+<script src="atlas-editor.js?v=20261127f"></script>
+<script src="atlas-tags.js?v=20261127f"></script>
 <script>
 
 const originLabel={autoral:'Autoral',enem:'ENEM',outros:'Outros',adaptada:'Adaptada',acervo:'Acervo Ideal'};
@@ -245,7 +245,7 @@ async function abrir(id){let data;try{data=await ATLAS_API('/api/supervisor/sele
 function tagsDe(i){const t=[i.dificuldade,i.origem==='outros'&&i.fonte?i.fonte:originLabel[i.origem]||i.origem,i.bloom].filter(Boolean).map(x=>'<span class="tag">'+escapeHTML(x)+'</span>');
   const usos=i.usos||[];if(!usos.length&&'usos' in i)t.push('<span class="tag uso">Nunca aplicada</span>');for(const u of usos)t.push('<span class="tag '+(u.situacao==='aplicada'?'uso':'alerta')+'">'+escapeHTML(usoTexto(u))+'</span>');return t.join('')}
 function cartao(i,{ordem,botoes}){const d=document.createElement('div');d.className='qcard';
-  d.innerHTML='<div class="top"><span>'+(ordem?'<span class="ord">'+ordem+'</span>':'')+'<span class="cod">'+escapeHTML(i.codigo)+'</span> · '+escapeHTML(i.assunto||'')+(i.subtema?' › '+escapeHTML(i.subtema):'')+'</span><span class="hint">'+escapeHTML(i.autor||'')+'</span></div><div class="tags">'+tagsDe(i)+(i.bloqueado?'<span class="tag erro">Já usada para esta turma — retire</span>':'')+'</div><div class="snip"></div><div class="btns"></div>';
+  d.innerHTML='<div class="top"><span>'+(ordem?'<span class="ord">'+ordem+'</span>':'')+'<span class="cod">'+escapeHTML(i.codigo)+'</span> · '+escapeHTML(i.assunto||'')+(i.subtema?' › '+escapeHTML(i.subtema):'')+'</span></div><div class="tags">'+tagsDe(i)+(i.bloqueado?'<span class="tag erro">Já usada para esta turma — retire</span>':'')+'</div><div class="snip"></div><div class="btns"></div>';
   d.querySelector('.snip').textContent=textoPuro(i.comando);const bx=d.querySelector('.btns');
   const ver=document.createElement('button');ver.className='secondary';ver.textContent='Ver questão';ver.addEventListener('click',()=>verQuestao(i.codigo));bx.append(ver);
   for(const [txt,cls,fn,dis] of botoes){const b=document.createElement('button');b.className=cls;b.textContent=txt;b.disabled=!!dis;b.addEventListener('click',fn);bx.append(b)}return d}
@@ -303,7 +303,7 @@ function atualizarAcao(){const add=$('#add'),st=$('#q-status');const c=nav[pos],
   add.className=na?'secondary':'primary';
   add.textContent=na?(i.grupo?'Remover o grupo da prova':'Remover da prova'):(i.grupo?'+ Adicionar o grupo ('+nG+' questões)':'+ Adicionar questão');
   st.className=na?'na-prova':'';st.textContent=na?'✓ Esta questão já está na prova (nº '+(escolhidas.indexOf(c)+1)+').':''}
-function dadosHTML(i){const linhasD=[['Código',i.codigo],['Autor',i.autor],['Assunto',i.assunto],['Subtema',i.subtema],['Dificuldade',i.dificuldade],['Bloom',i.bloom],['Origem',originLabel[i.origem]||i.origem],['Fonte',i.fonte]].filter(([,v])=>v);
+function dadosHTML(i){const linhasD=[['Código',i.codigo],['Autor (código)',i.autor],['Assunto',i.assunto],['Subtema',i.subtema],['Dificuldade',i.dificuldade],['Bloom',i.bloom],['Origem',originLabel[i.origem]||i.origem],['Fonte',i.fonte]].filter(([,v])=>v);
   let h='<dl class="dados">'+linhasD.map(([n,v])=>'<dt>'+escapeHTML(n)+'</dt><dd>'+escapeHTML(v)+'</dd>').join('')+'</dl>';
   if(i.tags&&i.tags.length)h+='<div class="qtags" style="margin-top:8px">'+AtlasTags.html(i.tags,escapeHTML)+'</div>';
   const usos=i.usos||[];h+='<p style="margin:10px 0 0;font-weight:bold;font-size:13px;color:#7a676c">Histórico de uso</p>'+(usos.length?'<ul class="usos">'+usos.map(u=>'<li>'+escapeHTML(usoTexto(u))+'</li>').join('')+'</ul>':'<p class="vazio" style="margin:2px 0 0">Nunca aplicada.</p>');
@@ -352,7 +352,7 @@ for(const id of ['#f-assunto','#f-dificuldade','#f-bloom'])$(id).addEventListene
 let tq;$('#f-q').addEventListener('input',()=>{clearTimeout(tq);tq=setTimeout(buscar,400)});
 async function verQuestao(codigo){let item;try{item=await carregarCompleto(codigo)}catch(e){msg(e.message,true);return}
   const d=item.dados||{};$('#preview-titulo').textContent='Questão '+item.codigo;
-  const meta=[['Professor',item.autor],['Assunto',d.assunto],['Subtema',d.subtema],['Dificuldade prevista',d.dificuldade],['Origem',originLabel[d.origem]||d.origem],['Fonte',d.fonte],['Bloom',d.bloom]].filter(([,v])=>v);
+  const meta=[['Autor (código)',item.autor],['Assunto',d.assunto],['Subtema',d.subtema],['Dificuldade prevista',d.dificuldade],['Origem',originLabel[d.origem]||d.origem],['Fonte',d.fonte],['Bloom',d.bloom]].filter(([,v])=>v);
   $('#preview-corpo').innerHTML='<div class="meta">'+meta.map(([n,v])=>'<p><strong>'+escapeHTML(n)+'</strong>'+escapeHTML(v)+'</p>').join('')+'</div>'+questaoHTML(d);$('#preview').showModal()}
 function desenharLeitura(){const box=$('#leitura');box.replaceChildren();if(!atual.itens.length){box.innerHTML='<div class="empty">Seleção vazia.</div>';return}
   atual.itens.forEach((i,k)=>box.append(cartao(i,{ordem:k+1,botoes:[]})))}
