@@ -54,7 +54,7 @@ const atlas = repo + 'atlas/';
 const server = http.createServer((req, res) => {
   const name = new URL(req.url, 'http://localhost').pathname.slice(1);
   if (!/^[a-z0-9.-]+$/i.test(name) || !fs.existsSync(atlas + name)) { res.writeHead(404).end(); return; }
-  res.setHeader('Content-Type', name.endsWith('.html') ? 'text/html; charset=utf-8' : name.endsWith('.js') ? 'text/javascript' : name.endsWith('.json') ? 'application/json' : 'image/png');
+  res.setHeader('Content-Type', name.endsWith('.html') ? 'text/html; charset=utf-8' : name.endsWith('.js') ? 'text/javascript' : name.endsWith('.json') ? 'application/json' : name.endsWith('.css') ? 'text/css' : 'image/png');
   res.end(fs.readFileSync(atlas + name));
 });
 await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));

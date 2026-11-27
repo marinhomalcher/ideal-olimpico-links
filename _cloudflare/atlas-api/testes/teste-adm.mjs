@@ -159,7 +159,7 @@ await ctx.route('https://idealolimpico.com.br/atlas/**', route => {
   const f = new URL(route.request().url()).pathname.replace('/atlas/', '') || 'index.html';
   const p = REPO + 'atlas/' + f;
   if (!fs.existsSync(p)) return route.fulfill({ status: 404, body: 'nf' });
-  route.fulfill({ status: 200, contentType: f.endsWith('.html') ? 'text/html' : f.endsWith('.png') ? 'image/png' : 'application/octet-stream', body: fs.readFileSync(p) });
+  route.fulfill({ status: 200, contentType: f.endsWith('.html') ? 'text/html' : f.endsWith('.png') ? 'image/png' : f.endsWith('.css') ? 'text/css' : 'application/octet-stream', body: fs.readFileSync(p) });
 });
 await ctx.route('https://accounts.google.com/gsi/client', route => route.fulfill({ status: 200, contentType: 'application/javascript', body: gisMock }));
 await ctx.route('https://atlas-api.marinhomalcher.workers.dev/**', async route => {
