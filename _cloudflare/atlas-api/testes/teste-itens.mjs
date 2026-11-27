@@ -88,6 +88,10 @@ const dados={etapa:'em',origem:'outros',fonte:'fuvest 2024',dificuldade:'Média'
  'alt-a':'A1','alt-b':'B1','alt-c':'C1','alt-d':'D1','alt-e':'E1',gabarito:'C',resolucao:'Porque sim.'};
 let r=await call('/api/itens',{method:'POST',body:{dados}});
 ok('Sem login não envia questão', r.status===401);
+r=await call('/api/itens',{method:'POST',token:tEdi,body:{dados:{...dados,'alt-b':'f','alt-c':'f','alt-d':'f'}}});
+ok('Alternativas idênticas (B, C e D) são recusadas, com a lista das letras', r.status===400 && /As alternativas B, C e D estão idênticas/.test(r.data?.erro||r.data?.error||JSON.stringify(r.data)), JSON.stringify(r.data));
+r=await call('/api/itens',{method:'POST',token:tEdi,body:{dados:{...dados,'alt-a':'<div>x&nbsp;  y</div>','alt-e':'x y'}}});
+ok('Duas alternativas iguais, mesmo com espaços e etiquetas diferentes, são recusadas (A e E)', r.status===400 && /alternativas A e E/.test(JSON.stringify(r.data)), JSON.stringify(r.data));
 r=await call('/api/itens',{method:'POST',token:tEdi,body:{dados}});
 const cod=r.data?.item?.codigo;
 ok('Professor envia: código L + 7 dígitos', r.status===200 && /^L[1-9]\d{6}$/.test(cod||''), cod||r.data?.error);

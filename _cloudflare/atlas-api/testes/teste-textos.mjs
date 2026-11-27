@@ -136,18 +136,13 @@ const page=await ctx.newPage(); const errors=[]; page.on('pageerror',e=>errors.p
 const paste=(sel,text)=>page.evaluate(([sel,text])=>{const el=document.querySelector(sel);el.focus();const dt=new DataTransfer();dt.setData('text/plain',text);el.dispatchEvent(new ClipboardEvent('paste',{clipboardData:dt,bubbles:true,cancelable:true}))},[sel,text]);
 db.exec('DELETE FROM login_rate_limits');await page.goto('https://idealolimpico.com.br/atlas/');await page.click('[data-role="Professor"]');await page.fill('#email','edi.franco');await page.click('#loginButton');await page.waitForSelector('#code-step:not([hidden])');await page.fill('#code',lastCode());await page.click('#verifyButton');
 await page.waitForURL(/professor\.html/);await page.waitForFunction(()=>!document.querySelector('#questao-form').hidden);
-ok('Tela: botão "+ Adicionar outro texto" e formato 2 colunas marcado', await page.isVisible('text=+ Adicionar outro texto')&&await page.isChecked('.layout-box input[value="coluna"]'));
-ok('Tela: referência fica atrás do botão "+ Inserir referência"', await page.isVisible('[data-ref-para="referencia"]')&&await page.isHidden('#referencia')&&await page.isHidden('label[for="referencia"]'));
-await paste('#texto-base','Mas logo se viu que a retirada americana seria praticamente equivalente.');await page.click('[data-ref-para="referencia"]');
-ok('Tela: clicar no botão abre o campo de referência', await page.isVisible('#referencia')&&await page.isHidden('[data-ref-para="referencia"]'));
-await page.fill('#referencia','WESSON, R. G. A nova política externa dos Estados Unidos. Rio de Janeiro: Zahar, 1978 (fragmento).');
+ok('Tela: botão "+ Adicionar outro texto" e sem caixa de formato na prova', await page.isVisible('text=+ Adicionar outro texto')&&!(await page.$('.layout-box')));
+ok('Tela: referência do texto/imagem não aparece para o Professor (retirada em 27/11/2026)', await page.isHidden('#referencia')&&await page.isHidden('[data-ref-para="referencia"]'));
+await paste('#texto-base','Mas logo se viu que a retirada americana seria praticamente equivalente.');
 await page.click('text=+ Adicionar outro texto');await page.waitForSelector('.texto-extra');
 ok('Tela: ao adicionar, os rótulos viram Texto I e Texto II', (await page.textContent('label[for="texto-base"]'))==='Texto I'&&(await page.textContent('.texto-extra label.lt'))==='Texto II');
 {const wBase=(await page.locator('#texto-base').boundingBox()).width,wExtra=(await page.locator('.texto-extra .rich-editor').boundingBox()).width;
-ok('Tela: Texto II abre embaixo, com a mesma largura do Texto I', Math.abs(wBase-wExtra)<40&&(await page.locator('.texto-extra').boundingBox()).y>(await page.locator('#referencia').boundingBox()).y, wBase+' x '+wExtra);}
-{const refAtual=await page.inputValue('#referencia');await page.evaluate(()=>{document.getElementById('referencia').value=''});const fechou=await page.isHidden('#referencia')&&await page.isVisible('[data-ref-para="referencia"]');
-await page.evaluate(v=>{document.getElementById('referencia').value=v},refAtual);
-ok('Tela: campo de referência fecha ao limpar e abre sozinho quando a questão já tem referência', fechou&&await page.isVisible('#referencia')&&(await page.inputValue('#referencia'))===refAtual);}
+ok('Tela: Texto II abre embaixo, com a mesma largura do Texto I', Math.abs(wBase-wExtra)<40&&(await page.locator('.texto-extra').boundingBox()).y>(await page.locator('#texto-base').boundingBox()).y, wBase+' x '+wExtra);}
 await page.locator('#questao-form').screenshot({path:S+'textos-extras.png'});
 ok('Tela: Texto II também tem o botão de referência', await page.isVisible('.texto-extra .btn-ref')&&await page.isHidden('.texto-extra textarea.ref'));
 await paste('.texto-extra .rich-editor','O que as pessoas não compreendiam, e que os Governos não lhes comunicavam.');await page.click('.texto-extra .btn-ref');await page.fill('.texto-extra textarea.ref','DEUTSCHER, I. Mitos da Guerra Fria. Disponível em: x.org. Acesso em: 1 jan. 2020.');await page.click('#comando');
@@ -161,10 +156,9 @@ for(const l of 'abcde')await paste('#alt-'+l,'Alternativa '+l);
 await page.locator('.link-fonte').first().click();await page.fill('#ref-a','Disponível em: https://www.expedia.com.br. Acesso em: 14 out. 2025.');
 await page.selectOption('#assunto','Romantismo');const subs=await page.$$eval('#subtema option',o=>o.map(x=>x.value).filter(Boolean));if(subs.length)await page.selectOption('#subtema',subs[0]);
 await page.selectOption('#origem','outros');await page.selectOption('#dificuldade','Fácil');await page.selectOption('#bloom','Analisar');await page.selectOption('#gabarito','B');await page.evaluate(()=>tagsCampo.set(['guerra fria','dois textos']));
-await page.check('.layout-box input[value="pagina"]');
-await page.click('#visualizar');await page.waitForSelector('#previsao:not([hidden])');
+await page.click('#enviar');await page.waitForSelector('#previsao:not([hidden])');
 const prev=await page.innerHTML('#previsao');
-ok('Prévia: TEXTO I e TEXTO II com referências pequenas', prev.includes('TEXTO I</p>')&&prev.includes('TEXTO II</p>')&&(prev.match(/class="ref-fonte"/g)||[]).length===3, (prev.match(/class="ref-fonte"/g)||[]).length);
+ok('Prévia: TEXTO I e TEXTO II, com as referências pequenas do Texto II e da fonte da A', prev.includes('TEXTO I</p>')&&prev.includes('TEXTO II</p>')&&(prev.match(/class="ref-fonte"/g)||[]).length===2, (prev.match(/class="ref-fonte"/g)||[]).length);
 const fs8=await page.$eval('#previsao .ref-fonte',e=>getComputedStyle(e).fontSize+'|'+getComputedStyle(e).textAlign);
 ok('Prévia: referência em fonte 8 e alinhada à direita', fs8.startsWith('10.6')&&fs8.endsWith('right'), fs8);
 ok('Prévia: abre em largura total (o formato marcado)', await page.$eval('#previsao',e=>e.classList.contains('largura-total')));
@@ -173,7 +167,7 @@ await page.locator('#previsao').screenshot({path:S+'previa-textos.png'});
 await page.click('#enviar');await page.waitForFunction(()=>/Código/.test(document.querySelector('#status').textContent));
 const cod=(await page.textContent('#status')).match(/[A-Z]\d{7}/)[0];d=(await call('/api/itens/'+cod,{token:tEdi})).data.item.dados;
 ok('Tela: envio grava Texto II, fonte da A e largura total', d.textos_extras.length===1&&d['ref-a'].includes('\nAcesso em')&&d.layout==='pagina', JSON.stringify({e:d.textos_extras.length,l:d.layout}));
-ok('Tela: após enviar, o formulário volta a 1 texto e 2 colunas', (await page.$$('.texto-extra')).length===0&&await page.isChecked('.layout-box input[value="coluna"]')&&(await page.inputValue('#ref-a'))==='');
+ok('Tela: após enviar, o formulário volta a 1 texto', (await page.$$('.texto-extra')).length===0&&(await page.inputValue('#ref-a'))==='');
 // supervisor vê
 await page.evaluate(()=>{sessionStorage.clear();localStorage.removeItem('atlas_user_auth')});
 db.exec('DELETE FROM login_rate_limits');await page.goto('https://idealolimpico.com.br/atlas/');await page.click('[data-role="Supervisor"]');await page.fill('#email','marcio.alex');await page.click('#loginButton');await page.waitForSelector('#code-step:not([hidden])');await page.fill('#code',lastCode());await page.click('#verifyButton');
@@ -182,15 +176,14 @@ await page.locator('tr',{hasText:cod}).locator('button, a').first().click();awai
 const sup=await page.textContent('#item-content');
 ok('Supervisor vê TEXTO II, a fonte da alternativa e o formato', sup.includes('TEXTO II')&&sup.includes('expedia')&&sup.includes('Largura total'));
 await page.click('#edit-item');await page.waitForSelector('#edit-form:not([hidden]) .texto-extra');
-ok('Editor do Supervisor traz o Texto II e a fonte da A preenchidos', (await page.$$('#edit-form .texto-extra')).length===1&&(await page.inputValue('#ref-a')).includes('expedia')&&await page.isChecked('#edit-form .layout-box input[value="pagina"]'));
-await page.check('#edit-form .layout-box input[value="coluna"]');
+ok('Editor do Supervisor traz o Texto II e a fonte da A preenchidos', (await page.$$('#edit-form .texto-extra')).length===1&&(await page.inputValue('#ref-a')).includes('expedia')&&!(await page.$('#edit-form .layout-box')));
 const cl=await page.$$('#ed-classif select');
 await page.click('#save-edit');await page.waitForFunction(()=>/editada|Edição salva|salva/i.test(document.body.textContent),{timeout:8000}).catch(()=>{});
 await page.waitForTimeout(800);d=(await call('/api/itens/'+cod,{token:tMarcio})).data.item.dados;
-ok('Supervisor muda para 2 colunas sem perder o Texto II', d.layout==='coluna'&&d.textos_extras.length===1&&d['ref-a'].includes('expedia'), JSON.stringify({l:d.layout,e:d.textos_extras.length}));
+ok('Supervisor salva (largura total) sem perder o Texto II', d.layout==='pagina'&&d.textos_extras.length===1&&d['ref-a'].includes('expedia'), JSON.stringify({l:d.layout,e:d.textos_extras.length}));
 // digitador / ADM
 await page.goto('https://idealolimpico.com.br/atlas/admin-enviar.html');await page.evaluate(t=>sessionStorage.setItem('atlas_adm_token',t),tAdm);await page.reload();await page.waitForSelector('#es-form');
-ok('Enviar questões (ADM) também tem Adicionar outro texto, fonte nas alternativas e formato', await page.isVisible('text=+ Adicionar outro texto')&&(await page.$$('.link-fonte')).length===5&&await page.isVisible('.layout-box'));
+ok('Enviar questões (ADM) também tem Adicionar outro texto, fonte nas alternativas e formato', await page.isVisible('text=+ Adicionar outro texto')&&(await page.$$('.link-fonte')).length===5&&!(await page.$('.layout-box')));
 ok('Sem erros de JavaScript', errors.length===0, errors.join(' | '));
 await browser.close();server.close();
 for(const [s,n,e] of results)console.log(s,n,e?'— '+e:'');console.log(results.filter(r=>r[0]!=='OK  ').length+' falha(s) de '+results.length);process.exit(0);

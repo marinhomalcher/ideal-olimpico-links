@@ -121,7 +121,7 @@ ok('Alternativa também recebe imagem proporcional', /%$/.test((await ratio('#al
 await page.selectOption('#assunto','Romantismo');const subs=await page.$$eval('#subtema option',o=>o.map(x=>x.value).filter(Boolean));if(subs.length)await page.selectOption('#subtema',subs[0]);
 await page.selectOption('#origem','autoral');await page.selectOption('#dificuldade','Fácil');await page.selectOption('#bloom','Lembrar');
 await paste('#comando','O gráfico que melhor representa é:');for(const l of 'bcde')await paste('#alt-'+l,'Opção '+l);await page.selectOption('#gabarito','B');
-await page.evaluate(()=>{try{if(typeof tagsCampo!=='undefined'&&tagsCampo.get().length<2)tagsCampo.set(['teste','ui'])}catch{}});await page.click('#visualizar');
+await page.evaluate(()=>{try{if(typeof tagsCampo!=='undefined'&&tagsCampo.get().length<2)tagsCampo.set(['teste','ui'])}catch{}});await page.click('#enviar');
 /* A prévia converte a % do editor em px e só encolhe se não couber na caixa (max-width:100%);
    por isso o estilo não é mais o mesmo texto do editor — o que tem de bater é o tamanho em pixels. */
 const pv=await page.$eval('#previsao .stem img',i=>({style:i.style.width,max:i.style.maxWidth,w:i.getBoundingClientRect().width,caixa:(i.closest('.stem')||i.parentElement).clientWidth}));

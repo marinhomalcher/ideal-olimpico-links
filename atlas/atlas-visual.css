@@ -53,3 +53,25 @@ body.vn td:last-child { border-right: 1px solid var(--vn-line); border-radius: 0
 body.vn .tabs button, body.vn .tabs a { border-radius: 999px }
 body.vn .badge-edit, body.vn .selo-classificar, body.vn .selo-repetida { border-radius: 999px }
 body.vn .notice, body.vn .aviso-classificar, body.vn .validation-summary { border-radius: 14px }
+
+/* Tela do Professor (rodada 1, 27/11/2026): seções com cores suaves, rótulos em destaque, aviso de envio, total centralizado */
+body.vn-professor #questao-form .panel.sec { border-left-width: 6px; border-left-style: solid }
+body.vn-professor #questao-form .sec1 { background: linear-gradient(#f1f6ff, #fff 200px); border-left-color: #5b8def }
+body.vn-professor #questao-form .sec1 h2 { color: #2f5fb8 }
+body.vn-professor #questao-form .sec2 { background: linear-gradient(#fff2f4, #fff 200px); border-left-color: #e8506a }
+body.vn-professor #questao-form .sec2 h2 { color: #b8324a }
+body.vn-professor #questao-form .sec3 { background: linear-gradient(#edf9f5, #fff 200px); border-left-color: #14a38b }
+body.vn-professor #questao-form .sec3 h2 { color: #0e7a67 }
+body.vn-professor #questao-form .sec4 { background: linear-gradient(#fff7e6, #fff 200px); border-left-color: #f2a20c }
+body.vn-professor #questao-form .sec4 h2 { color: #a56a00 }
+body.vn-professor label[for="texto-base"], body.vn-professor label[for="comando"] { display: inline-block; padding: 5px 15px; border-radius: 999px; color: #fff; letter-spacing: .05em; font-size: 13px }
+body.vn-professor label[for="texto-base"] { background: #0e8a8a }
+body.vn-professor label[for="comando"] { background: #d9480f }
+body.vn-professor #texto-base { border-left: 5px solid #0e8a8a }
+body.vn-professor #comando { border-left: 5px solid #d9480f }
+body.vn-professor #status { margin-top: 14px; padding: 13px 18px; border: 1.5px solid #f2a20c; border-radius: 14px; background: #fff3d6; color: #7a4a00; font-size: 15px; font-weight: 700 }
+body.vn-professor .resumo .destaque { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center }
+body.vn .alt-repetida { border: 2px solid #d9480f !important; background: #ffe9df !important; box-shadow: 0 0 0 4px #d9480f33; border-radius: 14px; padding: 6px 8px !important }
+
+/* Supervisor: quadro de dados da questão resumido (27/11/2026) */
+body.vn-supervisor .meta { grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px 22px; padding: 14px 18px; border-radius: 16px }

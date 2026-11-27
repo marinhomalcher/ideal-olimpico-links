@@ -134,24 +134,11 @@ ok('Texto comum com "A." no meio não é confundido', (await page.textContent('#
 await page.evaluate(()=>{document.querySelector('#comando').innerHTML=''});
 await paste('#comando','\t\t   Igreja. Uma das   instituições\u00a0\u00a0fundamentais.   \n        Segunda linha com recuo.\n');
 ok('Colar com tab, espaços e espaços duros no início: recuo sai, espaços repetidos viram um', /^Igreja\. Uma das instituições fundamentais\.\s*Segunda linha com recuo\.$/.test((await page.textContent('#comando')).replace(/\u00a0/g,' ').trim()), JSON.stringify(await page.textContent('#comando')));
-/* poema colado vira bloco de versos; botões Versos / Centrar */
+/* Versos (retirados em 27/11/2026): poema colado é texto normal; não há botão Versos nem Centrar */
 await page.evaluate(()=>{document.querySelector('#texto-base').innerHTML=''});
 await paste('#texto-base','        Sou pastor; não te nego; os meus montados\n     São esses, que aí vês; vivo contente\n   Ao trazer entre a relva florescente\nA doce companhia dos meus gados;');
-const versos=await page.evaluate(()=>{const v=document.querySelector('#texto-base .versos');return v?{linhas:v.innerHTML.split('<br>').length,recuo:/^\s/.test(v.textContent),centro:v.classList.contains('centro'),btn:document.querySelector('#bar-texto-base .btn-versos')?.textContent}:null});
-ok('Poema colado vira bloco de versos: 4 linhas, sem recuo, à esquerda', versos && versos.linhas===4 && !versos.recuo && !versos.centro, JSON.stringify(versos));
-ok('Aviso explica o bloco e os botões', (await page.textContent('body')).includes('Colado como bloco de versos'));
-await page.evaluate(()=>{const v=document.querySelector('#texto-base .versos');const r=document.createRange();r.setStart(v.firstChild,2);r.collapse(true);const s=getSelection();s.removeAllRanges();s.addRange(r);document.dispatchEvent(new Event('selectionchange'))});
-ok('Com o cursor no bloco, os botões mostram "Desfazer versos" e "Centrar"', (await page.textContent('#bar-texto-base .btn-versos'))==='Desfazer versos' && await page.isVisible('#bar-texto-base .btn-versos-centro'));
-await page.click('#bar-texto-base .btn-versos-centro');
-if(process.env.ATLAS_PNG_DIR){await page.evaluate(()=>document.querySelector('#texto-base').scrollIntoView({block:'center'}));await page.screenshot({path:process.env.ATLAS_PNG_DIR+'/professor-versos.png'})}
-ok('Centrar põe a classe centro e o botão vira "À esquerda"', await page.$eval('#texto-base .versos',v=>v.classList.contains('centro')) && (await page.textContent('#bar-texto-base .btn-versos-centro'))==='À esquerda');
-ok('Prévia/leitura mantém o bloco de versos centrado (clean)', await page.evaluate(()=>/<div class="versos centro">Sou pastor/.test(AtlasRich.clean(document.querySelector('#texto-base').innerHTML))));
-await page.click('#bar-texto-base .btn-versos');
-ok('Desfazer versos tira o bloco e mantém o texto', !(await page.$('#texto-base .versos')) && (await page.textContent('#texto-base')).includes('Sou pastor') && (await page.textContent('#texto-base')).includes('meus gados'));
-await page.evaluate(()=>{const e=document.querySelector('#comando');e.innerHTML='<div>Primeira linha</div><div>Segunda linha</div>';const r=document.createRange();r.setStart(e.firstChild.firstChild,0);r.setEnd(e.lastChild.firstChild,5);const s=getSelection();s.removeAllRanges();s.addRange(r);document.dispatchEvent(new Event('selectionchange'))});
-await page.click('#bar-comando .btn-versos');
-ok('Botão Versos com um trecho selecionado transforma os parágrafos em linhas do bloco', await page.evaluate(()=>{const v=document.querySelector('#comando .versos');return !!v && v.innerHTML==='Primeira linha<br>Segunda linha'}), await page.innerHTML('#comando'));
-ok('Alternativas não ganham a barra de versos', !(await page.$('#bar-alt-a')));
+ok('Poema colado segue como texto normal, sem bloco de versos', !(await page.$('#texto-base .versos')) && (await page.textContent('#texto-base')).includes('Sou pastor') && (await page.textContent('#texto-base')).includes('meus gados'));
+ok('Não há botões Versos nem Centrar nos campos de texto', !(await page.$('.btn-versos')) && !(await page.$('.btn-versos-centro')) && !(await page.$('#bar-texto-base')));
 // LaTeX colado sem os delimitadores $…$ (pedido de 24/11/2026): a linha que é só fórmula vira equação; com $…$ continua igual
 await colarMisto('#texto-base',{texto:'A curva de crescimento segue a função\nP = \\frac{800}{200 \\cdot e^{-0{,}24t} + 1}\nem que t é o tempo em dias.',html:null,png:false});
 ok('LaTeX sem $ vira equação editável e o texto em volta fica texto', (await page.$$('#texto-base .atlas-equation')).length===1 && (await page.$eval('#texto-base .atlas-equation',e=>e.dataset.latex))==='P = \\frac{800}{200 \\cdot e^{-0{,}24t} + 1}' && (await page.textContent('#texto-base')).includes('tempo em dias'), await page.innerHTML('#texto-base'));

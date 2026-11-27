@@ -187,17 +187,17 @@ async function login(card,user){db.exec('DELETE FROM login_rate_limits');await p
 await login('Professor','edi.franco');await page.waitForURL(/professor\.html/);await page.waitForFunction(()=>!document.querySelector('#questao-form').hidden);
 await page.check('input[name="modo"][value="grupo"]');
 await page.waitForTimeout(500);await page.locator('.modo-cadastro').screenshot({path:S+'modo.png'});
-ok('Tela: modo grupo mostra o painel e muda os textos', await page.isVisible('#grupo-painel') && (await page.textContent('#enviar'))==='Enviar grupo para análise');
+ok('Tela: modo grupo mostra o painel e muda os textos', await page.isVisible('#grupo-painel') && (await page.textContent('#enviar'))==='Enviar grupo');
 async function preencherQ(cmd,gab){await page.selectOption('#assunto','Romantismo');const subs=await page.$$eval('#subtema option',o=>o.map(x=>x.value).filter(Boolean));if(subs.length)await page.selectOption('#subtema',subs[0]);
   await page.selectOption('#origem','autoral');await page.selectOption('#dificuldade','Fácil');await page.selectOption('#bloom','Lembrar');await paste('#comando',cmd);for(const l of 'abcde')await paste('#alt-'+l,cmd+' opção '+l);await page.selectOption('#gabarito',gab)}
 await preencherQ('Pergunta um do poema','A');
 await page.evaluate(()=>{try{if(typeof tagsCampo!=='undefined'&&tagsCampo.get().length<2)tagsCampo.set(['teste','ui'])}catch{}});await page.click('#grupo-adicionar');
 ok('Tela: sem texto-base, não adiciona ao grupo', (await page.textContent('#status')).includes('texto-base é obrigatório') && (await page.textContent('#grupo-qtd'))==='(0)');
-await paste('#texto-base','Poema de Gonçalves Dias para as questões.');await page.click('[data-ref-para="referencia"]');await page.fill('#referencia','DIAS, G. Canção do exílio.');
+await paste('#texto-base','Poema de Gonçalves Dias para as questões.');
 await page.evaluate(()=>{try{if(typeof tagsCampo!=='undefined'&&tagsCampo.get().length<2)tagsCampo.set(['teste','ui'])}catch{}});await page.click('#grupo-adicionar');
 ok('Tela: questão 1 adicionada e campos da questão limpos (texto fica)', (await page.textContent('#grupo-qtd'))==='(1)' && (await page.textContent('#comando'))==='' && (await page.textContent('#texto-base')).includes('Gonçalves Dias'));
 await paste('#comando','Pergunta dois do poema');for(const l of 'abcde')await paste('#alt-'+l,'Dois opção '+l);await page.selectOption('#gabarito','D');
-await page.evaluate(()=>{try{if(typeof tagsCampo!=='undefined'&&tagsCampo.get().length<2)tagsCampo.set(['teste','ui'])}catch{}});await page.click('#visualizar');await page.waitForSelector('#previsao:not([hidden])');
+await page.evaluate(()=>{try{if(typeof tagsCampo!=='undefined'&&tagsCampo.get().length<2)tagsCampo.set(['teste','ui'])}catch{}});await page.click('#enviar');await page.waitForSelector('#previsao:not([hidden])');
 const pv=await page.textContent('#previsao');
 ok('Tela: Visualizar adiciona a questão em edição e mostra o grupo com texto uma vez', (await page.textContent('#grupo-qtd'))==='(2)' && pv.includes('Texto para as questões 1 a 2') && pv.split('Gonçalves Dias').length===2 && pv.includes('Questão 2'));
 await page.locator('#grupo-lista .grupo-item').nth(1).getByText('Editar').click();
@@ -208,7 +208,7 @@ await page.waitForFunction(()=>/Grupo GL\d{6} enviado/.test(document.querySelect
 const st=await page.textContent('#status');const GT=(st.match(/GL\d{6}/)||[])[0];
 ok('Tela: grupo enviado com 2 códigos', !!GT && (st.match(/L\d{7}/g)||[]).length===2, st);
 const gv=JSON.parse(db.prepare('SELECT v.dados FROM grupo_versoes v JOIN grupos g ON g.id=v.grupo_id WHERE g.codigo=?').get(GT).dados);
-ok('Tela: texto e referência guardados no grupo', gv['texto-base'].includes('Gonçalves Dias') && gv.referencia==='DIAS, G. Canção do exílio.');
+ok('Tela: texto guardado no grupo', gv['texto-base'].includes('Gonçalves Dias'));
 // repetida pela tela (questão única)
 await page.check('input[name="modo"][value="unica"]');
 await preencherQ('Pergunta um do poema','A');await paste('#texto-base','Poema de Gonçalves Dias para as questões.');
