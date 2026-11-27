@@ -341,6 +341,19 @@ await page.locator('#lista-itens li').nth(2).locator('button').click();
 await page.waitForFunction(() => /ALUNO TESTE TRES/.test(document.querySelector('#aluno').textContent), null, { timeout: 15000 });
 ok('Tela de correção cabe no celular', await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
 await page.setViewportSize({ width: 1280, height: 900 });
+{ const abrir = async (largura, altura) => { const ctx = await browser.newContext({ viewport: { width: largura, height: altura }, isMobile: true, hasTouch: true });
+    const pg = await ctx.newPage(); await pg.goto(base + '/redacao-corrigir.html'); await pg.waitForTimeout(600);
+    const r = await pg.evaluate(() => ({ bloqueado: !!document.querySelector('#celular-bloqueado'), link: document.querySelector('#celular-bloqueado a')?.getAttribute('href') })); await ctx.close(); return r; };
+  const cel = await abrir(390, 844), tab = await abrir(820, 1180);
+  ok('Celular: a correção de redação é bloqueada, com volta para as turmas', cel.bloqueado && cel.link === 'redacao.html', JSON.stringify(cel));
+  ok('Tablet: a correção de redação não é bloqueada', !tab.bloqueado, JSON.stringify(tab)); }
+{ const abrirProf = async (largura, altura) => { const ctx = await browser.newContext({ viewport: { width: largura, height: altura }, isMobile: true, hasTouch: true });
+    const pg = await ctx.newPage(); await pg.route('**/auth.js*', r => r.fulfill({ contentType: 'text/javascript', body: '' }));
+    await pg.goto(base + '/professor.html'); await pg.waitForTimeout(400);
+    const r = await pg.evaluate(() => ({ bloqueado: !!document.querySelector('#celular-bloqueado'), link: document.querySelector('#celular-bloqueado a')?.getAttribute('href') })); await ctx.close(); return r; };
+  const celP = await abrirProf(390, 844), tabP = await abrirProf(820, 1180);
+  ok('Celular: a área do professor é bloqueada, com volta ao início', celP.bloqueado && celP.link === 'index.html', JSON.stringify(celP));
+  ok('Tablet: a área do professor não é bloqueada', !tabP.bloqueado, JSON.stringify(tabP)); }
 /* ADM vê a condenada na tela de lotes */
 await page.evaluate(() => sessionStorage.setItem('atlas_adm_token', 'adm-token'));
 await page.goto(base + '/redacao-lotes-admin.html');
