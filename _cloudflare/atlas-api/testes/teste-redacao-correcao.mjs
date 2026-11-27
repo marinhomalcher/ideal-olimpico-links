@@ -211,9 +211,14 @@ const lat = await page.evaluate(() => {
 });
 ok('Tela larga: faixa lateral estreita à direita da folha, com C1 a C5, e sem os botões no painel de baixo', lat.visivel && lat.largura <= 270 && lat.aDireita && lat.comps === 'none' && JSON.stringify(lat.colunas) === JSON.stringify(['C1', 'C2', 'C3', 'C4', 'C5']) && lat.botoes === 6, JSON.stringify(lat));
 if (process.env.ATLAS_PNG_DIR) await page.screenshot({ path: process.env.ATLAS_PNG_DIR + '/redacao-corrigir-lateral.png' });
+{ const est = () => page.evaluate(() => ({ painel: getComputedStyle(document.querySelector('#painel')).display, lat: document.querySelector('#lateral').classList.contains('fechada'), restoVisivel: document.querySelector('#lat-resto').getBoundingClientRect().height > 0 }));
+  await page.click('#lat-fechar'); const rec = await est();
+  ok('Recolher a lateral não leva as notas para baixo da folha (painel de baixo continua escondido)', rec.lat && rec.painel === 'none' && !rec.restoVisivel, JSON.stringify(rec));
+  await page.click('#lat-fechar'); const abr = await est();
+  ok('Reabrir a lateral mostra as notas de novo, ainda sem painel embaixo', !abr.lat && abr.painel === 'none' && abr.restoVisivel, JSON.stringify(abr)); }
 ok('Botão Voltar no alto, para as turmas, e paleta com 4 cores', lat.voltar === 'redacao.html' && JSON.stringify(lat.paleta) === JSON.stringify(['am', 'vd', 'az', 'rs']), JSON.stringify(lat));
 await page.locator('#lat-fechar').click();
-ok('Recolher a faixa devolve tudo ao painel de baixo (notas, motivo da C5, zerar, observações, botões)', await page.evaluate(() => document.querySelector('#lateral').getBoundingClientRect().width < 60 && !document.querySelector('#painel').hidden && getComputedStyle(document.querySelector('#comps')).display !== 'none' && !!document.querySelector('.bottom #c5-motivo-box') && !!document.querySelector('#painel-corpo .bottom #btn-concluir')));
+ok('Recolher a faixa estreita a lateral e nada desce para o painel de baixo', await page.evaluate(() => document.querySelector('#lateral').getBoundingClientRect().width < 60 && document.querySelector('#painel').hidden && getComputedStyle(document.querySelector('#painel')).display === 'none'));
 await page.locator('#lat-fechar').click();
 ok('Abrir de novo esconde os de baixo', await page.evaluate(() => getComputedStyle(document.querySelector('#comps')).display === 'none'));
 await page.setViewportSize({ width: 900, height: 800 });

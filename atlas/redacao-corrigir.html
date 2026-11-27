@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="pt-BR">
 <head>
-<meta name="atlas-versao" content="20261127a"><script src="atlas-versao.js?v=20261127a" defer></script><script src="atlas-alinhamento.js?v=20261127a"></script>
+<meta name="atlas-versao" content="20261127b"><script src="atlas-versao.js?v=20261127b" defer></script><script src="atlas-alinhamento.js?v=20261127b"></script>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="robots" content="noindex,nofollow"><title>ATLAS | Correção de redações</title>
 <style>
@@ -148,10 +148,10 @@ function grupoNotas(k,id){
 /* A nota vale para os dois grupos da competência (painel de baixo e faixa lateral), sempre iguais. */
 function marcarNota(k,v){for(const g of document.querySelectorAll('.notas[data-k="'+k+'"]')){g.dataset.valor=v;for(const b of g.querySelectorAll('button[data-v]')){const on=b.dataset.v===v;b.classList.toggle('on',on);b.setAttribute('aria-pressed',String(on))}g.closest('.comp,.lat-col').classList.toggle('feita',v!=='')}}
 function corPaleta(){for(const b of document.querySelectorAll('.mt-cor')){const on=b.dataset.c===corMT;b.classList.toggle('on',on);b.setAttribute('aria-pressed',String(on))}}
-/* O motivo do zero na C5 fica logo abaixo das notas: na faixa quando ela está em uso, senão no painel de baixo (como no Inep). */
-function colocarMotivo(){const naFaixa=matchMedia('(min-width:1100px)').matches&&!$('#lateral').classList.contains('fechada');
+/* O motivo do zero na C5 fica logo abaixo das notas: na faixa (aberta ou recolhida) em tela larga, senão no painel de baixo (como no Inep). */
+function colocarMotivo(){const naFaixa=matchMedia('(min-width:1100px)').matches;
   const m=$('#c5-motivo-box');if(m){const alvo=naFaixa?$('#lat-motivo'):$('.bottom');if(m.parentElement!==alvo){if(naFaixa)alvo.append(m);else alvo.prepend(m)}}
-  /* Com a faixa em uso, toda a avaliação (aviso, zerar, observações, botões, pedido de nova digitalização, status) vai para ela e o painel de baixo some. */
+  /* Em tela larga a avaliação nunca desce para baixo da folha, nem com a faixa recolhida (decidido em 27/11/2026): recolher é para não atrapalhar; reabrir mostra as notas. Toda a avaliação (aviso, zerar, observações, botões, pedido de nova digitalização, status) vai para ela e o painel de baixo some. */
   const alvo=naFaixa?$('#lat-resto'):null;
   for(const [sel,volta] of [['#aviso-estado','#painel-antes'],['.bottom','#painel-corpo'],['#cond','#painel-corpo'],['#status','#painel-corpo']]){const p=$(sel),dest=alvo||$(volta);if(p.parentElement!==dest)dest.append(p)}
   $('#painel').hidden=naFaixa}
