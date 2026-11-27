@@ -138,6 +138,14 @@ await login('Supervisor','marcio.alex');await page.waitForURL(/supervisor\.html/
 await page.locator('#list tr',{hasText:cod}).locator('button').click();await page.waitForSelector('#details:not([hidden])');
 const sup=await page.$eval('#item-content .stem img',i=>{const r=i.getBoundingClientRect();return {style:i.style.width,ar:r.height/r.width,nat:i.naturalHeight/i.naturalWidth}});
 ok('Supervisor vê o mesmo tamanho, sem distorcer', sup.style===finalStyle && Math.abs(sup.ar-sup.nat)<0.02, JSON.stringify(sup));
+// Botão direito na imagem: menu próprio com "Copiar imagem" (copia PNG pela área de transferência).
+await page.evaluate(()=>{window.__copias=[];Object.defineProperty(navigator,"clipboard",{value:{write:async itens=>{window.__copias.push(itens.length)}},configurable:true})});
+await page.click("#item-content .stem img",{button:"right"});
+ok("Botão direito na imagem abre o menu com Copiar imagem", await page.isVisible(".atlas-img-menu") && (await page.textContent(".atlas-img-menu")).includes("Copiar imagem"));
+await page.click(".atlas-img-menu button:has-text(\"Copiar imagem\")");await page.waitForSelector(".atlas-img-aviso");
+ok("Copiar imagem põe um PNG na área de transferência e avisa", (await page.evaluate(()=>window.__copias.length))===1 && (await page.textContent(".atlas-img-aviso")).includes("Imagem copiada"));
+ok("Menu fecha depois de copiar", !(await page.isVisible(".atlas-img-menu")));
+await page.keyboard.press("Escape");
 await page.screenshot({path:S+'shot-imagem-supervisor.png'});
 ok('Nenhuma janela do navegador (confirm/alert) é usada', dialogs.length===0, dialogs.join(' | '));
 ok('Sem erros de JavaScript', errors.length===0, errors.join(' | '));
