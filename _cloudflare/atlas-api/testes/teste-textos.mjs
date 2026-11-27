@@ -174,7 +174,7 @@ db.exec('DELETE FROM login_rate_limits');await page.goto('https://idealolimpico.
 await page.waitForURL(/supervisor\.html/);await page.waitForSelector('#queue table, table');
 await page.locator('tr',{hasText:cod}).locator('button, a').first().click();await page.waitForSelector('#item-content .texto-titulo');
 const sup=await page.textContent('#item-content');
-ok('Supervisor vê TEXTO II, a fonte da alternativa e o formato', sup.includes('TEXTO II')&&sup.includes('expedia')&&sup.includes('Largura total'));
+ok('Supervisor vê TEXTO II e a fonte da alternativa (o formato não aparece mais)', sup.includes('TEXTO II')&&sup.includes('expedia')&&!sup.includes('Formato na prova'));
 await page.click('#edit-item');await page.waitForSelector('#edit-form:not([hidden]) .texto-extra');
 ok('Editor do Supervisor traz o Texto II e a fonte da A preenchidos', (await page.$$('#edit-form .texto-extra')).length===1&&(await page.inputValue('#ref-a')).includes('expedia')&&!(await page.$('#edit-form .layout-box')));
 const cl=await page.$$('#ed-classif select');

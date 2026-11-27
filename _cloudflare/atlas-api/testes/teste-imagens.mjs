@@ -140,7 +140,7 @@ const sup=await page.$eval('#item-content .stem img',i=>{const r=i.getBoundingCl
 ok('Supervisor vê o mesmo tamanho, sem distorcer', sup.style===finalStyle && Math.abs(sup.ar-sup.nat)<0.02, JSON.stringify(sup));
 // Botão direito na imagem: menu próprio com "Copiar imagem" (copia PNG pela área de transferência).
 await page.evaluate(()=>{window.__copias=[];Object.defineProperty(navigator,"clipboard",{value:{write:async itens=>{window.__copias.push(itens.length)}},configurable:true})});
-await page.click("#item-content .stem img",{button:"right"});
+await page.locator("#item-content .stem img").scrollIntoViewIfNeeded();await page.waitForTimeout(400);await page.click("#item-content .stem img",{button:"right"});
 ok("Botão direito na imagem abre o menu com Copiar imagem", await page.isVisible(".atlas-img-menu") && (await page.textContent(".atlas-img-menu")).includes("Copiar imagem"));
 await page.click(".atlas-img-menu button:has-text(\"Copiar imagem\")");await page.waitForSelector(".atlas-img-aviso");
 ok("Copiar imagem põe um PNG na área de transferência e avisa", (await page.evaluate(()=>window.__copias.length))===1 && (await page.textContent(".atlas-img-aviso")).includes("Imagem copiada"));
