@@ -8,7 +8,7 @@ await ctx.route('https://idealolimpico.com.br/atlas/**',route=>{const u=new URL(
   if(f==='versao.json')return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({versao:servidor})});
   const p=R+f;if(!fs.existsSync(p))return route.fulfill({status:404,body:'nf'});let body=fs.readFileSync(p,'utf8');
   if(f.endsWith('.html'))body=body.replace(/<meta name="atlas-versao" content="[^"]*">/,'<meta name="atlas-versao" content="'+paginaVersao+'">');
-  route.fulfill({status:200,contentType:f.endsWith('.html')?'text/html':f.endsWith('.js')?'application/javascript':'image/png',body})});
+  route.fulfill({status:200,contentType:f.endsWith('.html')?'text/html':f.endsWith('.js')?'application/javascript':f.endsWith('.css')?'text/css':'image/png',body})});
 await ctx.route('https://atlas-api.marinhomalcher.workers.dev/**',r=>r.fulfill({status:200,contentType:'application/json',headers:{'access-control-allow-origin':'*'},body:'{"ok":false}'}));
 await ctx.route('https://accounts.google.com/**',r=>r.fulfill({status:200,contentType:'application/javascript',body:'window.google={accounts:{id:{initialize(){},renderButton(){},disableAutoSelect(){}}}}'}));
 const page=await ctx.newPage();const errors=[];page.on('pageerror',e=>errors.push(e.message));

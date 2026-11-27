@@ -825,13 +825,17 @@ async function entregarImagem(request, env, url) {
   if (!env.IMAGENS) return new Response('Indisponível', { status: 503 });
   const obj = await env.IMAGENS.get('img/' + m[1]);
   if (!obj) return new Response('Não encontrada', { status: 404 });
-  return new Response(obj.body, { headers: {
+  const headers = {
     'Content-Type': obj.httpMetadata?.contentType || 'application/octet-stream',
     'Cache-Control': 'private, max-age=3600',
     'X-Content-Type-Options': 'nosniff',
     'Content-Security-Policy': "default-src 'none'",
     'Cross-Origin-Resource-Policy': 'cross-origin'
-  } });
+  };
+  // "Copiar imagem" nas páginas do ATLAS busca a imagem com fetch (CORS): só para as origens do site.
+  const origem = request.headers.get('Origin') || '';
+  if (ALLOWED_ORIGINS.includes(origem)) { headers['Access-Control-Allow-Origin'] = origem; headers['Vary'] = 'Origin'; }
+  return new Response(obj.body, { headers });
 }
 // ADM: move as imagens antigas (embutidas como data:) de todas as versões para o R2, aos poucos.
 async function migrarImagensAntigas(env, sessao, lote = 15) {

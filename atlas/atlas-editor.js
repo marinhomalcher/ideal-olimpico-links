@@ -190,5 +190,32 @@ function blocoVersos(t,centro){const d=document.createElement('div');d.className
   function barraLargura(previa,layout){const alvo=previa;imagensNaPrevia(previa);const bar=document.createElement('div');bar.className='largura-bar';bar.innerHTML='<span>Ver como fica na prova:</span><button type="button" data-l="coluna">Na coluna (2 colunas)</button><button type="button" data-l="pagina">Largura total</button><span class="largura-nota"></span>';
     const aplicar=l=>{alvo.classList.toggle('largura-col',l==='coluna');alvo.classList.toggle('largura-total',l==='pagina');bar.querySelectorAll('button').forEach(b=>b.classList.toggle('on',b.dataset.l===l));bar.querySelector('.largura-nota').textContent=l==='coluna'?'(largura aproximada de uma coluna da prova)':''};
     bar.querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>aplicar(b.dataset.l)));previa.prepend(bar);aplicar(layout==='pagina'?'pagina':'coluna');return bar}
+  // Botão direito numa imagem da questão (editor, leitura ou prévia): menu próprio com "Copiar imagem".
+  // Pedido do Marinho (24/11/2026): o supervisor copia a figura, melhora fora do ATLAS e cola de volta
+  // no lugar (apagar a antiga é Backspace). A cópia vai em PNG pela área de transferência; imagens do
+  // servidor precisam do CORS da rota /img/ (atlas-api).
+  (function(){
+    const SEL='.rich-editor img,.question img,.preview img,.stem img,.item img,.questao img';
+    let menu=null,alvo=null;
+    function fechar(){if(menu){menu.remove();menu=null}alvo=null}
+    async function copiar(img){
+      const r=await fetch(img.currentSrc||img.src,{mode:'cors',credentials:'omit'});if(!r.ok)throw new Error('HTTP '+r.status);
+      const bmp=await createImageBitmap(await r.blob());const c=document.createElement('canvas');c.width=bmp.width;c.height=bmp.height;
+      const g=c.getContext('2d');g.fillStyle='#fff';g.fillRect(0,0,c.width,c.height);g.drawImage(bmp,0,0);
+      const png=await new Promise((res,rej)=>c.toBlob(b=>b?res(b):rej(new Error('canvas')),'image/png'));
+      await navigator.clipboard.write([new ClipboardItem({'image/png':png})]);
+    }
+    function aviso(x,y,texto,erro){const a=document.createElement('div');a.className='atlas-img-aviso'+(erro?' erro':'');a.setAttribute('role','status');a.textContent=texto;a.style.left=x+'px';a.style.top=y+'px';document.body.append(a);setTimeout(()=>a.remove(),erro?6000:1800)}
+    document.addEventListener('contextmenu',e=>{const img=e.target.closest?.('img');if(!img||!img.matches(SEL))return;e.preventDefault();fechar();alvo=img;
+      const x=e.pageX,y=e.pageY;menu=document.createElement('div');menu.className='atlas-img-menu';menu.setAttribute('role','menu');
+      const b=document.createElement('button');b.type='button';b.setAttribute('role','menuitem');b.textContent='Copiar imagem';
+      b.addEventListener('click',async()=>{const im=alvo;fechar();try{await copiar(im);aviso(x,y,'Imagem copiada. Cole onde quiser com Ctrl+V.')}catch(err){console.error('Copiar imagem',err);aviso(x,y,'Não consegui copiar aqui. Use "Abrir em nova aba" e copie pelo botão direito do navegador.',true)}});
+      const ab=document.createElement('button');ab.type='button';ab.setAttribute('role','menuitem');ab.textContent='Abrir em nova aba';ab.addEventListener('click',()=>{const u=alvo.currentSrc||alvo.src;fechar();window.open(u,'_blank','noopener')});
+      menu.append(b,ab);menu.style.left=x+'px';menu.style.top=y+'px';document.body.append(menu);b.focus()});
+    document.addEventListener('click',e=>{if(menu&&!menu.contains(e.target))fechar()});
+    document.addEventListener('keydown',e=>{if(e.key==='Escape')fechar()});
+    addEventListener('scroll',()=>fechar(),true);
+    if(!document.getElementById('atlas-img-menu-style')){const st=document.createElement('style');st.id='atlas-img-menu-style';st.textContent='.atlas-img-menu{position:absolute;z-index:60;background:#fff;border:1px solid #cbaeb2;border-radius:10px;box-shadow:0 6px 18px #0003;padding:4px;min-width:180px}.atlas-img-menu button{display:block;width:100%;text-align:left;border:0;background:none;padding:8px 12px;border-radius:7px;font:14px Arial,sans-serif;color:#2b2224;cursor:pointer}.atlas-img-menu button:hover,.atlas-img-menu button:focus{background:#fbecef;color:#98151d;outline:none}.atlas-img-aviso{position:absolute;z-index:60;background:#1f7a3f;color:#fff;font:bold 12px Arial,sans-serif;padding:6px 10px;border-radius:8px;box-shadow:0 2px 8px #0004;max-width:320px}.atlas-img-aviso.erro{background:#a01e2a}';document.head.append(st)}
+  })();
   window.AtlasRich={setup,clean,oldText,mathMarkup,ids,formatarReferencia,textosHTML,altRefHTML,refHTML,layoutNome,extras,barraLargura};
 })();

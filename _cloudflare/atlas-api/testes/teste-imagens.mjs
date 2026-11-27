@@ -84,7 +84,7 @@ async function entrar(email){ db.exec('DELETE FROM login_rate_limits'); await ca
 const server = http.createServer(async (req, res) => { const chunks=[]; for await (const c of req) chunks.push(c); const request=new Request('https://atlas-api.test'+req.url,{method:req.method,headers:req.headers,body:['GET','HEAD','OPTIONS'].includes(req.method)?undefined:Buffer.concat(chunks)}); const response=await worker.fetch(request,env); res.writeHead(response.status,Object.fromEntries(response.headers)); res.end(Buffer.from(await response.arrayBuffer())); }).listen(8790);
 const K=S+'katexpkg/package/dist/';
 const browser=await chromium.launch(); const ctx=await browser.newContext({deviceScaleFactor:1.5,viewport:{width:1280,height:900}});
-await ctx.route('https://idealolimpico.com.br/atlas/**', route=>{const f=new URL(route.request().url()).pathname.replace('/atlas/','')||'index.html';const p=REPO+'atlas/'+f;if(!fs.existsSync(p))return route.fulfill({status:404,body:'nf'});route.fulfill({status:200,contentType:f.endsWith('.html')?'text/html':f.endsWith('.js')?'application/javascript':f.endsWith('.json')?'application/json':'image/png',body:fs.readFileSync(p)})});
+await ctx.route('https://idealolimpico.com.br/atlas/**', route=>{const f=new URL(route.request().url()).pathname.replace('/atlas/','')||'index.html';const p=REPO+'atlas/'+f;if(!fs.existsSync(p))return route.fulfill({status:404,body:'nf'});route.fulfill({status:200,contentType:f.endsWith('.html')?'text/html':f.endsWith('.js')?'application/javascript':f.endsWith('.json')?'application/json':f.endsWith('.css')?'text/css':'image/png',body:fs.readFileSync(p)})});
 await ctx.route('https://cdn.jsdelivr.net/npm/katex@0.19.1/dist/**', r2=>{const p=new URL(r2.request().url()).pathname.replace('/npm/katex@0.19.1/dist/','');r2.fulfill({status:200,headers:{'content-type':p.endsWith('.js')?'application/javascript':p.endsWith('.css')?'text/css':'font/'+p.split('.').pop(),'access-control-allow-origin':'*'},body:fs.readFileSync(K+p)})});
 await ctx.route('https://atlas-api.marinhomalcher.workers.dev/**', async route=>{const u=route.request().url().replace('https://atlas-api.marinhomalcher.workers.dev','http://localhost:8790');const resp=await route.fetch({url:u,headers:{...route.request().headers(),origin:ORIGIN}});route.fulfill({response:resp})});
 const page=await ctx.newPage(); const errors=[]; page.on('pageerror',e=>errors.push(e.message)); const dialogs=[];page.on('dialog',d=>{dialogs.push(d.message());d.dismiss()});
@@ -138,6 +138,14 @@ await login('Supervisor','marcio.alex');await page.waitForURL(/supervisor\.html/
 await page.locator('#list tr',{hasText:cod}).locator('button').click();await page.waitForSelector('#details:not([hidden])');
 const sup=await page.$eval('#item-content .stem img',i=>{const r=i.getBoundingClientRect();return {style:i.style.width,ar:r.height/r.width,nat:i.naturalHeight/i.naturalWidth}});
 ok('Supervisor vê o mesmo tamanho, sem distorcer', sup.style===finalStyle && Math.abs(sup.ar-sup.nat)<0.02, JSON.stringify(sup));
+// Botão direito na imagem: menu próprio com "Copiar imagem" (copia PNG pela área de transferência).
+await page.evaluate(()=>{window.__copias=[];Object.defineProperty(navigator,"clipboard",{value:{write:async itens=>{window.__copias.push(itens.length)}},configurable:true})});
+await page.click("#item-content .stem img",{button:"right"});
+ok("Botão direito na imagem abre o menu com Copiar imagem", await page.isVisible(".atlas-img-menu") && (await page.textContent(".atlas-img-menu")).includes("Copiar imagem"));
+await page.click(".atlas-img-menu button:has-text(\"Copiar imagem\")");await page.waitForSelector(".atlas-img-aviso");
+ok("Copiar imagem põe um PNG na área de transferência e avisa", (await page.evaluate(()=>window.__copias.length))===1 && (await page.textContent(".atlas-img-aviso")).includes("Imagem copiada"));
+ok("Menu fecha depois de copiar", !(await page.isVisible(".atlas-img-menu")));
+await page.keyboard.press("Escape");
 await page.screenshot({path:S+'shot-imagem-supervisor.png'});
 ok('Nenhuma janela do navegador (confirm/alert) é usada', dialogs.length===0, dialogs.join(' | '));
 ok('Sem erros de JavaScript', errors.length===0, errors.join(' | '));
