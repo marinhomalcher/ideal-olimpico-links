@@ -96,10 +96,11 @@ dialog .modal-actions{display:flex;justify-content:flex-end;gap:9px;margin-top:1
 </div>
 <div id="nav-vazio" class="empty" hidden>Nenhuma questão com estes filtros.</div>
 <section class="panel details" id="details" hidden><h2 id="det-title">Questão</h2>
-<div class="actions topo"><button type="button" class="primary" id="fix-item" hidden>Editar questão</button><button type="button" class="primary" id="undo-discard" hidden>Desfazer descarte</button><button type="button" class="secondary" id="refuse-fix" hidden>Não atender o pedido</button><span class="hint" id="edit-note" hidden></span></div>
+<div class="actions topo"><button type="button" class="primary" id="fix-item" hidden>Editar questão</button><button type="button" class="primary" id="undo-discard" hidden>Desfazer descarte</button><button type="button" class="danger" id="del-item" hidden>Excluir</button><button type="button" class="secondary" id="refuse-fix" hidden>Não atender o pedido</button><span class="hint" id="edit-note" hidden></span></div>
 <div id="fix-pending" class="fix-box" hidden></div>
 <div id="definir-box" class="fix-box" hidden><p><strong>Esta questão está sem disciplina.</strong> <span id="definir-origem"></span></p><label for="definir-disc">Disciplina certa</label><div class="search-row"><select id="definir-disc"><option value="">Selecione a disciplina</option></select><button type="button" class="primary" id="definir-enviar">Enviar ao supervisor desta disciplina</button></div></div>
 <p class="hint" id="undo-note" hidden></p>
+<div id="del-confirm" class="adjust-form" hidden role="alertdialog"><p><strong id="del-text">Excluir a questão?</strong> Ela será <strong>apagada de tudo</strong> (banco, histórico de revisões e pedidos de conserto) e não há como desfazer. Para confirmar, digite o código da questão.</p><input id="del-codigo" autocomplete="off" aria-label="Código da questão" style="max-width:220px;text-transform:uppercase"><div class="actions"><button type="button" class="secondary" id="cancel-del">Cancelar</button><button type="button" class="danger" id="confirm-del">Excluir de vez</button></div></div>
 <div id="undo-confirm" class="adjust-form" hidden role="alertdialog"><p><strong id="undo-text">Desfazer o descarte?</strong> A questão volta para a fila de análise do Supervisor da disciplina.</p><div class="actions"><button type="button" class="secondary" id="cancel-undo">Cancelar</button><button type="button" class="primary" id="confirm-undo">Confirmar</button></div></div>
 <form id="refuse-form" class="adjust-form" hidden><label for="refuse-reason">Explique ao Supervisor por que o conserto não será feito.</label><textarea id="refuse-reason" required maxlength="2000"></textarea><div class="actions"><button type="button" class="secondary" id="cancel-refuse">Cancelar</button><button type="submit" class="primary" id="send-refuse">Enviar resposta</button></div></form>
 <div id="item-content"></div>
@@ -160,7 +161,7 @@ const originLabel={autoral:'Autoral',enem:'ENEM',outros:'Outros',adaptada:'Adapt
 const sitLabel={analise:'Em análise',ajustes:'Aguardando ajuste',aprovado:'Aprovada',descartado:'Descartada'};
 function quando(v){const d=new Date(v);return Number.isNaN(d.getTime())?'—':d.toLocaleString('pt-BR')}
 function msg(t,e=false){status($('#app-status'),t,e)}
-function esconderForms(){for(const f of ['#undo-confirm','#refuse-form','#edit-form'])$(f).hidden=true}
+function esconderForms(){for(const f of ['#undo-confirm','#del-confirm','#refuse-form','#edit-form'])$(f).hidden=true}
 async function showApp(email){
   $('#login-view').hidden=true;$('#app-view').hidden=false;$('#user-box').hidden=false;$('#role-label').hidden=true;$('#user-email').textContent=email||'';
   mostrarAba('nav');
@@ -261,7 +262,7 @@ async function abrir(codigo){
   $('#q-dados').innerHTML=lado;$('#item-content').innerHTML=html0+html;document.querySelectorAll('#item-content .cod-rep').forEach(b=>b.addEventListener('click',()=>abrirCodigo(b.dataset.cod)));
   const pend=(item.consertos||[]).find(c=>c.situacao==='pendente');current.pendente=pend||null;
   const fp=$('#fix-pending');if(pend){fp.innerHTML='<p><strong>Pedido de conserto pendente</strong> — '+escapeHTML(pend.solicitante)+', '+escapeHTML(quando(pend.criado_em))+'</p><p>'+escapeHTML(pend.motivo)+'</p><p class="hint">Ao salvar a correção, o pedido é marcado como feito e o Supervisor é avisado.</p>';fp.hidden=false}else fp.hidden=true;
-  $('#fix-item').hidden=item.situacao!=='aprovado';$('#fix-item').textContent=pend?'Fazer o conserto':'Editar questão';
+  $('#fix-item').hidden=item.situacao!=='aprovado';$('#del-item').hidden=false;$('#del-confirm').hidden=true;$('#fix-item').textContent=pend?'Fazer o conserto':'Editar questão';
   const en=$('#edit-note');en.hidden=item.situacao==='aprovado';en.textContent=item.situacao==='aprovado'?'':'O ADM edita questões aprovadas. Esta está '+(sitLabel[item.situacao]||item.situacao).toLowerCase()+': quem mexe nela agora é o professor ou o supervisor.';$('#refuse-fix').hidden=!pend;
   $('#undo-discard').hidden=!item.pode_desfazer;
   const semDisc=item.disciplina==='Sem disciplina'&&item.situacao==='analise';$('#definir-box').hidden=!semDisc;if(semDisc){$('#definir-disc').value='';$('#definir-origem').textContent=item.autor_tipo==='digitador'?'Enviada pelo digitador '+item.autor+'.':'Enviada pela Administração.'}
@@ -275,6 +276,11 @@ $('#img-migrar').addEventListener('click',async()=>{const b=$('#img-migrar'),out
   catch(e){if(e.message!=='__sessao__')status(out,e.message,true)}finally{b.disabled=false}});
 $('#undo-discard').addEventListener('click',()=>{esconderForms();$('#undo-text').textContent='Desfazer o descarte da questão '+current.codigo+'?';$('#undo-confirm').hidden=false;$('#confirm-undo').focus()});
 $('#cancel-undo').addEventListener('click',()=>{$('#undo-confirm').hidden=true});
+$('#del-item').addEventListener('click',()=>{esconderForms();$('#del-text').textContent='Excluir a questão '+current.codigo+'?';$('#del-codigo').value='';$('#del-confirm').hidden=false;$('#del-codigo').focus()});
+$('#cancel-del').addEventListener('click',()=>{$('#del-confirm').hidden=true});
+$('#confirm-del').addEventListener('click',async()=>{const b=$('#confirm-del'),cod=current.codigo;if($('#del-codigo').value.trim().toUpperCase()!==cod){msg('Digite o código '+cod+' para confirmar.',true);$('#del-codigo').focus();return}b.disabled=true;
+  try{const r=await api('/api/adm/itens/'+encodeURIComponent(cod),{method:'DELETE',body:{confirmo_exclusao:true,codigo_confirmacao:cod}});$('#del-confirm').hidden=true;await buscar();msg('Questão '+cod+' excluída.'+(r.rascunhos.length?' Ela saiu de '+r.rascunhos.length+' rascunho(s) de supervisor.':''))}
+  catch(e){if(e.message!=='__sessao__')msg(e.message,true)}finally{b.disabled=false}});
 $('#confirm-undo').addEventListener('click',async()=>{const b=$('#confirm-undo');b.disabled=true;
   try{await api('/api/adm/itens/'+encodeURIComponent(current.codigo)+'/desfazer-descarte',{method:'POST',body:{}});const c=current.codigo;await abrir(c);msg('Descarte desfeito: a questão '+c+' voltou para a análise do Supervisor.')}
   catch(e){if(e.message!=='__sessao__')msg(e.message,true)}finally{b.disabled=false}});

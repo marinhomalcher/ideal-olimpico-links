@@ -174,8 +174,7 @@ r=await call('/api/adm/provas/'+P1,{method:'PUT',token:tAdm,body:fmt({disciplina
 ok('ADM não muda a quantidade de disciplina já finalizada', r.status===409, r.data.error);
 r=await call('/api/adm/provas/'+P1,{method:'PUT',token:tAdm,body:fmt({disciplinas:[{disciplina:'Física',quantidade:2}]})});
 ok('ADM não tira disciplina com seleção', r.status===409, r.data.error);
-r=await call('/api/adm/provas/'+P1,{method:'DELETE',token:tAdm});
-ok('ADM não exclui prova com seleção', r.status===409, r.data.error);
+// Desde 28/11/2026 o ADM PODE excluir prova com seleção começada (apaga a seleção junto): ver teste-exclusoes.mjs.
 r=await call('/api/adm/provas/'+P1+'/word',{token:tAdm});
 ok('Word só depois de fechar', r.status===409, r.data?.error);
 

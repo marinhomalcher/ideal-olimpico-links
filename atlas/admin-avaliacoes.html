@@ -136,7 +136,8 @@ function cartao(p){const d=document.createElement('div');d.className='prova';d.d
   if(p.situacao!=='aberta')bt('Baixar Word','secondary',()=>baixarWord(p));
   if(p.situacao==='fechada')bt('Enviar ao Diagramador','primary',()=>enviar(p,false));
   if(p.situacao==='enviada'){bt('Reenviar e-mail','secondary',()=>enviar(p,true));bt('Marcar como aplicada','primary',()=>confirmar(cf,'Marcar a prova como aplicada? Faça isso depois de aplicar a prova aos alunos: as questões deixam de ser oferecidas para esta turma.','Confirmar: prova aplicada',()=>acao(p,'aplicar','Prova marcada como aplicada.')))}
-  if(p.situacao==='aberta'){bt('Editar formato','secondary',()=>abrirForm(p));if(!p.disciplinas.some(x=>x.selecao))bt('Excluir','danger',()=>confirmar(cf,'Excluir esta prova? Nenhum supervisor começou a seleção.','Excluir',()=>acao(p,'excluir','Prova excluída.')))}
+  if(p.situacao==='aberta')bt('Editar formato','secondary',()=>abrirForm(p));
+  if(p.situacao==='aberta'||p.situacao==='fechada'){const nSel=p.disciplinas.filter(x=>x.selecao).length;bt('Excluir prova','danger',()=>confirmar(cf,'Excluir esta prova? Ela será apagada de tudo e não há como desfazer.'+(nSel?' As '+nSel+' seleção(ões) já começadas pelos supervisores também serão apagadas, e as questões voltam a ficar disponíveis no banco.':''),'Excluir de vez',()=>acao(p,'excluir','Prova excluída.')))}
   return d}
 function confirmar(cf,texto,rotulo,fn){cf.innerHTML='<p><strong></strong></p><div class="btns"><button type="button" class="secondary">Cancelar</button><button type="button" class="primary"></button></div>';cf.querySelector('strong').textContent=texto;const ok=cf.querySelector('.primary');ok.textContent=rotulo;cf.hidden=false;
   cf.querySelector('.secondary').addEventListener('click',()=>{cf.hidden=true});ok.addEventListener('click',async()=>{ok.disabled=true;await fn();cf.hidden=true})}
