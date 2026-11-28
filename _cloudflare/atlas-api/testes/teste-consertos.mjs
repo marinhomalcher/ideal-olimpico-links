@@ -230,14 +230,14 @@ await page.fill('#f-q',cNova);await page.waitForFunction(c=>document.querySelect
 ok('Tela ADM: descarte recente mostra botão e prazo', await page.isVisible('#undo-discard') && (await page.textContent('#undo-note')).includes('restam 30'));
 await page.click('#undo-discard');await page.click('#confirm-undo');await page.waitForFunction(()=>document.querySelector('#app-status').textContent.includes('Descarte desfeito'));
 ok('Tela ADM: descarte desfeito', db.prepare('SELECT situacao s FROM itens WHERE codigo=?').get(cNova).s==='analise' && (await page.textContent('#det-title')).includes('Em análise'));
-await page.fill('#f-q','ZZZ-nada');await page.waitForFunction(()=>document.querySelector('#banco-info').textContent.includes('Nenhuma questão'));
+await page.selectOption('#f-disciplina','Literatura');await page.fill('#f-q','ZZZ-nada');await page.waitForFunction(()=>document.querySelector('#banco-info').textContent.includes('Nenhuma questão'));
 ok('Tela ADM: busca sem resultado avisa', await page.isVisible('#nav-vazio') && await page.isHidden('#details'));
 // navegar pelas aprovadas com filtros e setas
-await page.click('#f-limpar');await page.waitForFunction(()=>Number(document.querySelector('#nav-total').textContent)>=1&&!!document.querySelector('#q-dados .meta'));
+await page.click('#f-limpar');await page.selectOption('#f-disciplina','Literatura');await page.waitForFunction(()=>Number(document.querySelector('#nav-total').textContent)>=1&&!!document.querySelector('#q-dados .meta'));
 const total1=Number(await page.textContent('#nav-total'));
-ok('Tela ADM: começa nas aprovadas, com Editar', total1===db.prepare("SELECT COUNT(*) n FROM itens WHERE situacao='aprovado'").get().n && (await page.textContent('#fix-item'))==='Editar questão', String(total1));
+ok('Tela ADM: começa nas aprovadas, com Editar', total1===db.prepare("SELECT COUNT(*) n FROM itens WHERE situacao='aprovado' AND disciplina='Literatura'").get().n && (await page.textContent('#fix-item'))==='Editar questão', String(total1));
 await page.selectOption('#f-situacao','todas');await page.waitForFunction(n=>Number(document.querySelector('#nav-total').textContent)>n,total1);
-ok('Tela ADM: filtro de situação mostra todas', Number(await page.textContent('#nav-total'))===db.prepare('SELECT COUNT(*) n FROM itens').get().n);
+ok('Tela ADM: filtro de situação mostra todas', Number(await page.textContent('#nav-total'))===db.prepare("SELECT COUNT(*) n FROM itens WHERE disciplina='Literatura'").get().n);
 await page.evaluate(()=>ir(0));await page.waitForFunction(()=>document.querySelector('#nav-num').value==='0'&&current&&current.codigo===nav[0]&&document.querySelector('#det-title').textContent.includes('Questão'));await page.waitForTimeout(300);
 const t0=await page.textContent('#det-title');await page.click('#item-content');await page.keyboard.press('ArrowRight');
 await page.waitForFunction(t=>document.querySelector('#det-title').textContent!==t,t0);

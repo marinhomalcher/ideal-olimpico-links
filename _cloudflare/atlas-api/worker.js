@@ -1646,12 +1646,16 @@ async function rotasAdmItens(request, env, path, sessao) {
       filtros.push('i.situacao = ?'); args.push(sit);
     }
     const disc = (sp.get('disciplina') || '').trim().slice(0, 60);
+    // A disciplina é obrigatória (28/11/2026): sem ela só se aceita o código completo de uma questão.
+    if (!disc && !/^[A-Za-z]\d{7}$/.test((sp.get('q') || '').trim())) {
+      return { ok: true, exige_disciplina: true, mais: false, itens: [], disciplinas: [...DISCIPLINAS, SEM_DISCIPLINA], professores: [], assuntos: [], subtemas: [] };
+    }
     if (disc) { filtros.push('i.disciplina = ?'); args.push(disc); }
     const prof = Number(sp.get('professor') || 0);
     if (Number.isInteger(prof) && prof > 0) { filtros.push('i.autor_id = ?'); args.push(prof); }
     const etapa = sp.get('etapa');
     if (etapa === 'em' || etapa === 'ef2') { filtros.push("json_extract(v.dados, '$.etapa') = ?"); args.push(etapa); }
-    for (const campo of ['assunto', 'dificuldade', 'origem', 'bloom']) {
+    for (const campo of ['assunto', 'subtema', 'dificuldade', 'origem', 'bloom']) {
       const v = (sp.get(campo) || '').trim();
       if (v) { filtros.push("json_extract(v.dados, '$." + campo + "') = ?"); args.push(v.slice(0, 200)); }
     }
@@ -1677,14 +1681,19 @@ async function rotasAdmItens(request, env, path, sessao) {
     const usos = new Map();
     for (const u of usosR) { if (!usos.has(u.item_id)) usos.set(u.item_id, []); usos.get(u.item_id).push({ selecao: u.id, serie: u.serie, tipo: u.tipo, ano: u.ano, situacao: u.situacao }); }
     const { results: professores } = await env.DB.prepare(
-      "SELECT DISTINCT u.id, u.nome FROM itens i JOIN usuarios u ON u.id = i.autor_id ORDER BY u.nome COLLATE NOCASE"
-    ).all();
+      "SELECT DISTINCT u.id, u.nome FROM itens i JOIN usuarios u ON u.id = i.autor_id " + (disc ? 'WHERE i.disciplina = ? ' : '') + "ORDER BY u.nome COLLATE NOCASE"
+    ).bind(...(disc ? [disc] : [])).all();
     const { results: assuntos } = await env.DB.prepare(
       "SELECT DISTINCT json_extract(v.dados, '$.assunto') AS a FROM itens i JOIN item_versoes v ON v.item_id = i.id AND v.versao = i.versao_atual " +
       (disc ? 'WHERE i.disciplina = ? ' : '') + "ORDER BY a COLLATE NOCASE"
     ).bind(...(disc ? [disc] : [])).all();
+    const assuntoSel = (sp.get('assunto') || '').trim().slice(0, 200);
+    const { results: subtemas } = disc && assuntoSel ? await env.DB.prepare(
+      "SELECT DISTINCT json_extract(v.dados, '$.subtema') AS s FROM itens i JOIN item_versoes v ON v.item_id = i.id AND v.versao = i.versao_atual " +
+      "WHERE i.disciplina = ? AND json_extract(v.dados, '$.assunto') = ? ORDER BY s COLLATE NOCASE"
+    ).bind(disc, assuntoSel).all() : { results: [] };
     return {
-      ok: true, mais: results.length > LIMITE,
+      ok: true, mais: results.length > LIMITE, subtemas: subtemas.map(x => x.s).filter(Boolean),
       itens: results.slice(0, LIMITE).map(({ id, ...r }) => ({ ...r, usos: usos.get(id) || [] })),
       disciplinas: [...DISCIPLINAS, SEM_DISCIPLINA], professores, assuntos: assuntos.map(x => x.a).filter(Boolean)
     };

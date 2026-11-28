@@ -108,11 +108,12 @@ dialog .modal-actions{display:flex;justify-content:flex-end;gap:9px;margin-top:1
 </section>
 <aside class="col col-filtros" aria-label="Filtros"><div class="caixa"><h3>Filtros</h3>
 <div class="filtros-col"><input id="f-q" type="search" placeholder="Buscar código, texto ou tag" aria-label="Buscar">
-<select id="f-disciplina" aria-label="Disciplina"><option value="">Todas as disciplinas</option></select>
+<select id="f-disciplina" aria-label="Disciplina"><option value="">Escolha a disciplina</option></select>
 <select id="f-professor" aria-label="Professor"><option value="">Todos os professores</option></select>
 <select id="f-situacao" aria-label="Situação"><option value="aprovado">Aprovadas</option><option value="analise">Em análise</option><option value="ajustes">Aguardando ajuste</option><option value="descartado">Descartadas</option><option value="todas">Todas as situações</option></select>
 <select id="f-etapa" aria-label="Etapa"><option value="">Todas as etapas</option><option value="em">Ensino Médio</option><option value="ef2">Ensino Fundamental II</option></select>
-<select id="f-assunto" aria-label="Assunto"><option value="">Todos os assuntos</option></select>
+<select id="f-assunto" aria-label="Assunto" disabled><option value="">Todos os assuntos</option></select>
+<select id="f-subtema" aria-label="Subtema" disabled><option value="">Todos os subtemas</option></select>
 <select id="f-dificuldade" aria-label="Dificuldade"><option value="">Todas as dificuldades</option><option>Fácil</option><option>Média</option><option>Difícil</option></select>
 <select id="f-origem" aria-label="Origem"><option value="">Todas as origens</option><option value="autoral">Autoral</option><option value="outros">Outros</option><option value="acervo">Acervo Ideal</option></select>
 <select id="f-bloom" aria-label="Bloom"><option value="">Todos os níveis de Bloom</option><option>Lembrar</option><option>Compreender</option><option>Aplicar</option><option>Analisar</option><option>Avaliar</option><option>Criar</option></select>
@@ -176,14 +177,19 @@ const pendencias={semDisc:0,consertos:0};
 function atualizarPendencias(){const n=pendencias.semDisc+pendencias.consertos;const el=$('#pend-n');el.textContent=String(n);el.hidden=!n}
 /* ---------- Navegar: filtros e lista ---------- */
 let nav=[],pos=0,linhas=new Map(),filtrosProntos=false;
-const FILTROS=[['q','#f-q'],['disciplina','#f-disciplina'],['professor','#f-professor'],['situacao','#f-situacao'],['etapa','#f-etapa'],['assunto','#f-assunto'],['dificuldade','#f-dificuldade'],['origem','#f-origem'],['bloom','#f-bloom']];
+const FILTROS=[['q','#f-q'],['disciplina','#f-disciplina'],['professor','#f-professor'],['situacao','#f-situacao'],['etapa','#f-etapa'],['assunto','#f-assunto'],['subtema','#f-subtema'],['dificuldade','#f-dificuldade'],['origem','#f-origem'],['bloom','#f-bloom']];
 function preencher(sel,itens,primeira){const cur=sel.value;sel.replaceChildren(new Option(primeira,''),...itens.map(([v,t])=>new Option(t,v)));sel.value=itens.some(([v])=>String(v)===cur)?cur:''}
 async function buscar(){let p=new URLSearchParams();for(const [k,id] of FILTROS){const v=$(id).value.trim();if(v)p.set(k,v)}
   /* Código completo na busca: acha a questão em qualquer situação, ignorando os outros filtros. */
   const cod=$('#f-q').value.trim();if(/^[A-Za-z]\d{7}$/.test(cod))p=new URLSearchParams({q:cod,situacao:'todas'});
   $('#banco-info').textContent='Carregando…';let data;try{data=await api('/api/adm/banco?'+p)}catch(e){if(e.message!=='__sessao__')$('#banco-info').textContent=e.message;return}
-  if(!filtrosProntos){preencher($('#f-disciplina'),data.disciplinas.map(d=>[d,d]),'Todas as disciplinas');preencher($('#f-professor'),data.professores.map(x=>[String(x.id),x.nome]),'Todos os professores');filtrosProntos=true}
-  preencher($('#f-assunto'),data.assuntos.map(a=>[a,a]),'Todos os assuntos');
+  if(!filtrosProntos){preencher($('#f-disciplina'),data.disciplinas.map(d=>[d,d]),'Escolha a disciplina');filtrosProntos=true}
+  /* Professor, assunto e subtema só existem depois da disciplina (e o subtema, depois do assunto). */
+  const temDisc=!!$('#f-disciplina').value;
+  preencher($('#f-professor'),data.professores.map(x=>[String(x.id),x.nome]),temDisc?'Todos os professores':'Escolha a disciplina primeiro');$('#f-professor').disabled=!temDisc;
+  preencher($('#f-assunto'),data.assuntos.map(a=>[a,a]),temDisc?'Todos os assuntos':'Escolha a disciplina primeiro');$('#f-assunto').disabled=!temDisc;
+  preencher($('#f-subtema'),(data.subtemas||[]).map(a=>[a,a]),$('#f-assunto').value?'Todos os subtemas':'Escolha o assunto primeiro');$('#f-subtema').disabled=!$('#f-assunto').value;
+  if(data.exige_disciplina){nav=[];pos=0;linhas=new Map();$('#nav-num').replaceChildren();$('#nav-total').textContent='0';$('#banco-info').textContent='Escolha uma disciplina para ver as questões.';$('#nav-vazio').hidden=true;$('#nav-primeira').disabled=$('#nav-ant').disabled=$('#nav-prox').disabled=$('#nav-ultima').disabled=$('#nav-num').disabled=true;$('#details').hidden=true;current=null;$('#q-dados').innerHTML='<p class="hint">Escolha uma disciplina nos filtros.</p>';return}
   const cur=nav[pos];linhas=new Map(data.itens.map(i=>[i.codigo,i]));nav=data.itens.map(i=>i.codigo);const k=nav.indexOf(cur);pos=k>=0?k:0;
   $('#nav-num').replaceChildren(...nav.map((c,j)=>new Option(String(j+1),String(j))));$('#nav-total').textContent=nav.length;
   $('#banco-info').textContent=nav.length?nav.length+(nav.length===1?' questão':' questões')+(data.mais?' (mostrando as primeiras '+nav.length+'; use os filtros)':'')+'.':'Nenhuma questão com estes filtros.';
@@ -198,9 +204,9 @@ async function abrirCodigo(c){c=String(c||'').trim().toUpperCase();mostrarAba('n
 $('#nav-primeira').addEventListener('click',()=>ir(0));$('#nav-ant').addEventListener('click',()=>ir(pos-1));
 $('#nav-prox').addEventListener('click',()=>ir(pos+1));$('#nav-ultima').addEventListener('click',()=>ir(nav.length-1));
 $('#nav-num').addEventListener('change',e=>ir(Number(e.target.value)));
-for(const [k,id] of FILTROS)if(k!=='q')$(id).addEventListener('change',buscar);
+const DEPENDENTES={disciplina:['#f-professor','#f-assunto','#f-subtema'],assunto:['#f-subtema']};
+for(const [k,id] of FILTROS)if(k!=='q')$(id).addEventListener('change',()=>{for(const d of DEPENDENTES[k]||[])$(d).value='';buscar()});
 let tq;$('#f-q').addEventListener('input',()=>{clearTimeout(tq);tq=setTimeout(buscar,400)});
-$('#f-disciplina').addEventListener('change',()=>{$('#f-assunto').value=''});
 $('#f-limpar').addEventListener('click',()=>{for(const [,id] of FILTROS)$(id).value='';$('#f-situacao').value='aprovado';buscar()});
 document.addEventListener('keydown',e=>{if($('#nav-view').hidden||!$('#edit-form').hidden||document.querySelector('dialog[open]'))return;
   if(e.ctrlKey||e.metaKey||e.altKey)return;const t=e.target;if(t&&t.closest&&t.closest('input,select,textarea,[contenteditable="true"]'))return;
