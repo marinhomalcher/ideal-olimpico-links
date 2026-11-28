@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="pt-BR">
 <head>
-<meta name="atlas-versao" content="20261128b"><script src="atlas-versao.js?v=20261128b" defer></script>
+<meta name="atlas-versao" content="20261128c"><script src="atlas-versao.js?v=20261128c" defer></script>
 <meta charset="utf-8"><meta name="robots" content="noindex, nofollow"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>ATLAS | Avaliações</title>
 <style>
@@ -14,9 +14,13 @@
 .prova table{min-width:560px}.prova td .ok{color:#1f6b35;font-weight:bold}.prova td .falta{color:#7a5600}.prova td .nada{color:var(--muted)}
 .prova .acoes{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;padding-top:12px;border-top:1px solid var(--line)}.prova .confirma{margin-top:10px;padding:10px 12px;border:1px solid #eed7ae;background:#fff8eb;border-radius:9px;font-size:13px}.prova .confirma p{margin:0 0 8px}.prova .confirma .btns{display:flex;gap:8px}
 .aviso{background:#fbecef;border:1px solid #e2a1a7;color:#8c2028;border-radius:9px;padding:9px 12px;font-size:13px;margin-top:10px}
-.prova .lnk{color:var(--red);font-weight:bold;text-decoration:none;font-size:13px}.prova .lnk:hover{text-decoration:underline}
+.prova .lnk{color:var(--red);font-weight:bold;text-decoration:none;font-size:13px}.prova .lnk:hover{text-decoration:underline}.prova .lnk-btn{border:0;background:none;color:var(--red);font-weight:bold;font-size:13px;cursor:pointer;padding:0;text-decoration:underline}
+.impasses{border-left:6px solid var(--red)}.impasse{border:2px solid var(--red);border-radius:14px;padding:14px 16px;margin:10px 0;background:#fff}.impasse .cab{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:center}.impasse .cab b{font-size:16px;color:#6e2026}.impasse .grade{display:grid;grid-template-columns:minmax(0,1fr) minmax(300px,420px);gap:16px;margin-top:10px}@media(max-width:900px){.impasse .grade{grid-template-columns:1fr}}
+.fio{border-left:4px solid #e4d9dc;padding:7px 12px;margin:6px 0;background:#faf8f9;border-radius:0 12px 12px 0;font-size:14px}.fio b{display:block;font-size:12px;color:#7b7075;margin-bottom:2px}.fio.professor{border-left-color:#d9480f}.fio.supervisor{border-left-color:#4f5bd5}.fio.adm{border-left-color:#98151d}
+.decisao{background:var(--soft);border-radius:12px;padding:12px 14px}.decisao .tabs2{display:flex;gap:8px;margin:8px 0}.decisao .tabs2 button{border:1.5px solid #e4d9dc;background:#fff;border-radius:999px;padding:7px 14px;font-weight:bold;font-size:13px;cursor:pointer}.decisao .tabs2 button.on{background:var(--red);color:#fff;border-color:var(--red)}.decisao textarea{width:100%;min-height:80px;border:1px solid #d8cdd0;border-radius:10px;padding:9px 11px;font:inherit;resize:vertical}
+.painel-aval{margin-top:10px;border:1px dashed #cbaeb2;border-radius:10px;padding:10px 12px;background:#fffafa}.painel-aval table{min-width:0;width:100%}.painel-aval .disp{border:1px solid #cbaeb2;background:#fff;color:var(--red);border-radius:8px;padding:4px 9px;font-size:12px;font-weight:bold;cursor:pointer}
 </style>
-<link rel="icon" type="image/png" href="atlas-favicon.png"><link rel="stylesheet" href="atlas-marca.css?v=20261128b"><link rel="stylesheet" href="atlas-visual.css?v=20261128b"></head>
+<link rel="icon" type="image/png" href="atlas-favicon.png"><link rel="stylesheet" href="atlas-marca.css?v=20261128c"><link rel="stylesheet" href="atlas-visual.css?v=20261128c"></head>
 <body class="vn vn-adm">
 <header><div class="brand"><img class="brand-atlas" src="atlas-horizontal-claro.png" alt="ATLAS"></div><div class="role"><a class="back-link" href="../adm/#atlas">← Voltar ao painel</a><span id="user-box" class="user" hidden><span id="user-email"></span><button type="button" class="secondary" id="logout">Sair</button></span><span id="role-label">Área do Administrador</span></div><img class="ideal-dir" src="ideal-logo-hd.png" alt="Ideal 50 anos"></header>
 <section class="login" id="login-view" hidden>
@@ -25,6 +29,7 @@
 <div class="shell" id="app-view" hidden><main>
 <div class="crumb">Administrador / Avaliações</div><h1>Avaliações</h1><p class="lead">O formato de cada prova do bimestre: série, turma, modalidade, data de aplicação e quantas questões de cada disciplina. Os supervisores só conseguem enviar a quantidade exata, e o Diagramador recebe o caderno por e-mail quando todas as disciplinas enviarem.</p>
 <p class="status" id="app-status" role="status"></p>
+<section class="panel impasses" id="impasses" hidden><h2>Impasses para decidir</h2><p class="hint">Professor e supervisor não chegaram a acordo depois da tréplica. Você decide, e a decisão fica registrada para os dois.</p><div id="impasses-lista"></div></section>
 <section class="panel">
   <div class="topo"><label for="f-ano">Ano</label><select id="f-ano"></select><div class="tabs" role="tablist" id="bims"><button type="button" data-bim="1" role="tab">1º bimestre</button><button type="button" data-bim="2" role="tab">2º bimestre</button><button type="button" data-bim="3" role="tab">3º bimestre</button><button type="button" data-bim="4" role="tab" class="active">4º bimestre</button></div><button type="button" class="primary" id="nova">+ Nova prova</button></div>
   <form class="form" id="nova-form" hidden>
@@ -116,9 +121,32 @@ async function showApp(email){
 $('#f-ano').addEventListener('change',()=>{ano=Number($('#f-ano').value);carregar()});
 document.querySelectorAll('#bims button').forEach(b=>b.addEventListener('click',()=>{bim=Number(b.dataset.bim);document.querySelectorAll('#bims button').forEach(o=>o.classList.toggle('active',o===b));carregar()}));
 async function carregar(){const box=$('#lista');let d;try{d=await api('/api/adm/provas?ano='+ano+'&bimestre='+bim)}catch(e){if(e.message!=='__sessao__')msg(e.message,true);return}
-  provas=d.provas;box.replaceChildren();
+  provas=d.provas;box.replaceChildren();carregarImpasses();
   if(!provas.length){const e=document.createElement('div');e.className='empty';e.textContent='Nenhuma prova criada para o '+bim+'º bimestre de '+ano+'. Clique em “+ Nova prova”.';box.append(e);return}
   for(const p of provas)box.append(cartao(p))}
+/* Etapa C: impasses (depois da tréplica) para o ADM decidir, e o painel da avaliação de cada seleção (com nomes) com a dispensa de professor. */
+const MSG_TIPO={pedido:'pediu',ajustei:'ajustou a seleção',mantido:'manteve com justificativa',aceite:'aceitou',aceite_auto:'aceite automático',treplica:'não aceitou (tréplica)',decisao_adm:'decisão do administrador'};
+function fiosHTML(mensagens,nomes){return (mensagens||[]).map(m=>'<div class="fio '+m.autor+'"><b>'+escapeHTML((m.autor==='professor'?nomes.professor:m.autor==='supervisor'?nomes.supervisor:m.autor==='adm'?'Você (ADM)':'ATLAS')+' · '+quando(m.criado_em)+' · '+(MSG_TIPO[m.tipo]||m.tipo))+'</b>'+escapeHTML(m.texto)+'</div>').join('')}
+async function carregarImpasses(){const sec=$('#impasses'),box=$('#impasses-lista');let d;try{d=await api('/api/adm/avaliacoes/impasses')}catch(e){sec.hidden=true;return}
+  sec.hidden=!d.impasses.length;box.replaceChildren();
+  for(const x of d.impasses){const c=document.createElement('div');c.className='impasse';c.dataset.pedido=x.id;
+    c.innerHTML='<div class="cab"><div><b></b><br><span class="hint"></span></div><span class="sit alerta">Impasse · decidir</span></div><div class="grade"><div class="fios"></div><div class="decisao"><b>Sua decisão</b><div class="tabs2"><button type="button" data-d="manter">Manter a questão</button><button type="button" data-d="trocar">Trocar: o supervisor escolhe outra</button></div><textarea maxlength="2000" placeholder="Justificativa (fica registrada para os dois)."></textarea><div class="acoes" style="border:0;padding:0;margin-top:8px"><button type="button" class="primary dec-enviar">Decidir e avisar os dois</button></div></div></div>';
+    c.querySelector('.cab b').textContent=x.prova+' · '+x.disciplina;c.querySelector('.cab .hint').textContent='Seleção #'+x.selecao_id+' · supervisor '+x.supervisor+' · professor(a) '+x.professor+' · questão '+(x.n||'—')+' ('+x.questao+')'+(x.resumo?' · '+x.resumo.aprovaram+' de '+x.resumo.total+' já aprovaram':'');
+    c.querySelector('.fios').innerHTML=fiosHTML(x.mensagens,{professor:x.professor,supervisor:x.supervisor});
+    let decisao='';const tabs=c.querySelectorAll('.tabs2 button');for(const b of tabs)b.addEventListener('click',()=>{decisao=b.dataset.d;for(const t of tabs)t.classList.toggle('on',t===b)});
+    c.querySelector('.dec-enviar').addEventListener('click',async()=>{const texto=c.querySelector('textarea').value.trim();if(!decisao){msg('Escolha: manter a questão ou trocar.',true);return}if(texto.length<3){msg('Escreva a justificativa da decisão.',true);return}
+      const b=c.querySelector('.dec-enviar');b.disabled=true;try{await api('/api/adm/avaliacoes/pedidos/'+x.id+'/decidir',{method:'POST',body:{decisao,texto}});msg(decisao==='manter'?'Decisão registrada: a questão fica. Professor e supervisor foram avisados.':'Decisão registrada: o supervisor vai trocar a questão. Os dois foram avisados.');await carregar()}catch(e){if(e.message!=='__sessao__')msg(e.message,true);b.disabled=false}});
+    box.append(c)}}
+async function painelSelecao(selecaoId,alvo){if(alvo.querySelector('.painel-aval')){alvo.querySelector('.painel-aval').remove();return}
+  let d;try{d=await api('/api/adm/avaliacoes/'+selecaoId)}catch(e){if(e.message!=='__sessao__')msg(e.message,true);return}
+  const a=d.avaliacao;const box=document.createElement('div');box.className='painel-aval';
+  let h='<b>Avaliação pelos professores</b> <span class="hint">'+a.aprovaram+' aprovaram · '+a.pediram_mudanca+' pediram mudança · '+a.pendentes+' pendentes · '+a.dispensados+' dispensados'+(a.prazo_em?' · prazo '+quando(a.prazo_em):'')+'</span><table><thead><tr><th>Professor</th><th>Viu a prova</th><th>Situação</th><th>Pedidos</th><th></th></tr></thead><tbody>';
+  const DEC={pendente:'Aguardando',aprovou:'Aprovou',pediu_mudanca:'Pediu mudança',dispensado:'Dispensado'};
+  for(const p of a.professores)h+='<tr><td><b>'+escapeHTML(p.nome)+'</b> <span class="hint">'+escapeHTML(p.codigo||'')+'</span></td><td>'+(p.visto_completo_em?'Sim, até o fim · '+quando(p.visto_completo_em):p.visto_ate?'Até a questão '+p.visto_ate:'Ainda não abriu')+'</td><td>'+escapeHTML(DEC[p.decisao]||p.decisao)+(p.dispensado_em?' ('+escapeHTML(p.dispensado_por||'')+')':'')+'</td><td>'+escapeHTML(p.pedidos.map(x=>'Questão '+(x.n||x.questao)+' · '+x.tipo_nome+' · '+x.estado_nome).join('; ')||'—')+'</td><td>'+(['aprovou','dispensado'].includes(p.decisao)?'':'<button type="button" class="disp" data-prof="'+p.id+'">Dispensar</button>')+'</td></tr>';
+  box.innerHTML=h+'</tbody></table>';
+  for(const b of box.querySelectorAll('.disp'))b.addEventListener('click',async()=>{if(b.dataset.confirmar!=='1'){b.dataset.confirmar='1';b.textContent='Confirmar: dispensar';return}b.disabled=true;
+    try{await api('/api/adm/avaliacoes/'+selecaoId+'/dispensar/'+b.dataset.prof,{method:'POST',body:{motivo:''}});msg('Professor dispensado desta avaliação (registrado).');await carregar()}catch(e){if(e.message!=='__sessao__')msg(e.message,true);b.disabled=false}});
+  alvo.append(box)}
 function cartao(p){const d=document.createElement('div');d.className='prova';d.dataset.id=p.id;
   const enviadas=p.disciplinas.filter(x=>x.selecao&&x.selecao.situacao!=='rascunho').length,total=p.disciplinas.reduce((a,x)=>a+x.quantidade,0);
   const sit=p.situacao==='aberta'?'Aguardando seleções ('+enviadas+' de '+p.disciplinas.length+' disciplinas)':p.situacao==='enviada'?'Prova enviada ao Diagramador em '+dataBR(p.enviada_em):SIT[p.situacao]||p.situacao;
@@ -126,12 +154,13 @@ function cartao(p){const d=document.createElement('div');d.className='prova';d.d
   h+='<div class="table-wrap"><table><thead><tr><th>Disciplina</th><th>Questões</th><th>Seleção</th><th>Supervisor</th><th></th></tr></thead><tbody>';
   for(const x of p.disciplinas){const s=x.selecao;let st,cls;
     if(!s){st='Nenhuma seleção ainda';cls='nada'}else if(s.situacao==='rascunho'&&s.fase==='avaliacao'){st='Em avaliação pelos professores'+(s.prazo_em?' · prazo '+dataBR(s.prazo_em):'');cls='falta'}else if(s.situacao==='rascunho'&&s.fase==='liberada'){st='Aprovada pelos professores · aguardando o supervisor enviar';cls='falta'}else if(s.situacao==='rascunho'){st='Em escolha: '+s.total+' de '+x.quantidade;cls='falta'}else{st='✓ Enviada em '+dataBR(s.enviada_em);cls='ok'}
-    h+='<tr><td><b>'+escapeHTML(x.disciplina)+'</b></td><td>'+x.quantidade+'</td><td><span class="'+cls+'">'+escapeHTML(st)+'</span></td><td>'+escapeHTML(s?s.supervisor:(x.supervisor||'— sem supervisor —'))+'</td><td>'+(s&&s.situacao!=='rascunho'?'<a class="lnk" href="admin-selecoes.html?id='+s.id+'">Ver seleção</a>':'')+'</td></tr>'}
+    h+='<tr><td><b>'+escapeHTML(x.disciplina)+'</b></td><td>'+x.quantidade+'</td><td><span class="'+cls+'">'+escapeHTML(st)+'</span></td><td>'+escapeHTML(s?s.supervisor:(x.supervisor||'— sem supervisor —'))+'</td><td>'+(s&&s.situacao!=='rascunho'?'<a class="lnk" href="admin-selecoes.html?id='+s.id+'">Ver seleção</a>':'')+(s&&s.fase?' <button type="button" class="lnk-btn painel-btn" data-sel="'+s.id+'">Painel dos professores</button>':'')+'</td></tr>'}
   h+='</tbody></table></div>';
   if(p.situacao==='fechada'&&p.aviso)h+='<div class="aviso">'+escapeHTML(p.aviso)+'</div>';
   if(p.enviada_para)h+='<p class="hint" style="margin:8px 0 0">E-mail enviado para: '+escapeHTML(p.enviada_para.join(', '))+(p.reenviada_em?' · reenviado em '+quando(p.reenviada_em):'')+'</p>';
   h+='<div class="acoes"></div><div class="confirma" hidden></div>';
   d.innerHTML=h;const ac=d.querySelector('.acoes'),cf=d.querySelector('.confirma');
+  for(const b of d.querySelectorAll('.painel-btn'))b.addEventListener('click',()=>painelSelecao(Number(b.dataset.sel),d));
   const bt=(t,c,f)=>{const b=document.createElement('button');b.type='button';b.className=c;b.textContent=t;b.addEventListener('click',f);ac.append(b);return b};
   if(p.situacao!=='aberta')bt('Baixar Word','secondary',()=>baixarWord(p));
   if(p.situacao==='fechada')bt('Enviar ao Diagramador','primary',()=>enviar(p,false));
