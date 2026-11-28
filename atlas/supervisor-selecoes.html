@@ -3,7 +3,7 @@
 <head>
 <meta name="atlas-versao" content="20261128a"><script src="atlas-versao.js?v=20261128a" defer></script>
 <meta charset="utf-8"><meta name="robots" content="noindex, nofollow"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>ATLAS | Seleções para provas</title>
+<title>ATLAS | Minhas provas</title>
 <script src="auth.js?v=20261128a"></script>
 <style>
 .question img{display:block;max-width:100%;max-height:380px;height:auto;margin:10px 0}.question table{border-collapse:collapse;margin:12px 0;max-width:100%;width:auto}.question td,.question th{border:1px solid #a99498;padding:7px 10px;min-width:64px}.question .atlas-equation{display:inline-block;vertical-align:middle;max-width:100%;overflow-x:auto}
@@ -107,8 +107,8 @@ body.modo-editor header{position:sticky;top:0;z-index:7}
 <link rel="icon" type="image/png" href="atlas-favicon.png"><link rel="stylesheet" href="atlas-marca.css?v=20261128a"><link rel="stylesheet" href="atlas-visual.css?v=20261128a"></head>
 <body class="vn vn-supervisor">
 <header><div class="brand"><img class="brand-atlas" src="atlas-horizontal-escuro.png" alt="ATLAS"></div><div class="role"><a class="back-link" href="index.html">← Voltar ao início</a>Área do Supervisor <button type="button" onclick="ATLAS_SAIR()" style="margin-left:12px;border:1px solid #cbaeb2;background:#fff;color:#98151d;border-radius:8px;padding:6px 10px;cursor:pointer">Sair</button></div><img class="ideal-dir" src="ideal-logo-hd.png" alt="Ideal 50 anos"></header>
-<div class="shell"><aside><small>ÁREA DO SUPERVISOR</small><a href="supervisor.html">Fila de análise</a><a href="supervisor-selecoes.html" class="atual">Seleções para provas</a></aside><main>
-<div class="crumb">Supervisor / Seleções para provas</div><h1>Seleções para provas</h1><p class="lead" id="lead">Escolha a prova, selecione questões aprovadas e finalize: o caderno vai ao Diagramador quando todas as disciplinas enviarem.</p>
+<div class="shell"><aside><small>ÁREA DO SUPERVISOR</small><a href="supervisor.html">Fila de análise</a><a href="supervisor-selecoes.html" class="atual">Minhas provas</a></aside><main>
+<div class="crumb">Supervisor / Minhas provas</div><h1>Minhas provas</h1><p class="lead" id="lead">Escolha a prova, selecione questões aprovadas e finalize: o caderno vai ao Diagramador quando todas as disciplinas enviarem.</p>
 <div class="notice" id="notice" role="status"></div>
 
 <section class="panel" id="lista-view">
@@ -146,7 +146,7 @@ body.modo-editor header{position:sticky;top:0;z-index:7}
     </aside>
     <section class="col-centro" aria-label="Questão">
       <div class="navq">
-        <button type="button" class="voltar-sel" id="voltar" title="Voltar à lista de seleções">← Seleções</button><span class="sel-nome"><span id="sel-titulo">Seleção</span><span id="sel-info"></span></span><span class="nav-sep" aria-hidden="true"></span>
+        <button type="button" class="voltar-sel" id="voltar" title="Voltar a Minhas provas">← Minhas provas</button><span class="sel-nome"><span id="sel-titulo">Seleção</span><span id="sel-info"></span></span><span class="nav-sep" aria-hidden="true"></span>
         <div class="setas"><button type="button" id="nav-primeira" title="Primeira questão" aria-label="Primeira questão"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M6 5v14M18 6l-7 6 7 6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></button><button type="button" id="nav-ant" title="Anterior (seta ←)" aria-label="Questão anterior"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M19 12H5M11 6l-6 6 6 6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></button></div>
         <label for="nav-num">Questão</label><select id="nav-num"></select><span>de <span id="nav-total">0</span></span>
         <div class="setas"><button type="button" id="nav-prox" title="Próxima (seta →)" aria-label="Próxima questão"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></button><button type="button" id="nav-ultima" title="Última questão" aria-label="Última questão"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M18 5v14M6 6l7 6-7 6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></button></div>
