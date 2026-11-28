@@ -69,10 +69,10 @@ dialog.preview-dialog{width:min(860px,calc(100% - 30px));max-height:88vh;overflo
 <div class="panel"><h1>Área do Administrador</h1><p>Entre com a sua conta Google de administrador.</p><div id="google-button"></div><p class="status" id="login-status" role="status"></p></div>
 </section>
 <div class="shell" id="app-view" hidden><main>
-<div class="crumb">Administrador / Seleções</div><h1>Seleções recebidas</h1><p class="lead">Seleções de questões enviadas pelos supervisores, com série e tipo já definidos. Marque como aplicada só quando enviar a prova aos alunos.</p>
+<div class="crumb">Administrador / <a href="admin-avaliacoes.html">Avaliações</a> / Seleção</div><h1>Seleção do supervisor</h1><p class="lead">As questões que o supervisor escolheu para uma prova. Daqui você pode imprimir, devolver ao supervisor (com o motivo) ou, numa seleção avulsa, marcar como aplicada. As provas são acompanhadas em <a href="admin-avaliacoes.html">Avaliações</a>.</p>
 <p class="status" id="app-status" role="status"></p>
-<section class="panel" id="lista-panel"><div class="tabs" role="tablist"><button type="button" class="active" data-tab="enviada" role="tab" aria-selected="true">Aguardando montagem</button><button type="button" data-tab="aplicada" role="tab" aria-selected="false">Aplicadas</button></div><div id="lista" class="table-wrap"></div></section>
-<section class="panel details" id="details" hidden><button type="button" class="back" id="voltar">← Voltar à lista</button>
+<section class="panel" id="lista-panel" hidden><div class="tabs" role="tablist"><button type="button" class="active" data-tab="enviada" role="tab" aria-selected="true">Aguardando montagem</button><button type="button" data-tab="aplicada" role="tab" aria-selected="false">Aplicadas</button></div><div id="lista" class="table-wrap"></div></section>
+<section class="panel details" id="details" hidden><button type="button" class="back" id="voltar">← Voltar a Avaliações</button>
   <h2 id="det-titulo">Seleção</h2><div id="det-info"></div>
   <div class="actions noprint"><button type="button" class="primary" id="aplicar" hidden>Marcar como aplicada</button><button type="button" class="secondary" id="devolver" hidden>Devolver ao Supervisor</button><button type="button" class="secondary" id="imprimir">Imprimir / salvar PDF</button></div>
   <div id="aplicar-confirm" class="adjust-form" hidden role="alertdialog"><p><strong id="aplicar-texto">Marcar como aplicada?</strong> Faça isso só depois de enviar a prova aos alunos. As questões deixam de ser oferecidas para esta turma (mesma série e tipo neste ano e a mesma turma nos anos seguintes).</p><div class="actions"><button type="button" class="secondary" id="cancelar-aplicar">Cancelar</button><button type="button" class="primary" id="confirmar-aplicar">Confirmar: prova enviada</button></div></div>
@@ -127,7 +127,8 @@ let tab='enviada',atual=null;
 function msg(t,e=false){status($('#app-status'),t,e)}
 async function showApp(email){
   $('#login-view').hidden=true;$('#app-view').hidden=false;$('#user-box').hidden=false;$('#role-label').hidden=true;$('#user-email').textContent=email||'';
-  await carregarLista();const id=new URLSearchParams(location.search).get('id');if(id&&/^\d+$/.test(id))abrir(id);
+  /* A lista "Seleções recebidas" foi aposentada (28/11/2026): sem ?id= a página leva a Avaliações. */
+  const id=new URLSearchParams(location.search).get('id');if(!(id&&/^\d+$/.test(id))){location.replace('admin-avaliacoes.html');return}abrir(id);
 }
 async function carregarLista(){const box=$('#lista');box.innerHTML='<div class="empty">Carregando…</div>';let data;
   try{data=await api('/api/adm/selecoes?situacao='+tab)}catch(e){box.innerHTML='';if(e.message!=='__sessao__')msg(e.message,true);return}
@@ -146,7 +147,7 @@ async function abrir(id){let data;try{data=await api('/api/adm/selecoes/'+id)}ca
   if(atual.prova){const p=atual.prova;const a=document.createElement('p');a.className='hint';a.style.cssText='margin:-6px 0 12px;font-size:13px';a.innerHTML='Esta seleção faz parte da prova <b></b> (aplicação em <b></b>). A prova inteira é acompanhada e marcada como aplicada em <a href="admin-avaliacoes.html" style="color:#98151d;font-weight:bold">Avaliações</a>.';const bs=a.querySelectorAll('b');bs[0].textContent=p.serie+'ª série · '+p.tipo+' · '+({PART:'Simulado particular',ENEM1:'Simulado ENEM · 1º dia',ENEM2:'Simulado ENEM · 2º dia'}[p.modalidade]||p.modalidade);bs[1].textContent=String(p.aplicacao||'').slice(0,10).split('-').reverse().join('/');$('#det-info').append(a)}
   $('#lista-panel').hidden=true;$('#details').hidden=false;$('#details').scrollIntoView({behavior:'smooth',block:'start'})}
 document.querySelectorAll('[data-tab]').forEach(b=>b.addEventListener('click',()=>{tab=b.dataset.tab;document.querySelectorAll('[data-tab]').forEach(o=>{o.classList.toggle('active',o===b);o.setAttribute('aria-selected',String(o===b))});carregarLista()}));
-$('#voltar').addEventListener('click',()=>{atual=null;history.replaceState(null,'','admin-selecoes.html');$('#details').hidden=true;$('#lista-panel').hidden=false;carregarLista()});
+$('#voltar').addEventListener('click',()=>{location.href='admin-avaliacoes.html'});
 $('#imprimir').addEventListener('click',()=>window.print());
 $('#aplicar').addEventListener('click',()=>{$('#devolver-form').hidden=true;$('#aplicar-texto').textContent='Marcar a seleção #'+atual.id+' como aplicada?';$('#aplicar-confirm').hidden=false;$('#confirmar-aplicar').focus()});
 $('#cancelar-aplicar').addEventListener('click',()=>{$('#aplicar-confirm').hidden=true});
@@ -154,7 +155,7 @@ $('#confirmar-aplicar').addEventListener('click',async()=>{const b=$('#confirmar
 $('#devolver').addEventListener('click',()=>{$('#aplicar-confirm').hidden=true;$('#devolver-form').hidden=false;$('#devolver-motivo').focus()});
 $('#cancelar-devolver').addEventListener('click',()=>{$('#devolver-form').hidden=true});
 $('#devolver-form').addEventListener('submit',async e=>{e.preventDefault();const motivo=$('#devolver-motivo').value.trim();if(motivo.length<3){$('#devolver-motivo').focus();return}const b=$('#enviar-devolver');b.disabled=true;
-  try{await api('/api/adm/selecoes/'+atual.id+'/devolver',{method:'POST',body:{motivo}});const id=atual.id;$('#devolver-form').reset();atual=null;history.replaceState(null,'','admin-selecoes.html');$('#details').hidden=true;$('#lista-panel').hidden=false;await carregarLista();msg('Seleção #'+id+' devolvida ao Supervisor.')}
+  try{await api('/api/adm/selecoes/'+atual.id+'/devolver',{method:'POST',body:{motivo}});const id=atual.id;$('#devolver-form').reset();atual=null;$('#details').hidden=true;msg('Seleção #'+id+' devolvida ao Supervisor. Volte a Avaliações para acompanhar a prova.')}
   catch(e2){if(e2.message!=='__sessao__')msg(e2.message,true)}finally{b.disabled=false}});
 $('#logout').addEventListener('click',async()=>{try{await api('/api/adm/sair',{method:'POST',body:{}})}catch{}setToken('');try{google.accounts.id.disableAutoSelect()}catch{}showLogin('Você saiu da Administração.',false)});
 (async()=>{if(!getToken())return showLogin();try{const s=await api('/api/adm/sessao');await showApp(s.email)}catch(e){if(e.message!=='__sessao__')showLogin(e.message)}})();

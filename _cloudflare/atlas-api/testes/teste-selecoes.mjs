@@ -270,9 +270,11 @@ ok('Tela Sup: envio com confirmação na página', db.prepare('SELECT situacao s
 // ADM
 await page.evaluate(()=>sessionStorage.clear());
 await page.addInitScript(t=>{try{sessionStorage.setItem('atlas_adm_token',t)}catch{}},tAdm);
-await page.goto('https://idealolimpico.com.br/atlas/admin-selecoes.html');
-await page.waitForFunction(id=>document.querySelector('#lista').textContent.includes('#'+id),idTela);
-await page.locator('#lista tr',{hasText:'#'+idTela}).getByText('Abrir').click();await page.waitForSelector('#details:not([hidden])');
+// A lista "Seleções recebidas" foi aposentada (28/11/2026): sem ?id= a página leva a Avaliações; a seleção abre pelo link "Ver seleção".
+await page.goto('https://idealolimpico.com.br/atlas/admin-selecoes.html');await page.waitForURL(/admin-avaliacoes\.html/);
+ok('Tela ADM: a lista antiga de seleções leva a Avaliações', page.url().includes('admin-avaliacoes.html'), page.url());
+await page.goto('https://idealolimpico.com.br/atlas/admin-selecoes.html?id='+idTela);await page.waitForSelector('#details:not([hidden])');
+ok('Tela ADM: a seleção abre direto pelo número, com volta para Avaliações', (await page.textContent('#voltar')).includes('Avaliações'));
 const corpo=await page.textContent('#det-corpo');
 ok('Tela ADM: questões numeradas na ordem e gabarito', corpo.indexOf('Padre Vieira')<corpo.indexOf('Semana de 22') && corpo.includes('Questão 1') && (await page.textContent('.gab-table')).includes('E'));
 ok('Tela ADM: seleção de prova aponta para Avaliações em vez de "Marcar como aplicada"', await page.isHidden('#aplicar') && (await page.textContent('#det-info')).includes('Avaliações'), await page.textContent('#det-info'));
