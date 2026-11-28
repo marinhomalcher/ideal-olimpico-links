@@ -1,10 +1,10 @@
 <!doctype html>
 <html lang="pt-BR">
 <head>
-<meta name="atlas-versao" content="20261128a"><script src="atlas-versao.js?v=20261128a" defer></script>
+<meta name="atlas-versao" content="20261128b"><script src="atlas-versao.js?v=20261128b" defer></script>
 <meta charset="utf-8"><meta name="robots" content="noindex, nofollow"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>ATLAS | Minhas provas</title>
-<script src="auth.js?v=20261128a"></script>
+<script src="auth.js?v=20261128b"></script>
 <style>
 .question img{display:block;max-width:100%;max-height:380px;height:auto;margin:10px 0}.question table{border-collapse:collapse;margin:12px 0;max-width:100%;width:auto}.question td,.question th{border:1px solid #a99498;padding:7px 10px;min-width:64px}.question .atlas-equation{display:inline-block;vertical-align:middle;max-width:100%;overflow-x:auto}
 
@@ -48,7 +48,9 @@ dialog .modal-actions{display:flex;justify-content:flex-end;gap:9px;margin-top:1
 .ord{display:inline-flex;align-items:center;justify-content:center;min-width:26px;height:26px;border-radius:999px;background:var(--red);color:#fff;font-size:12px;font-weight:bold;margin-right:6px}
 .opts{display:flex;gap:8px;flex-wrap:wrap;margin:6px 0 12px}.opts label{display:inline-flex;align-items:center;gap:6px;border:1px solid #d8cdd0;border-radius:8px;padding:7px 12px;cursor:pointer;background:#fff;font-weight:normal}.opts input{margin:0}
 .newsel input[type=text],.newsel .campo-sel{width:100%;max-width:420px;border:1px solid #d8cdd0;border-radius:8px;padding:9px 10px;font:inherit;background:#fff}
-.sit{display:inline-block;border-radius:999px;padding:2px 9px;font-size:12px;font-weight:bold;background:#f1eced;color:#5c5054}.sit.enviada{background:#eef1fb;color:#2e4b8f}.sit.aplicada{background:#e6f4ea;color:#1f6b35}.sit.rascunho{background:#fff4dc;color:#7a5600}
+.sit{display:inline-block;border-radius:999px;padding:2px 9px;font-size:12px;font-weight:bold;background:#f1eced;color:#5c5054}.sit.enviada{background:#eef1fb;color:#2e4b8f}.sit.aplicada{background:#e6f4ea;color:#1f6b35}.sit.rascunho{background:#fff4dc;color:#7a5600}.sit.fase-avaliacao{background:#fff1e8;color:#b53a05}.sit.fase-liberada{background:#e6f4ea;color:#1f6b35}
+.aval-box{border-left:6px solid #e8500f}.aval-box h3{margin:0 0 6px;color:#b53a05;font-size:17px}.aval-box:has(#enviar-diagramador){border-left-color:#14a38b}.aval-box:has(#enviar-diagramador) h3{color:#0e7a67}
+.btn-verde{display:block;width:100%;margin-top:12px;border:0;border-radius:999px;padding:16px 24px;font-size:19px;font-weight:bold;color:#fff;background:linear-gradient(90deg,#14a38b,#0e7a67);box-shadow:0 8px 20px #14a38b66}.btn-verde:disabled{opacity:.6;cursor:not-allowed}
 dialog.preview-dialog{width:min(860px,calc(100% - 30px));max-height:88vh;overflow:auto}
 .grupo-bloco{border:2px solid #e8cdd1;border-radius:11px;padding:8px;margin-bottom:10px;background:#fffafa}.grupo-titulo{font-size:12px;font-weight:bold;color:#7a1219;margin:2px 4px 8px}
 .savestate{font-size:12px;color:var(--muted);margin-left:8px}
@@ -104,7 +106,7 @@ body.modo-editor header{position:sticky;top:0;z-index:7}
 @media(max-width:1100px){.tres{grid-template-columns:1fr}.col{position:static;max-height:none}.col-centro{order:-1}.navq .atalhos{display:none}}
 </style>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.19.1/dist/katex.min.css" integrity="sha384-WwGtaC6ywCHxA5cstpj/3+xIZvTez8dq2IcBQaXRkenHZ7FVVq1ZROtURwfbtTlG" crossorigin="anonymous">
-<link rel="icon" type="image/png" href="atlas-favicon.png"><link rel="stylesheet" href="atlas-marca.css?v=20261128a"><link rel="stylesheet" href="atlas-visual.css?v=20261128a"></head>
+<link rel="icon" type="image/png" href="atlas-favicon.png"><link rel="stylesheet" href="atlas-marca.css?v=20261128b"><link rel="stylesheet" href="atlas-visual.css?v=20261128b"></head>
 <body class="vn vn-supervisor">
 <header><div class="brand"><img class="brand-atlas" src="atlas-horizontal-escuro.png" alt="ATLAS"></div><div class="role"><a class="back-link" href="index.html">← Voltar ao início</a>Área do Supervisor <button type="button" onclick="ATLAS_SAIR()" style="margin-left:12px;border:1px solid #cbaeb2;background:#fff;color:#98151d;border-radius:8px;padding:6px 10px;cursor:pointer">Sair</button></div><img class="ideal-dir" src="ideal-logo-hd.png" alt="Ideal 50 anos"></header>
 <div class="shell"><aside><small>ÁREA DO SUPERVISOR</small><a href="supervisor.html">Fila de análise</a><a href="supervisor-selecoes.html" class="atual">Minhas provas</a></aside><main>
@@ -165,14 +167,15 @@ body.modo-editor header{position:sticky;top:0;z-index:7}
       <div class="caixa"><h3>Dados da questão</h3><div id="q-dados"><p class="hint">Nenhuma questão na tela.</p></div></div>
     </aside>
   </div>
+  <div id="avaliacao-box" class="panel aval-box" hidden></div>
   <div id="leitura" class="panel" hidden></div>
 </section>
 </main></div>
 <dialog id="escolhidas-dialog" class="preview-dialog" aria-labelledby="esc-titulo"><h2 id="esc-titulo">Questões escolhidas (<span id="qtd-d">0</span>)</h2><p class="hint">Use ↑ ↓ para mudar a ordem da prova.</p><div id="escolhidas"></div><div class="modal-actions"><button type="button" class="secondary" onclick="this.closest('dialog').close()">Fechar</button></div></dialog>
 <dialog id="preview" class="preview-dialog" aria-labelledby="preview-titulo"><h2 id="preview-titulo">Questão</h2><div id="preview-corpo"></div><div class="modal-actions"><button type="button" class="secondary" onclick="this.closest('dialog').close()">Fechar</button></div></dialog>
 <script src="https://cdn.jsdelivr.net/npm/katex@0.19.1/dist/katex.min.js" integrity="sha384-a1WQdjRj162i159OYq041X6I4K8NenkrI09LlPmiHg0YOb7CR+wJOraXwK9abpnE" crossorigin="anonymous"></script>
-<script src="atlas-editor.js?v=20261128a"></script>
-<script src="atlas-tags.js?v=20261128a"></script>
+<script src="atlas-editor.js?v=20261128b"></script>
+<script src="atlas-tags.js?v=20261128b"></script>
 <script>
 
 const originLabel={autoral:'Autoral',enem:'ENEM',outros:'Outros',adaptada:'Adaptada',acervo:'Acervo Ideal'};
@@ -196,7 +199,8 @@ const $=s=>document.querySelector(s),notice=$('#notice');
 let atual=null,escolhidas=[],cacheBanco=new Map(),salvando=Promise.resolve();
 let ultimoBanco=[],nav=[],pos=0;const completos=new Map();
 function msg(t,erro=false){notice.textContent=t;notice.style.borderColor=erro?'#e2a1a7':'';notice.style.color=erro?'#8c2028':''}
-const sitNome=s=>s.situacao==='rascunho'?(s.motivo_devolucao?'Devolvida para ajustes':'Rascunho'):s.situacao==='enviada'?(s.prova?'Finalizada':'Enviada ao ADM'):'Aplicada em '+s.ano;
+const sitNome=s=>s.situacao==='rascunho'?(s.fase==='avaliacao'?'Em avaliação pelos professores':s.fase==='liberada'?'Aprovada pelos professores':s.motivo_devolucao?'Devolvida para ajustes':'Rascunho'):s.situacao==='enviada'?(s.prova?'Finalizada':'Enviada ao ADM'):'Aplicada em '+s.ano;
+const sitClasse=s=>s.situacao+(s.situacao==='rascunho'&&s.fase?' fase-'+s.fase:'');
 function modoEditor(on){document.body.classList.toggle('modo-editor',!!on);topoFixo()}
 /* Altura do cabeçalho travado: a barra de navegação e as laterais ficam logo abaixo dele. */
 function topoFixo(){document.documentElement.style.setProperty('--topo',(document.body.classList.contains('modo-editor')?document.querySelector('header').offsetHeight:0)+'px')}
@@ -211,8 +215,8 @@ async function carregarLista(){const box=$('#lista');box.innerHTML='<div class="
   box.replaceChildren();if(!data.selecoes.length){const d=document.createElement('div');d.className='empty';d.textContent='Nenhuma seleção ainda. Clique em “+ Nova prova”.';box.append(d);return}
   const t=document.createElement('table');t.innerHTML='<thead><tr><th>Nº</th><th>Prova</th><th>Questões</th><th>Situação</th><th>Atualizada em</th><th></th></tr></thead>';const b=document.createElement('tbody');
   for(const s of data.selecoes){const r=document.createElement('tr');const c=v=>{const td=document.createElement('td');td.textContent=v;r.append(td);return td};
-    c('#'+s.id).style.fontWeight='bold';c(s.prova?nomeProva(s.prova):serieTipo(s)+(s.titulo?' · '+s.titulo:''));c(s.prova?s.total+' de '+s.prova.quantidade:String(s.total));const st=c('');const sp=document.createElement('span');sp.className='sit '+s.situacao;sp.textContent=sitNome(s);st.append(sp);c(quando(s.atualizado_em));
-    const td=document.createElement('td');const bt=document.createElement('button');bt.className=s.situacao==='rascunho'?'primary':'secondary';bt.textContent=s.situacao==='rascunho'?'Continuar':'Ver';bt.addEventListener('click',()=>abrir(s.id));td.append(bt);r.append(td);b.append(r)}
+    c('#'+s.id).style.fontWeight='bold';c(s.prova?nomeProva(s.prova):serieTipo(s)+(s.titulo?' · '+s.titulo:''));c(s.prova?s.total+' de '+s.prova.quantidade:String(s.total));const st=c('');const sp=document.createElement('span');sp.className='sit '+sitClasse(s);sp.textContent=sitNome(s);st.append(sp);c(quando(s.atualizado_em));
+    const td=document.createElement('td');const bt=document.createElement('button');const emEdicao=s.situacao==='rascunho'&&!s.fase;bt.className=emEdicao||s.fase==='liberada'?'primary':'secondary';bt.textContent=emEdicao?'Continuar':s.fase==='liberada'?'Enviar ao diagramador':'Ver';bt.addEventListener('click',()=>abrir(s.id));td.append(bt);r.append(td);b.append(r)}
   t.append(b);box.append(t)}
 const MODAL={PART:'Simulado particular',ENEM1:'Simulado ENEM · 1º dia',ENEM2:'Simulado ENEM · 2º dia'};
 const dataBR=d=>d?String(d).slice(0,10).split('-').reverse().join('/'):'—';
@@ -234,10 +238,11 @@ async function abrir(id){let data;try{data=await ATLAS_API('/api/supervisor/sele
   atual=data.selecao;escolhidas=atual.itens.map(i=>i.codigo);for(const i of atual.itens)cacheBanco.set(i.codigo,{...cacheBanco.get(i.codigo),...i});
   history.replaceState(null,'','?id='+atual.id);
   $('#lista-view').hidden=true;$('#sel-view').hidden=false;$('#enviar-confirm').hidden=true;$('#excluir-confirm').hidden=true;
-  $('#sel-titulo').innerHTML='Seleção #'+atual.id+' — '+escapeHTML(atual.prova?nomeProva(atual.prova):serieTipo(atual))+' <span class="sit '+atual.situacao+'">'+escapeHTML(sitNome(atual))+'</span>';
+  $('#sel-titulo').innerHTML='Seleção #'+atual.id+' — '+escapeHTML(atual.prova?nomeProva(atual.prova):serieTipo(atual))+' <span class="sit '+sitClasse(atual)+'">'+escapeHTML(sitNome(atual))+'</span>';
   $('#sel-info').innerHTML='<p class="hint">'+escapeHTML((atual.titulo?atual.titulo+' · ':'')+'Criada por '+atual.supervisor+' em '+quando(atual.criado_em)+(atual.enviada_em?' · enviada em '+quando(atual.enviada_em):'')+(atual.aplicada_em?' · aplicada em '+quando(atual.aplicada_em):''))+'</p>';
   const dev=$('#devolvida');if(atual.situacao==='rascunho'&&atual.motivo_devolucao){dev.innerHTML='<strong>O administrador devolveu esta seleção:</strong><p>'+escapeHTML(atual.motivo_devolucao)+'</p>';dev.hidden=false}else dev.hidden=true;
-  const editavel=atual.situacao==='rascunho';$('#editor-bloco').hidden=!editavel;$('#leitura').hidden=editavel;modoEditor(editavel);
+  // Em avaliação pelos professores ou já aprovada por eles (etapa B): só leitura, com o quadro da avaliação e o botão verde.
+  const editavel=atual.situacao==='rascunho'&&!atual.fase;$('#editor-bloco').hidden=!editavel;$('#leitura').hidden=editavel;modoEditor(editavel);desenharAvaliacao();
   const pi=$('#prova-info');if(atual.prova){pi.innerHTML='<b></b><span></span>';pi.querySelector('b').textContent=nomeProva(atual.prova);pi.querySelector('span').textContent=atual.prova.quantidade+' questões de '+atual.disciplina+' · aplicação em '+dataBR(atual.prova.aplicacao);pi.hidden=false;$('#campos-livres').hidden=true;$('#sel-nome').hidden=true}else{pi.hidden=true;$('#campos-livres').hidden=false;$('#sel-nome').hidden=false}
   if(editavel){$('#sel-serie').value=String(atual.serie);$('#sel-tipo').value=atual.tipo;$('#sel-nome').value=atual.titulo||'';$('#savestate').textContent='';desenharEscolhidas();desenharResumo();await buscar()}
   else desenharLeitura();
@@ -359,11 +364,24 @@ function desenharLeitura(){const box=$('#leitura');box.replaceChildren();if(!atu
 function voltarALista(){atual=null;modoEditor(false);history.replaceState(null,'','supervisor-selecoes.html');$('#sel-view').hidden=true;$('#lista-view').hidden=false;carregarLista()}
 $('#voltar').addEventListener('click',async()=>{await salvando;voltarALista()});
 $('#enviar').addEventListener('click',()=>{$('#excluir-confirm').hidden=true;
-  if(atual.prova){$('#enviar-texto').textContent='Finalizar a seleção #'+atual.id+' ('+escolhidas.length+' questões de '+atual.disciplina+') para a prova '+nomeProva(atual.prova)+'?';$('#enviar-nota').textContent='Depois de finalizada, a seleção só volta a ser editada se o administrador devolver. O caderno vai ao Diagramador quando todas as disciplinas da prova finalizarem.'}
+  if(atual.prova){$('#enviar-texto').textContent='Finalizar a seleção #'+atual.id+' ('+escolhidas.length+' questões de '+atual.disciplina+') para a prova '+nomeProva(atual.prova)+'?';$('#enviar-nota').textContent='Os professores de '+atual.disciplina+' da '+atual.prova.serie+'ª série recebem a seleção para avaliar (prazo de 3 dias úteis). Quando todos aprovarem, aparece aqui o botão verde "Enviar para o diagramador". Enquanto isso, a seleção fica travada.'}
   else{$('#enviar-texto').textContent='Enviar a seleção #'+atual.id+' ('+escolhidas.length+' questões, '+serieTipo({serie:$('#sel-serie').value,tipo:$('#sel-tipo').value})+') ao administrador?';$('#enviar-nota').textContent='Depois de enviada, a seleção só volta a ser editada se o administrador devolver.'}
   $('#enviar-confirm').hidden=false;$('#confirmar-envio').focus()});
 $('#cancelar-envio').addEventListener('click',()=>{$('#enviar-confirm').hidden=true});
-$('#confirmar-envio').addEventListener('click',async()=>{const b=$('#confirmar-envio');b.disabled=true;try{if(!await salvar())return;const r=await ATLAS_API('/api/supervisor/selecoes/'+atual.id+'/enviar',{method:'POST',body:{}});msg(atual.prova?'Seleção #'+atual.id+' finalizada. '+(r.prova_fechada?'Todas as disciplinas enviaram: o caderno foi ao Diagramador.':'Faltam outras disciplinas para fechar a prova.'):'Seleção #'+atual.id+' enviada ao administrador.');await abrir(atual.id)}catch(e){msg(e.message,true)}finally{b.disabled=false;$('#enviar-confirm').hidden=true}});
+$('#confirmar-envio').addEventListener('click',async()=>{const b=$('#confirmar-envio');b.disabled=true;try{if(!await salvar())return;const r=await ATLAS_API('/api/supervisor/selecoes/'+atual.id+'/enviar',{method:'POST',body:{}});msg(atual.prova?'Seleção #'+atual.id+' finalizada. '+(r.avaliacao?r.avaliacao.professores+' professor(es) de '+atual.disciplina+' da '+atual.prova.serie+'ª série foram avisados; prazo até '+quando(r.avaliacao.prazo_em)+'.':r.prova_fechada?'Todas as disciplinas enviaram: o caderno foi ao Diagramador.':'Faltam outras disciplinas para fechar a prova.'):'Seleção #'+atual.id+' enviada ao administrador.');await abrir(atual.id)}catch(e){msg(e.message,true)}finally{b.disabled=false;$('#enviar-confirm').hidden=true}});
+/* Quadro da avaliação pelos professores e o botão verde "Enviar para o diagramador" (etapa B; o painel por professor vem na etapa C). */
+function desenharAvaliacao(){const box=$('#avaliacao-box');const a=atual.avaliacao;if(!a||atual.situacao!=='rascunho'){box.hidden=true;box.replaceChildren();return}
+  box.hidden=false;const liberada=a.fase==='liberada';
+  box.innerHTML='<h3></h3><p class="hint" id="aval-resumo"></p><div id="aval-acao"></div>';
+  box.querySelector('h3').textContent=liberada?'Os professores aprovaram esta prova':'Em avaliação pelos professores';
+  box.querySelector('#aval-resumo').textContent=a.total+' professor(es) da '+atual.prova.serie+'ª série · '+a.aprovaram+' aprovaram · '+a.pediram_mudanca+' pediram mudança · '+a.pendentes+' ainda não finalizaram · '+a.viram+' viram a prova inteira'+(a.pedidos_abertos?' · '+a.pedidos_abertos+' pedido(s) em aberto':'')+(a.prazo_em?' · prazo até '+quando(a.prazo_em):'');
+  const acao=box.querySelector('#aval-acao');
+  if(liberada){const b=document.createElement('button');b.type='button';b.id='enviar-diagramador';b.className='btn-verde';b.textContent='Enviar para o diagramador';b.addEventListener('click',enviarAoDiagramador);acao.append(b)}
+  else{const p=document.createElement('p');p.className='hint';p.textContent='O botão verde "Enviar para o diagramador" aparece quando todos aprovarem. Os pedidos de mudança dos professores chegam na próxima etapa do ATLAS.';acao.append(p)}}
+async function enviarAoDiagramador(){const b=$('#enviar-diagramador');if(!b)return;
+  if(b.dataset.confirmar!=='1'){b.dataset.confirmar='1';b.textContent='Confirmar: enviar para o diagramador';const n=document.createElement('p');n.className='hint';n.id='aval-nota';n.textContent='O caderno vai ao Diagramador quando todas as disciplinas da prova enviarem. Clique de novo para confirmar.';b.after(n);return}
+  b.disabled=true;
+  try{const r=await ATLAS_API('/api/supervisor/selecoes/'+atual.id+'/enviar',{method:'POST',body:{}});msg('Seleção #'+atual.id+' enviada. '+(r.prova_fechada?'Todas as disciplinas enviaram: o caderno foi ao Diagramador.':'Faltam outras disciplinas para fechar a prova.'));await abrir(atual.id)}catch(e){msg(e.message,true);b.disabled=false}}
 $('#excluir').addEventListener('click',()=>{$('#enviar-confirm').hidden=true;$('#excluir-confirm').hidden=false});
 $('#cancelar-exclusao').addEventListener('click',()=>{$('#excluir-confirm').hidden=true});
 $('#confirmar-exclusao').addEventListener('click',async()=>{try{await salvando;await ATLAS_API('/api/supervisor/selecoes/'+atual.id,{method:'DELETE'});msg('Seleção #'+atual.id+' excluída.');voltarALista()}catch(e){msg(e.message,true)}});

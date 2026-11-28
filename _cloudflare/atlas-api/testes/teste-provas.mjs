@@ -114,7 +114,7 @@ const mats=[];for(let k=0;k<4;k++)mats.push(await aprovada({assunto:'Funções',
 const fiss=[];for(let k=0;k<2;k++)fiss.push(await aprovada({assunto:'Cinemática',comando:'Questão de física '+k},tProfFis,tSupFis));
 const dataAplic=ANO+'-12-18';
 let r=await call('/api/saude');
-ok('Schema 22', r.data.schema==='22', r.data.schema);
+ok('Schema 23', r.data.schema==='23', r.data.schema);
 
 // ===== ADM: formato da prova =====
 r=await call('/api/adm/provas',{method:'POST',token:tMarcio,body:{}});

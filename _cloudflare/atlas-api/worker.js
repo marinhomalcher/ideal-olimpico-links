@@ -11,6 +11,7 @@ import { rotaPessoasPlanilha } from './pessoas-planilha.js';
 import { rotaAlunosAdm, rotaAlunosPortal } from './alunos.js';
 import { rotaCalendarioAdm } from './calendario.js';
 import { rotaProvasAdm, provaDaSelecao, provasAbertasDaDisciplina, provaParaNovaSelecao, ligarSelecao, desligarSelecao, fecharProvaSeCompleta, aoDevolverSelecao, entregarProva } from './provas.js';
+import { abrirAvaliacao, resumoAvaliacao, rotaAvaliacoesProfessor } from './avaliacoes.js';
 // Administração: login "Entrar com Google", liberado SOMENTE para o e-mail em ADMIN_EMAIL.
 // Professores e Supervisores: login por código no e-mail institucional.
 // Questões: enviadas pelo Professor e analisadas pelo Supervisor da disciplina (tabelas itens/item_versoes/revisoes).
@@ -295,15 +296,16 @@ function base64DeBytes(u) {
   for (let i = 0; i < u.length; i += 0x8000) s += String.fromCharCode.apply(null, u.subarray(i, i + 0x8000));
   return btoa(s);
 }
-// para: um e-mail ou uma lista; anexos: [{ nome, tipo, bytes }] (só pela Microsoft).
-async function enviarPelaMicrosoft(env, para, assunto, texto, anexos = []) {
+// para: um e-mail ou uma lista; anexos: [{ nome, tipo, bytes }] (só pela Microsoft); html: versão colorida do mesmo texto
+// (aviso da avaliação aos professores), só pela Microsoft — o enviador reserva manda o texto simples.
+async function enviarPelaMicrosoft(env, para, assunto, texto, anexos = [], html = null) {
   const token = await tokenDaMicrosoft(env);
   const lista = Array.isArray(para) ? para : [para];
   const resp = await fetch('https://graph.microsoft.com/v1.0/users/' + encodeURIComponent(env.MS_REMETENTE) + '/sendMail', {
     method: 'POST',
     headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      message: { subject: assunto, body: { contentType: 'Text', content: texto }, toRecipients: lista.map(a => ({ emailAddress: { address: a } })),
+      message: { subject: assunto, body: html ? { contentType: 'HTML', content: html } : { contentType: 'Text', content: texto }, toRecipients: lista.map(a => ({ emailAddress: { address: a } })),
         ...(anexos.length ? { attachments: anexos.map(a => ({ '@odata.type': '#microsoft.graph.fileAttachment', name: a.nome, contentType: a.tipo, contentBytes: base64DeBytes(a.bytes) })) } : {}) },
       saveToSentItems: true
     })
@@ -336,9 +338,9 @@ async function enviarEmailComAnexos(env, para, assunto, texto, anexos) {
   return algum;
 }
 // Envio único usado por códigos e avisos. Devolve true se algum caminho aceitou.
-async function enviarEmail(env, para, assunto, texto, reservaAppsScript) {
+async function enviarEmail(env, para, assunto, texto, reservaAppsScript, html = null) {
   if (microsoftConfigurado(env)) {
-    try { await enviarPelaMicrosoft(env, para, assunto, texto); return true; }
+    try { await enviarPelaMicrosoft(env, para, assunto, texto, [], html); return true; }
     catch (error) { console.warn('ATLAS e-mail pela Microsoft falhou; tentando o enviador reserva:', error && error.message); }
   }
   return reservaAppsScript ? await reservaAppsScript() : false;
@@ -1534,8 +1536,8 @@ async function rotasClassificar(request, env, path) {
 // ---------- avisos por e-mail ----------
 // Só envia quando ATLAS_AVISOS_ATIVOS = "1". Sai pela Microsoft (olimpiadas@) e, se falhar, pelo Apps Script.
 // Uma falha no envio nunca desfaz a ação que gerou o aviso.
-function avisar(env, para, assunto, texto, forcar) {
-  // forcar: lembretes ao próprio ADM saem mesmo com os avisos aos professores desligados.
+function avisar(env, para, assunto, texto, forcar, html = null) {
+  // forcar: lembretes ao próprio ADM saem mesmo com os avisos aos professores desligados. html: versão colorida (só pela Microsoft).
   if (env.ATLAS_AVISOS_ATIVOS !== '1' && !forcar) return;
   if (!para || (!microsoftConfigurado(env) && (!env.ATLAS_MAILER_URL || !env.ATLAS_MAILER_SECRET))) {
     console.warn('ATLAS aviso não enviado: configuração ou destinatário ausente.');
@@ -1553,7 +1555,7 @@ function avisar(env, para, assunto, texto, forcar) {
       if (!response.ok || resultado?.ok !== true) console.warn('ATLAS aviso recusado pelo mailer:', response.status, resultado?.erro || 'resposta inválida');
       return response.ok && resultado?.ok === true;
     } catch { console.warn('ATLAS aviso não enviado: falha de conexão com o mailer.'); return false; }
-  }).then(ok => { if (!ok) console.warn('ATLAS aviso não enviado por nenhum caminho.'); });
+  }, html).then(ok => { if (!ok) console.warn('ATLAS aviso não enviado por nenhum caminho.'); });
   if (env.__ctx && typeof env.__ctx.waitUntil === 'function') env.__ctx.waitUntil(envio);
 }
 const LINK_ATLAS = 'https://idealolimpico.com.br/atlas/';
@@ -1775,6 +1777,7 @@ async function rotasAdmItens(request, env, path, sessao) {
         env.DB.prepare('DELETE FROM avaliacao_mensagens WHERE pedido_id IN (SELECT id FROM avaliacao_pedidos WHERE item_id = ?)').bind(id),
         env.DB.prepare('DELETE FROM avaliacao_pedidos WHERE item_id = ?').bind(id),
         env.DB.prepare('DELETE FROM avaliacao_visualizacoes WHERE item_id = ?').bind(id),
+        env.DB.prepare('DELETE FROM avaliacao_votos WHERE item_id = ?').bind(id),
         env.DB.prepare('DELETE FROM selecao_itens WHERE item_id = ?').bind(id),
         env.DB.prepare('DELETE FROM reservas WHERE item_id = ?').bind(id),
         env.DB.prepare('UPDATE eventos SET item_id = NULL WHERE item_id = ?').bind(id),
@@ -2017,7 +2020,7 @@ async function rotasSelecoesSupervisor(request, env, path, url, user) {
 
   if (path === '/api/supervisor/selecoes' && request.method === 'GET') {
     const { results } = await env.DB.prepare(
-      "SELECT s.id, s.serie, s.tipo, s.titulo, s.situacao, s.ano, s.motivo_devolucao, s.criado_em, s.atualizado_em, s.enviada_em, s.aplicada_em, s.prova_id, " +
+      "SELECT s.id, s.serie, s.tipo, s.titulo, s.situacao, s.ano, s.motivo_devolucao, s.criado_em, s.atualizado_em, s.enviada_em, s.aplicada_em, s.prova_id, s.fase, s.avaliacao_prazo_em, s.liberada_em, " +
       "u.nome AS supervisor, (SELECT COUNT(*) FROM selecao_itens si WHERE si.selecao_id = s.id) AS total " +
       "FROM selecoes s JOIN usuarios u ON u.id = s.supervisor_id WHERE s.disciplina = ? " +
       "ORDER BY CASE s.situacao WHEN 'rascunho' THEN 0 WHEN 'enviada' THEN 1 ELSE 2 END, s.id DESC LIMIT 300"
@@ -2058,12 +2061,15 @@ async function rotasSelecoesSupervisor(request, env, path, url, user) {
   const sel = await selecaoDaDisciplina(env, m[1], user.disciplina);
 
   if (!m[2] && request.method === 'GET') {
-    return { ok: true, ano, selecao: { ...sel, prova: await provaDaSelecao(env, sel), itens: await itensDaSelecao(env, sel, false) } };
+    return { ok: true, ano, selecao: { ...sel, prova: await provaDaSelecao(env, sel), itens: await itensDaSelecao(env, sel, false), avaliacao: await resumoAvaliacao(env, sel) } };
   }
 
   if (sel.situacao !== 'rascunho') {
     throw new HttpError(409, sel.situacao === 'enviada' ? (sel.prova_id ? 'Esta seleção já foi finalizada.' : 'Esta seleção já foi enviada ao administrador.') : 'Esta seleção já foi aplicada.');
   }
+  // Em avaliação pelos professores (etapa B): a seleção fica travada até todos aprovarem (ou o prazo acabar: etapa D).
+  if (sel.fase === 'avaliacao') throw new HttpError(409, 'Esta seleção está em avaliação pelos professores e não pode ser alterada agora.');
+  if (sel.fase === 'liberada' && !m[2]) throw new HttpError(409, 'Os professores já aprovaram esta seleção: clique em "Enviar para o diagramador".');
 
   if (!m[2] && request.method === 'DELETE') {
     await env.DB.batch([
@@ -2098,6 +2104,17 @@ async function rotasSelecoesSupervisor(request, env, path, url, user) {
         : 'Há ' + (itens.length - prova.quantidade) + ' questões a mais: a prova pede exatamente ' + prova.quantidade + ' de ' + user.disciplina + '.');
     }
     if (prova && prova.situacao !== 'aberta') throw new HttpError(409, 'Esta prova já foi fechada.');
+    // Aprovação pelos professores (etapa B): "Finalizar prova" abre a avaliação; só depois de "liberada" a seleção segue ao Diagramador.
+    if (prova && sel.fase !== 'liberada') {
+      await ligarSelecao(env, prova.id, user.disciplina, sel.id);
+      const aberta = await abrirAvaliacao(env, sel, prova, ajudantesAvaliacao(env));
+      if (aberta) {
+        avisar(env, env.ADMIN_EMAIL, 'ATLAS: ' + user.disciplina + ' finalizou a seleção da prova ' + NOME_SERIE(prova.serie) + ' ' + prova.tipo + ' (em avaliação pelos professores)',
+          user.nome + ' (Supervisor de ' + user.disciplina + ') finalizou a seleção #' + sel.id + ' com ' + itens.length + ' questões para a prova ' + NOME_SERIE(prova.serie) + ' ' + prova.tipo +
+          ' (' + prova.bimestre + 'º bimestre). ' + aberta.professores + ' professor(es) da ' + NOME_SERIE(prova.serie) + ' foram avisados; prazo até ' + aberta.prazo_em.slice(0, 10).split('-').reverse().join('/') + '.\n\n' + LINK_ATLAS + 'admin-avaliacoes.html');
+        return { ok: true, selecao: { id: sel.id, situacao: 'rascunho', fase: 'avaliacao' }, avaliacao: aberta };
+      }
+    }
     const enviada = await env.DB.prepare(
       "UPDATE selecoes SET situacao = 'enviada', enviada_em = strftime('%Y-%m-%dT%H:%M:%SZ','now'), atualizado_em = strftime('%Y-%m-%dT%H:%M:%SZ','now'), motivo_devolucao = NULL " +
       "WHERE id = ? AND situacao = 'rascunho' RETURNING id"
@@ -2191,6 +2208,9 @@ async function aplicarSelecao(env, sel) {
   return ano;
 }
 // Ajudantes que o módulo das provas usa (fechamento, Word, e-mail, aplicação).
+function ajudantesAvaliacao(env) {
+  return { readJson, registrar, avisar, injetarGrupo, supervisorDaDisciplina, hojeSP: () => hojeSP(env) };
+}
 function ajudantesProvas(env, sessao = null) {
   return { readJson, registrar, sessao, hojeSP: () => hojeSP(env), DISCIPLINAS, itensDaSelecao, aplicarSelecao, avisar, enviarEmailComAnexos,
     hmacHex, segredo: () => segredoImagens(env) };
@@ -2232,8 +2252,9 @@ async function rotasSelecoesAdm(request, env, path, url, sessao) {
     const motivo = String(body.motivo ?? '').trim();
     if (motivo.length < 3 || motivo.length > 2000) throw new HttpError(400, 'Explique ao Supervisor o que precisa mudar.');
     await aoDevolverSelecao(env, sel);
+    // Devolvida: a fase de avaliação pelos professores é zerada; ao finalizar de novo, eles avaliam de novo.
     const ok = await env.DB.prepare(
-      "UPDATE selecoes SET situacao = 'rascunho', motivo_devolucao = ?, atualizado_em = strftime('%Y-%m-%dT%H:%M:%SZ','now') WHERE id = ? AND situacao = 'enviada' RETURNING id"
+      "UPDATE selecoes SET situacao = 'rascunho', motivo_devolucao = ?, fase = NULL, avaliacao_aberta_em = NULL, avaliacao_prazo_em = NULL, liberada_em = NULL, atualizado_em = strftime('%Y-%m-%dT%H:%M:%SZ','now') WHERE id = ? AND situacao = 'enviada' RETURNING id"
     ).bind(motivo, sel.id).first();
     if (!ok) throw new HttpError(409, 'Esta seleção acabou de ser alterada.');
     await registrar(env, 'selecao_devolvida', { adm: sessao.email, selecao: sel.id }, admId);
@@ -2257,7 +2278,7 @@ async function rotasSelecoesAdm(request, env, path, url, sessao) {
 // Guarda as tabelas de conteúdo e cadastro; não guarda sessões nem códigos de login.
 // As imagens já ficam no R2 e não são copiadas de novo.
 const TABELAS_BACKUP = ['meta', 'usuarios', 'retiradas', 'grupos', 'grupo_versoes', 'itens', 'item_versoes', 'revisoes', 'consertos', 'selecoes', 'selecao_itens', 'eventos',
-  'redacao_turmas', 'redacao_alunos', 'redacao_equipe', 'redacao_professor_turmas', 'redacao_digitalizador_unidades', 'redacao_importacoes', 'redacao_lotes', 'redacao_paginas', 'redacao_correcoes', 'coordenadores', 'redacao_envios', 'desempenho_documentos', 'desempenho_gabaritos', 'alunos', 'provas', 'prova_disciplinas'];
+  'redacao_turmas', 'redacao_alunos', 'redacao_equipe', 'redacao_professor_turmas', 'redacao_digitalizador_unidades', 'redacao_importacoes', 'redacao_lotes', 'redacao_paginas', 'redacao_correcoes', 'coordenadores', 'redacao_envios', 'desempenho_documentos', 'desempenho_gabaritos', 'alunos', 'provas', 'prova_disciplinas', 'professor_series', 'dias_nao_uteis', 'avaliacao_professores', 'avaliacao_visualizacoes', 'avaliacao_pedidos', 'avaliacao_mensagens', 'avaliacao_votos'];
 const MANTER_BACKUPS = 60;
 
 async function fazerBackup(env, origem) {
@@ -2821,6 +2842,12 @@ export default {
         // O detalhe da questão (/api/itens/:codigo) também é usado pelo Supervisor: nomes viram código para ele.
         if ((await usuarioDaSessao(request, env)).papel === 'supervisor') respItens = await codificarNomes(respItens, await tabelaDeCodigos(env));
         return await replyAssinado(env, respItens, 200, origin);
+      }
+      if (url.pathname === '/api/avaliacoes' || url.pathname.startsWith('/api/avaliacoes/')) {
+        // Professor: avaliar as provas da sua disciplina e série (etapa B). As imagens das questões saem com link assinado.
+        if (!ALLOWED_ORIGINS.includes(origin)) throw new HttpError(403, 'Origem não permitida.');
+        const user = await usuarioDaSessao(request, env);
+        return await replyAssinado(env, await rotaAvaliacoesProfessor(request, env, url.pathname, user, ajudantesAvaliacao(env)), 200, origin);
       }
       if (url.pathname.startsWith('/api/classificar/')) {
         if (!ALLOWED_ORIGINS.includes(origin)) throw new HttpError(403, 'Origem não permitida.');
