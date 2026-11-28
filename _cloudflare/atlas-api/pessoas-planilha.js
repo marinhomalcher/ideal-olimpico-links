@@ -1,7 +1,7 @@
 // "Cadastros e funções" pela planilha (23/11/2026): a planilha é só do banco de questões. O ADM baixa, edita
 // no Excel (corrige nomes, inclui gente nova, troca disciplina ou função) e manda de volta; a prévia confere
 // tudo sem gravar e a importação grava pelo mesmo salvarPessoa da tela. Uma linha por pessoa:
-//   NOME COMPLETO | E-MAIL | DISCIPLINA
+//   NOME COMPLETO | E-MAIL | DISCIPLINA | SÉRIES (opcional: 1, 2 e/ou 3, separadas por vírgula)
 // Quem tem disciplina é professor dela; "Redação" na disciplina marca a pessoa como professora de
 // redação (a turma dela é escolhida na tela). Supervisor e digitador são definidos na tela; a planilha
 // não rebaixa ninguém. Quem já tiver uma quarta coluna FUNÇÃO (PROFESSOR, SUPERVISOR,
@@ -48,6 +48,13 @@ function lerLinha(l, n, h, atual) {
   if ((p.banco === 'professor' || p.banco === 'supervisor') && !p.disciplina && !disc) falha('Informe a disciplina.');
   if (p.banco === 'digitador') p.disciplina = null;      // digitador do ADM não tem disciplina
   if (p.banco === undefined && !soCadastro && !atual) falha('Informe a disciplina para cadastrar alguém novo.');
+  // SÉRIES: só vale quando a planilha traz a coluna (undefined = modelo antigo, não mexe). Em branco = nenhuma série.
+  if (l.series !== undefined && l.series !== null) {
+    const partes = String(l.series).split(/[,;\s]+|e/i).map(x => x.replace(/[ªº°]|\s*s[eé]rie/gi, '').trim()).filter(Boolean);
+    const nums = partes.map(Number);
+    if (nums.some(x => ![1, 2, 3].includes(x))) falha('Séries: use 1, 2 e/ou 3, separadas por vírgula (ex.: 1, 2).');
+    else p.series = [...new Set(nums)].sort();
+  }
   return { p, problemas };
 }
 
@@ -59,11 +66,13 @@ const soCadastroDaLinha = l => {
 
 /* O que a pessoa é hoje, só nas partes que a planilha controla, para saber se a linha muda algo. */
 const bancoAtual = x => x.digitador ? 'digitador' : x.disciplina ? (x.papel === 'supervisor' ? 'supervisor' : 'professor') : null;
-const retrato = x => JSON.stringify({ nome: x.nome, banco: bancoAtual(x), disciplina: x.disciplina || null, redacao: !!x.redacao.professor });
+const seriesDe = x => (x.series || []).slice().sort();
+const retrato = x => JSON.stringify({ nome: x.nome, banco: bancoAtual(x), disciplina: x.disciplina || null, redacao: !!x.redacao.professor, series: seriesDe(x) });
 const retratoDaLinha = (p, atual) => JSON.stringify({ nome: p.nome,
   banco: p.banco === undefined ? (atual ? bancoAtual(atual) : null) : p.banco,
   disciplina: p.banco === undefined ? (atual ? atual.disciplina || null : null) : p.disciplina,
-  redacao: p.redacao || (atual ? !!atual.redacao.professor : false) });
+  redacao: p.redacao || (atual ? !!atual.redacao.professor : false),
+  series: p.series !== undefined ? p.series : (atual ? seriesDe(atual) : []) });
 
 /* Prévia: confere a planilha inteira sem gravar nada. */
 export async function prepararPessoas(env, linhas, ano, h) {
@@ -97,6 +106,7 @@ export async function prepararPessoas(env, linhas, ano, h) {
     if (problemas.length) { erros.push({ linha: n, email: p.email || texto(l?.email, 60), nome: p.nome || texto(l?.nome, 60), motivo: problemas.join(' ') }); return; }
     p.id = atual ? atual.id : null;
     p.classificador = atual ? !!atual.classificador : false;   // a planilha não mexe no classificador
+    p.atualDisciplina = atual ? atual.disciplina || null : null;
     p.atualRedacao = atual ? atual.redacao : null;             // para marcar a redação sem perder turma nem unidades
     p.situacao = !atual ? 'novo' : retrato(atual) === retratoDaLinha(p, atual) ? 'igual' : 'atualizado';
     pessoas.push(p);
@@ -117,6 +127,8 @@ export async function importarPessoas(env, prep, h) {
       c.banco = p.banco === 'digitador' ? { tipo: 'digitador' }
         : { tipo: 'professor', disciplina: p.disciplina, classificador: p.classificador };
     }
+    /* Séries só de quem é professor/supervisor do banco (na planilha ou já cadastrado assim). */
+    if (p.series !== undefined && (p.banco === 'professor' || p.banco === 'supervisor' || (p.banco === undefined && p.atualDisciplina))) c.series = p.series;
     /* Só quando a planilha escreveu Redação: marca a função mantendo a turma e as unidades de hoje. */
     if (p.redacao) {
       const r = p.atualRedacao || {};
