@@ -256,6 +256,12 @@ export async function rotaProvasAdm(request, env, path, url, h) {
     if (prova.situacao === 'enviada' || prova.situacao === 'aplicada') erro(409, prova.situacao === 'enviada' ? 'Esta prova já foi enviada ao Diagramador e não pode ser excluída.' : 'Esta prova já foi aplicada e não pode ser excluída.');
     const { results: ligadas } = await env.DB.prepare('SELECT id FROM selecoes WHERE prova_id = ? UNION SELECT selecao_id FROM prova_disciplinas WHERE prova_id = ? AND selecao_id IS NOT NULL').bind(prova.id, prova.id).all();
     const sels = ligadas.map(x => x.id);
+    // Quem já tinha começado a escolher as questões é avisado por e-mail (28/11/2026).
+    const avisados = [];
+    for (const s of sels) {
+      const sup = await env.DB.prepare('SELECT u.nome, u.email, s.disciplina FROM selecoes s JOIN usuarios u ON u.id = s.supervisor_id WHERE s.id = ?').bind(s).first();
+      if (sup && sup.email && !avisados.some(x => x.email === sup.email)) avisados.push(sup);
+    }
     const ops = [];
     for (const s of sels) {
       ops.push(env.DB.prepare('DELETE FROM avaliacao_mensagens WHERE pedido_id IN (SELECT id FROM avaliacao_pedidos WHERE selecao_id = ?)').bind(s));
@@ -265,8 +271,11 @@ export async function rotaProvasAdm(request, env, path, url, h) {
     for (const s of sels) ops.push(env.DB.prepare('DELETE FROM selecoes WHERE id = ?').bind(s));
     ops.push(env.DB.prepare('DELETE FROM provas WHERE id = ?').bind(prova.id));
     await env.DB.batch(ops);
-    await h.registrar(env, 'prova_excluida', { adm: h.sessao.email, prova: prova.id, selecoes_apagadas: sels });
-    return { ok: true, selecoes_apagadas: sels.length };
+    await h.registrar(env, 'prova_excluida', { adm: h.sessao.email, prova: prova.id, selecoes_apagadas: sels, avisados: avisados.map(x => x.email) });
+    for (const sup of avisados) h.avisar(env, sup.email, 'ATLAS: a prova ' + nomeProva(prova) + ' foi excluída',
+      'Olá, ' + (sup.nome || 'supervisor(a)') + '.\n\nA Administração excluiu a prova ' + nomeProva(prova) + '. A seleção de questões de ' + sup.disciplina +
+      ' que você tinha começado para ela também foi apagada, e as questões voltaram a ficar disponíveis no banco.\n\nNão é preciso fazer nada.\n\nhttps://idealolimpico.com.br/atlas/');
+    return { ok: true, selecoes_apagadas: sels.length, avisados: avisados.length };
   }
   if (m[2] === '/word' && request.method === 'GET') {
     if (prova.situacao === 'aberta') erro(409, 'O Word só fica pronto quando todas as disciplinas finalizarem.');

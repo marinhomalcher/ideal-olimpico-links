@@ -1,11 +1,13 @@
 # ATLAS — continuidade (para o assistente que pegar o trabalho)
 
-Atualizado em **15/11/2026**, depois do PR [#113](https://github.com/marinhomalcher/ideal-olimpico-links/pull/113) (Claude). Responsável: **Marinho (João Marinho Malcher), Grupo Ideal**. O ADM é só ele.
+Atualizado em **28/11/2026**, depois do PR #175 (Claude). Responsável: **Marinho (João Marinho Malcher), Grupo Ideal**. O ADM é só ele.
 
-Estado no ar, conferido depois do merge do #113:
-- site na versão `20261115n`;
-- API com `schema 16`;
-- **26 suítes / 1.021 verificações** passando.
+Estado no ar em 28/11/2026:
+- site na versão `20261128a` (CSS do ADM `adm-20261128`);
+- API com `schema 22`;
+- **48 suítes** passando (`testes/rodar.sh`).
+
+O que mudou de 15/11 a 28/11 está resumido na seção **5.1**. As decisões e sugestões do Marinho ficam fora do repositório, em `C:\ATLAS\SUGESTOES_VISUAL_ATLAS.md` e `C:\ATLAS\PONTAS_SOLTAS.md`.
 
 Leia isto inteiro antes de mexer. Converse com o Marinho **sempre em português**, passo a passo, em linguagem simples e com **link direto**. Explique os termos técnicos: "branch" é o ramo separado do código, "PR" é o pedido de junção e "merge" é juntar à versão oficial. Ele gosta de **respostas curtas**.
 
@@ -19,7 +21,7 @@ ATLAS = banco de questões (BQI) do Grupo Ideal + módulo de **Redação** (corr
 |---|---|
 | Telas | https://idealolimpico.com.br/atlas/ (GitHub Pages; pasta `atlas/`) |
 | Servidor | Cloudflare Worker `atlas-api` (`worker.js`, `redacao-*.js`, `pessoas.js`), publicado sozinho a cada merge na `main` |
-| Banco | Cloudflare D1 `atlas-teste` (será o oficial). **Schema v16** |
+| Banco | Cloudflare D1 `atlas-teste` (será o oficial). **Schema v22** |
 | Arquivos | R2 `atlas-imagens`: `img/` (imagens das questões), `redacao/` (PDFs originais, privados), `backups/` (cópia diária do D1 às 3h17 de Brasília, guarda 60) |
 | E-mails | Microsoft Graph como `olimpiadas@grupoideal.com.br`; reserva: Apps Script (`ATLAS_MAILER_URL`) |
 | Portal de inscrições | mesmo repositório (`index.html`, `inscricoes/`; `teste-inscricoes/` é só a página "Ambiente de teste encerrado") — **NÃO MEXER** (exceção futura: só o "MEU DESEMPENHO", §7) |
@@ -92,13 +94,14 @@ cd _cloudflare/atlas-api/testes && ./rodar.sh            # todas
   - a prioridade é o **PC**; no celular, só não pode quebrar;
   - manter as cores do ATLAS: vinho no BQI e no ADM, azul-marinho na Redação.
 - **Excel:** números centralizados; arquivos revisados mantêm o mesmo nome.
-- **O banco está em TESTE.** Só zerar quando o Marinho pedir, com cópia antes, mantendo usuários, `meta`, `d1_migrations` e `backups/`.
+- **O banco está em TESTE.** Decidido: zerar **só o banco de questões** em **05/12/2026** (não antes; os professores estão em treinamento), com cópia antes, mantendo usuários, `meta`, `d1_migrations` e `backups/`. Confirmar o escopo com o Marinho no dia.
 - **BQI:**
   - o Supervisor edita texto, tags, assunto, subtema e Bloom;
   - a dificuldade é da escola (só se preenche quando vazia);
-  - só o ADM desfaz descarte (30 dias), corrige questão **aprovada** (o servidor recusa as outras situações) e faz consertos.
+  - só o ADM desfaz descarte (30 dias), faz consertos e **edita questão em qualquer situação** (desde 28/11: "Salvar sem mudar a situação" ou "Salvar e aprovar");
+  - o Supervisor vê o autor pelo **código P-xxxx** (HMAC com `SUPERVISOR_CODIGO_SECRET`), nunca pelo nome; nomes só para o ADM.
 - **Férias:**
-  - professor, supervisor e classificador: julho e de 15/12 a 31/01;
+  - professor, supervisor e classificador: julho e de 15/12 a 09/01 (voltam em **10/01**, regra de 18/11/2026, PR #133);
   - digitador e digitalizador: só julho;
   - ADM: entra sempre.
 - **Redação:**
@@ -213,7 +216,17 @@ cd _cloudflare/atlas-api/testes && ./rodar.sh            # todas
    - **Teste real:** o Marinho corrigiu a turma ITAIME inteira em produção; as 8 páginas foram identificadas certas.
 6. **Backup diário:** inclui `redacao_paginas`, `redacao_correcoes` e `coordenadores`. As cópias guardam os metadados, não os PDFs.
 
+### 5.1 Novidades de 16/11 a 28/11/2026
+- **Diagramador** (schema 21, PR #155): provas do bimestre em Avaliações (`admin-avaliacoes.html`, `provas.js`); quando todas as disciplinas finalizam, o Word vai por e-mail ao Diagramador (sem login). "Colaborador" é o antigo digitador.
+- **Marca e visual:** logomarca do ATLAS em todas as páginas (`atlas-marca.css`); visual novo por função em `atlas-visual.css` (`body.vn` + `vn-professor`, `vn-supervisor`, `vn-adm`); painel do ADM com cartões coloridos (`adm/adm.css`).
+- **Professor:** tela "Inserir questão" refeita (seções coloridas); sem versos e sem "Formato na prova"; referência escondida; aviso de **alternativas idênticas** (no navegador e no servidor); tags sem acento.
+- **Supervisor:** quadro de dados resumido; "Minhas provas" (era "Seleções para provas") e "+ Nova prova".
+- **Aprovação das provas pelos professores — etapa A** (schema 22, PR #164): `professor_series`, colunas de fase em `selecoes`, `dias_nao_uteis` (calendário de Belém; tela `admin-calendario.html`), tabelas `avaliacao_*` ainda sem uso. Desenho completo em `C:\ATLAS\DESENHO_APROVACAO_PROVAS.md`. Etapas B a D: ver §6.
+- **ADM (PRs #166 a #175):** visual novo nas páginas internas; Enviar questões com o layout do Professor; "Relatório de produtividade"; coluna **SÉRIES** na planilha de pessoas; Questões com filtros em cascata (disciplina obrigatória → assunto → subtema) e no layout do Supervisor; **Excluir questão** (bloqueia se em uso; questão de grupo só com "Excluir o grupo inteiro"), **Excluir prova** até ir ao Diagramador (apaga as seleções e avisa o supervisor); "Seleções recebidas" aposentada (a tela de uma seleção continua, aberta por Avaliações).
+
 ## 6. Próximos passos (confirmar a ordem com o Marinho antes)
+
+0. **Aprovação das provas pelos professores, etapas B a D** (desenho em `C:\ATLAS\DESENHO_APROVACAO_PROVAS.md`): B = tela do professor com imagens e marca-d'água + e-mail de aviso (**fazer com o Fable**, segurança); C = painel do supervisor, tréplica e botão verde ao diagramador; D = rotina de hora em hora (aceite automático, liberação por prazo, lembretes, relatórios).
 
 1. **Espelho do aluno + integração com o portal de inscrições:** o Marinho disse em 15/11 que esta será a **próxima implementação**.
    - **Formato decidido:** cada página vira um **PNG** já alinhado, com os destaques amarelos, as notas C1–C5 e as observações. O PDF original fica intacto.
@@ -233,7 +246,7 @@ cd _cloudflare/atlas-api/testes && ./rodar.sh            # todas
    - piloto de Matemática (ainda não começou);
    - depois, zerar o banco quando o Marinho pedir.
    - **Ideias:** importar provas do Word; `api.idealolimpico.com.br`; organização GitHub; BQI etapa 2 (resultados por planilha, taxa de acerto, que vai preencher o "% de acerto" já reservado nas telas).
-5. **Possível pedido futuro:** o ADM editar questões em qualquer situação. Hoje o servidor só deixa editar as aprovadas; apresente as opções se ele pedir.
+5. **Auditoria final** (o Marinho dispara, numa conversa nova): segurança com o Fable; limpeza com a lista `C:\ATLAS\PONTAS_SOLTAS.md`.
 
 ## 7. Integração com o portal de inscrições — decisões (15/11/2026)
 
