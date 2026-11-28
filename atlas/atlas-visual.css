@@ -88,3 +88,23 @@ body.vn-adm header .role button { color: #98151d !important; background: #fff !i
 body.vn-adm header .role button:hover { background: #fbecef !important }
 body.vn-adm header > img.ideal-dir { height: 46px; width: auto; padding: 0; margin-left: 22px; background: none; box-shadow: none }
 body.vn-adm header:has(> img.ideal-dir) { padding-right: max(clamp(18px,4vw,52px), calc(50% - 946px)) }
+
+/* ADM · Enviar questões (28/11/2026): mesmo layout colorido da tela Inserir questão do Professor */
+body.vn-adm .envio-simples .panel { border-left: 6px solid; border-radius: 22px }
+body.vn-adm .envio-simples .panel:nth-of-type(1) { background: linear-gradient(#f1f6ff, #fff 200px); border-left-color: #5b8def }
+body.vn-adm .envio-simples .panel:nth-of-type(1) h2 { color: #2f5fb8 }
+body.vn-adm .envio-simples .panel:nth-of-type(2) { background: linear-gradient(#fff2f4, #fff 200px); border-left-color: #e8506a }
+body.vn-adm .envio-simples .panel:nth-of-type(2) h2 { color: #b8324a }
+body.vn-adm .envio-simples .panel:nth-of-type(3) { background: linear-gradient(#edf9f5, #fff 200px); border-left-color: #14a38b }
+body.vn-adm .envio-simples .panel:nth-of-type(3) h2 { color: #0e7a67 }
+body.vn-adm .envio-simples .panel:nth-of-type(4) { background: linear-gradient(#fff7e6, #fff 200px); border-left-color: #f2a20c }
+body.vn-adm .envio-simples .panel:nth-of-type(4) h2 { color: #a56a00 }
+body.vn-adm .envio-simples label[for="texto-base"], body.vn-adm .envio-simples label[for="comando"] { display: inline-block; padding: 5px 15px; border-radius: 999px; color: #fff !important; letter-spacing: .05em; font-size: 13px }
+body.vn-adm .envio-simples label[for="texto-base"] { background: #0e8a8a }
+body.vn-adm .envio-simples label[for="comando"] { background: #d9480f }
+body.vn-adm .envio-simples #texto-base { border-left: 5px solid #0e8a8a }
+body.vn-adm .envio-simples #comando { border-left: 5px solid #d9480f }
+body.vn-adm .envio-simples .wide:has(#es-referencia) { display: none }
+body.vn-adm .envio-simples .primary { border-radius: 999px; padding: 11px 24px; background: linear-gradient(90deg, var(--vn1), var(--vn2)); border: 0 }
+body.vn-adm .envio-simples .secondary { border-radius: 999px }
+body.vn-adm .envio-simples .alt > strong { border-radius: 12px }
