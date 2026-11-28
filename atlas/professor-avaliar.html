@@ -1,10 +1,10 @@
 <!doctype html>
 <html lang="pt-BR">
 <head>
-<meta name="atlas-versao" content="20261128b"><script src="atlas-versao.js?v=20261128b" defer></script>
+<meta name="atlas-versao" content="20261128c"><script src="atlas-versao.js?v=20261128c" defer></script>
 <meta charset="utf-8"><meta name="robots" content="noindex, nofollow"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>ATLAS | Avaliar provas</title>
-<script src="auth.js?v=20261128b"></script>
+<script src="auth.js?v=20261128c"></script>
 <style>
 /* Avaliar provas (etapa B da aprovação das provas, 28/11/2026; mockups aprov-p-lista.png e aprov-p-ver.png aprovados em 27/11/2026).
    A questão é desenhada em IMAGEM (canvas) com marca-d'água "GRUPO IDEAL · uso interno" + código do professor: sem texto
@@ -33,7 +33,11 @@ main{min-width:0;padding:31px clamp(18px,3.5vw,42px) 70px}h1{font-size:29px;marg
 .opcoes{display:grid;grid-template-columns:1fr 1fr;gap:10px}.opcoes button{border-radius:999px;padding:13px 10px;font-weight:bold;font-size:16px;border:2px solid #e4d9dc;background:#fff;color:#2a2326}.btn-concordo.on{border-color:var(--verde);background:linear-gradient(90deg,var(--verde),var(--verde2));color:#fff;box-shadow:0 5px 14px #14a38b55}.btn-pedir.on{border-color:var(--lar2);background:#fff1e8;color:#b53a05}.opcoes button:disabled{opacity:.5;cursor:not-allowed}
 .tipos{display:flex;gap:8px;margin:14px 0 10px;flex-wrap:wrap}.tipos button{border:1.5px solid #e4d9dc;background:#fff;border-radius:999px;padding:7px 14px;font-weight:bold;font-size:13px}.tipos button.on{border-color:var(--lar2);background:linear-gradient(90deg,var(--lar1),var(--lar2));color:#fff}
 textarea#pedido-texto{width:100%;min-height:120px;border:1px solid #d8cdd0;border-radius:12px;padding:12px;font:inherit;resize:vertical;user-select:text;-webkit-user-select:text}#b-enviar-pedido{width:100%;margin-top:10px}
-.pedido-atual{margin-top:12px;background:#fff6e0;border:1.5px solid #f2a20c;border-radius:12px;padding:10px 14px;font-size:13px;color:#7a4a00}.pedido-atual b{display:block;color:#b53a05}
+.pedido-atual{margin-top:12px;background:#fff6e0;border:1.5px solid #f2a20c;border-radius:12px;padding:10px 14px;font-size:13px;color:#7a4a00}.pedido-atual b.pt{display:block;color:#b53a05;margin-bottom:6px}.pedido-atual.respondido{background:#f3effd;border-color:#7a4fd8;color:#3b2a6e}.pedido-atual.respondido b.pt{color:#5a35b8}.pedido-atual.adm{border-color:#98151d}
+.fio{border-left:4px solid #e4d9dc;padding:6px 10px;margin:6px 0;background:#fff;border-radius:0 10px 10px 0;font-size:13px;color:#2a2326}.fio b{display:block;font-size:11px;color:#7b7075;margin-bottom:2px}.fio.professor{border-left-color:#d9480f}.fio.supervisor{border-left-color:#4f5bd5}.fio.adm{border-left-color:#98151d}
+.pedido-atual .opcoes{margin-top:10px}.pedido-atual .opcoes button{font-size:14px;padding:11px 8px}.btn-aceito{border-color:var(--verde)!important;background:linear-gradient(90deg,var(--verde),var(--verde2))!important;color:#fff!important}
+#treplica-form{margin-top:10px}#treplica-texto{width:100%;min-height:90px;border:1px solid #d8cdd0;border-radius:12px;padding:10px;font:inherit;resize:vertical;user-select:text;-webkit-user-select:text}#b-enviar-treplica{width:100%;margin-top:8px;font-size:14px;padding:10px}
+.chip.roxo{background:#7a4fd8}.cartao.resp{--cor:#7a4fd8}.prazo.roxo{background:#7a4fd8}.dots button.resp{background:#7a4fd8}.btn-roxo{border:0;border-radius:999px;padding:12px 26px;color:#fff;font-weight:bold;font-size:16px;background:linear-gradient(90deg,#4f5bd5,#7a4fd8);box-shadow:0 5px 14px #7a4fd855}
 .resumo-aval{font-size:13px;color:var(--muted);margin:0 0 12px}#b-finalizar{width:100%;border-radius:999px;padding:12px;font-weight:bold;font-size:15px;border:1.5px solid #e4d9dc;background:#fff;color:#2a2326}#b-finalizar.pronto{border:0;color:#fff;background:linear-gradient(90deg,var(--verde),var(--verde2));box-shadow:0 5px 14px #14a38b55}#b-finalizar:disabled{opacity:.55;cursor:not-allowed}
 .aviso-sigilo{border:2px solid #f2a20c;background:#fff6e0;color:#7a4a00;border-radius:14px;padding:12px 16px;font-size:13px;font-weight:bold;margin-bottom:16px}
 .msg-final{background:#ecf7f0;border:1.5px solid #b9dfc6;color:#1f5f39;border-radius:12px;padding:12px 14px;font-size:14px;font-weight:bold;margin-top:12px}
@@ -46,7 +50,7 @@ textarea#pedido-texto{width:100%;min-height:120px;border:1px solid #d8cdd0;borde
 @media(max-width:740px){.shell{grid-template-columns:1fr}aside{border-right:0;border-bottom:1px solid var(--line)}.cartao{grid-template-columns:1fr}}
 </style>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.19.1/dist/katex.min.css" integrity="sha384-WwGtaC6ywCHxA5cstpj/3+xIZvTez8dq2IcBQaXRkenHZ7FVVq1ZROtURwfbtTlG" crossorigin="anonymous">
-<link rel="icon" type="image/png" href="atlas-favicon.png"><link rel="stylesheet" href="atlas-marca.css?v=20261128b"><link rel="stylesheet" href="atlas-visual.css?v=20261128b"></head>
+<link rel="icon" type="image/png" href="atlas-favicon.png"><link rel="stylesheet" href="atlas-marca.css?v=20261128c"><link rel="stylesheet" href="atlas-visual.css?v=20261128c"></head>
 <body class="vn vn-professor">
 <script>
 if(matchMedia('(pointer:coarse)').matches&&Math.min(screen.width,screen.height)<600){const m=document.createElement('main');m.id='celular-bloqueado';m.style.cssText='position:fixed;inset:0;z-index:2147483647;background:#fff;padding:15vh 24px 24px;text-align:center;font-family:system-ui,sans-serif;color:#2a2326;overflow:auto';m.innerHTML='<h1 style="font-size:22px;margin:0 0 10px">Área do professor só no tablet ou no computador</h1><p style="margin:0 0 20px;color:#6a5f63">No celular, só o perfil de supervisor pode entrar. Abra o ATLAS no tablet ou no computador.</p><a href="index.html" style="display:inline-block;background:#98151d;color:#fff;text-decoration:none;border-radius:999px;padding:12px 26px;font-weight:700">← Voltar ao início</a>';document.body.prepend(m)}
@@ -84,7 +88,7 @@ if(matchMedia('(pointer:coarse)').matches&&Math.min(screen.width,screen.height)<
 <div id="forno-wrap" aria-hidden="true"><div id="forno"></div></div>
 <script src="https://cdn.jsdelivr.net/npm/katex@0.19.1/dist/katex.min.js" integrity="sha384-a1WQdjRj162i159OYq041X6I4K8NenkrI09LlPmiHg0YOb7CR+wJOraXwK9abpnE" crossorigin="anonymous"></script>
 <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js" integrity="sha384-ZZ1pncU3bQe8y31yfZdMFdSpttDoPmOZg2wguVK9almUodir1PghgT0eY7Mrty8H" crossorigin="anonymous"></script>
-<script src="atlas-editor.js?v=20261128b"></script>
+<script src="atlas-editor.js?v=20261128c"></script>
 <script>
 const $=s=>document.querySelector(s);
 function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
@@ -95,7 +99,8 @@ let codigo='',aval=null,questoes=[],atual=0,total=0,renderToken=0,tipoPedido='';
 const editavel=()=>aval&&aval.fase==='avaliacao'&&aval.decisao==='pendente';
 
 // ---------- lista ----------
-function prazoTexto(a){if(a.decisao==='aprovou')return['Você aprovou','verde','em '+dataBR(a.decidido_em)];if(a.decisao==='pediu_mudanca')return['Pedido enviado','amarelo',a.pedidos_respondidos?'respondido pelo supervisor':'aguardando o supervisor'];
+function prazoTexto(a){if(a.pedidos_aguardando_voce)return['O supervisor respondeu','roxo','você tem 24 h para aceitar ou não'];if(a.decisao==='aprovou')return['Você aprovou','verde','em '+dataBR(a.decidido_em)];if(a.decisao==='dispensado')return['Dispensado','cinza','pelo administrador'];
+  if(a.decisao==='pediu_mudanca')return['Pedido enviado','amarelo',a.pedidos_em_aberto?'aguardando o supervisor':'encerrado'];
   if(a.fase==='liberada')return['Aprovada por todos','verde',''];if(a.prazo_encerrado)return['Prazo encerrado','cinza','o supervisor foi liberado'];
   return['Aguardando você','',a.dias_uteis_restantes===0?'Hoje é o último dia':a.dias_uteis_restantes===1?'Falta 1 dia útil':'Faltam '+a.dias_uteis_restantes+' dias úteis']}
 async function carregarLista(){const box=$('#lista');box.innerHTML='<div class="empty">Carregando…</div>';let d;try{d=await ATLAS_API('/api/avaliacoes')}catch(e){box.innerHTML='';msg($('#notice'),e.message,true);return}
@@ -103,13 +108,13 @@ async function carregarLista(){const box=$('#lista');box.innerHTML='<div class="
   if(window.ATLAS_USER&&ATLAS_USER.disciplina)$('#lead').textContent='Veja as questões que o supervisor de '+ATLAS_USER.disciplina+' escolheu e diga se concorda. Você tem 3 dias úteis.';
   box.replaceChildren();if(!d.avaliacoes.length){box.innerHTML='<div class="empty">Nenhuma prova para avaliar agora. Quando o supervisor finalizar uma seleção da sua disciplina e série, ela aparece aqui e você recebe um aviso por e-mail.</div>';return}
   for(const a of d.avaliacoes){const c=document.createElement('article');const [chip,cor,sub]=prazoTexto(a);const pend=a.decisao==='pendente'&&a.fase==='avaliacao'&&!a.prazo_encerrado;
-    c.className='cartao '+(a.decisao==='aprovou'?'aprovou':a.decisao==='pediu_mudanca'?'pediu':pend?'pendente':'encerrado');
+    c.className='cartao '+(a.pedidos_aguardando_voce?'resp':a.decisao==='aprovou'?'aprovou':a.decisao==='pediu_mudanca'?'pediu':pend?'pendente':'encerrado');
     const feitas=a.concordo+a.pedidos;
     c.innerHTML='<div><h3></h3><div class="sub"></div>'+(pend?'<div class="barra"><i style="width:'+Math.round(100*feitas/Math.max(1,a.total))+'%"></i></div>':'')+'</div><div class="estado"><span class="chip '+cor+'"></span><small></small></div><div></div>';
     c.querySelector('h3').textContent=a.prova.nome;c.querySelector('.sub').textContent=a.prova.bimestre+'º bimestre · '+(a.prova.situacao==='aplicada'?'aplicada':'aplicação')+' em '+dataBR(a.prova.aplicacao)+' · '+a.total+' questões de '+a.disciplina;
     c.querySelector('.chip').textContent=chip;c.querySelector('.estado small').textContent=sub;
-    const bt=document.createElement('button');bt.type='button';if(pend){bt.className='btn-laranja';bt.textContent='Avaliar agora →'}else{bt.className='secondary';bt.textContent=a.decisao==='pediu_mudanca'&&a.pedidos_respondidos?'Ver resposta':'Rever'}
-    bt.addEventListener('click',()=>abrirAvaliacao(a.id,Math.min(a.total,Math.max(1,pend?a.visto_ate+(a.visto_ate<a.total?1:0):1))));c.lastElementChild.append(bt);box.append(c)}}
+    const bt=document.createElement('button');bt.type='button';if(a.pedidos_aguardando_voce){bt.className='btn-roxo';bt.textContent='Ver resposta →'}else if(pend){bt.className='btn-laranja';bt.textContent='Avaliar agora →'}else{bt.className='secondary';bt.textContent=a.pedidos_respondidos?'Ver resposta':'Rever'}
+    bt.addEventListener('click',()=>abrirAvaliacao(a.id,a.pedidos_aguardando_voce?'resposta':Math.min(a.total,Math.max(1,pend?a.visto_ate+(a.visto_ate<a.total?1:0):1))));c.lastElementChild.append(bt);box.append(c)}}
 
 // ---------- visualizador ----------
 async function abrirAvaliacao(id,n=1){let d;try{d=await ATLAS_API('/api/avaliacoes/'+id)}catch(e){msg($('#notice'),e.message,true);return}
@@ -117,8 +122,9 @@ async function abrirAvaliacao(id,n=1){let d;try{d=await ATLAS_API('/api/avaliaco
   $('#lista-view').hidden=true;$('#ver-view').hidden=false;msg($('#v-notice'),'');$('#msg-final').hidden=true;$('#pedido-form').hidden=true;
   $('#v-titulo').textContent=aval.prova.nome;$('#v-sub').textContent=aval.disciplina+' · '+aval.prova.bimestre+'º bimestre · aplicação em '+dataBR(aval.prova.aplicacao)+(aval.prazo_em?' · prazo até '+quando(aval.prazo_em):'');
   const [chip,cor]=prazoTexto(aval);const p=$('#v-prazo');p.textContent=chip;p.className='prazo '+(aval.decisao==='pendente'&&aval.fase==='avaliacao'&&!aval.prazo_encerrado?(aval.dias_uteis_restantes===0?'vermelho':''):cor);
+  if(n==='resposta'){const k=questoes.findIndex(q=>q.pedido&&q.pedido.estado==='respondido');n=k>=0?k+1:1}
   window.scrollTo({top:0});irPara(n)}
-function desenharDots(){const box=$('#dots');box.replaceChildren();for(let k=1;k<=total;k++){const q=questoes[k-1]||{};const b=document.createElement('button');b.type='button';b.title='Questão '+k;b.className=(q.concordo?'ok':q.pedido?'ped':k<=(aval.visto_ate||0)?'visto':'')+(k===atual?' cur':'');b.addEventListener('click',()=>irPara(k));box.append(b)}
+function desenharDots(){const box=$('#dots');box.replaceChildren();for(let k=1;k<=total;k++){const q=questoes[k-1]||{};const b=document.createElement('button');b.type='button';b.title='Questão '+k;b.className=(q.concordo?'ok':q.pedido?(q.pedido.estado==='respondido'?'resp':'ped'):k<=(aval.visto_ate||0)?'visto':'')+(k===atual?' cur':'');b.addEventListener('click',()=>irPara(k));box.append(b)}
   $('#v-qn').textContent='Questão '+atual+' de '+total;$('#ant').disabled=atual<=1;$('#prox').disabled=atual>=total}
 async function irPara(n){if(!(n>=1&&n<=total))return;atual=n;const token=++renderToken;desenharDots();const quadro=$('#quadro');quadro.innerHTML='<div class="carregando" id="q-status">Carregando a questão…</div>';
   $('#pedido-form').hidden=true;tipoPedido='';for(const b of document.querySelectorAll('.tipos button'))b.classList.remove('on');$('#pedido-texto').value='';
@@ -147,14 +153,27 @@ function marcaDagua(c){const ctx=c.getContext('2d');const txt='GRUPO IDEAL · us
   ctx.save();ctx.globalAlpha=.7;ctx.fillStyle='#98151d';ctx.font='bold '+Math.round(c.width/62)+'px Arial';ctx.textAlign='right';ctx.fillText(txt,c.width-24,c.height-16);ctx.restore()}
 function atualizarLado(){const q=questoes[atual-1]||{};const ed=editavel();
   $('#b-concordo').classList.toggle('on',!!q.concordo);$('#b-pedir').classList.toggle('on',!!q.pedido);$('#b-concordo').disabled=!ed;$('#b-pedir').disabled=!ed;
-  const pa=$('#pedido-atual');if(q.pedido){pa.innerHTML='<b></b><span></span>';pa.querySelector('b').textContent='Pedido enviado: '+(q.pedido.tipo_nome||q.pedido.tipo)+(q.pedido.estado!=='aberto'?' · respondido pelo supervisor':'');pa.querySelector('span').textContent=q.pedido.texto;pa.hidden=false}else pa.hidden=true;
+  const pa=$('#pedido-atual');if(q.pedido){const p=q.pedido;pa.className='pedido-atual '+p.estado;pa.innerHTML='<b class="pt"></b><div class="fios"></div><div class="aceite"></div>';
+    pa.querySelector('.pt').textContent='Pedido: '+(p.tipo_nome||p.tipo)+' · '+(p.estado_nome||p.estado);
+    const fios=pa.querySelector('.fios');for(const m of p.mensagens||[]){const f=document.createElement('div');f.className='fio '+m.autor;f.innerHTML='<b></b><span></span>';f.querySelector('b').textContent=(m.autor==='professor'?'Você':m.autor==='supervisor'?'Supervisor':m.autor==='adm'?'Administrador':'ATLAS')+' · '+quando(m.criado_em)+' · '+(MSG_TIPO[m.tipo]||m.tipo);f.querySelector('span').textContent=m.texto;fios.append(f)}
+    const ac=pa.querySelector('.aceite');
+    if(p.estado==='respondido'){ac.innerHTML='<div class="opcoes"><button type="button" class="btn-aceito" id="b-aceito">✓ Aceito a resposta</button><button type="button" id="b-nao">Não aceito</button></div><div id="treplica-form" hidden><textarea id="treplica-texto" maxlength="2000" placeholder="Explique ao supervisor por que não aceita."></textarea><button type="button" class="btn-laranja" id="b-enviar-treplica">'+(p.rodada>=2?'Enviar ao administrador (impasse)':'Enviar a tréplica')+'</button></div><p class="hint">Sem resposta sua até <b>'+esc(quando(p.prazo_em))+'</b>, vale como aceite.'+(p.rodada>=2?' Esta é a última rodada: se não aceitar, o administrador decide.':' Se não aceitar, você escreve a tréplica e o supervisor tem mais 24 h; persistindo, o administrador decide.')+'</p>';
+      ac.querySelector('#b-aceito').addEventListener('click',()=>responderAceite(p,true));ac.querySelector('#b-nao').addEventListener('click',()=>{const f=ac.querySelector('#treplica-form');f.hidden=!f.hidden;if(!f.hidden)f.querySelector('textarea').focus()});ac.querySelector('#b-enviar-treplica').addEventListener('click',()=>responderAceite(p,false))}
+    else if(p.estado==='treplica'||p.estado==='adm'||p.estado==='aberto')ac.innerHTML='<p class="hint">'+(p.estado==='adm'?'O administrador vai decidir e avisar você.':'Aguardando a resposta do supervisor'+(p.prazo_em?' (até '+esc(quando(p.prazo_em))+')':'')+'.')+'</p>';
+    pa.hidden=false}else pa.hidden=true;
   const conc=questoes.filter(x=>x&&x.concordo).length,ped=questoes.filter(x=>x&&x.pedido).length,porVer=total-conc-ped;
   $('#resumo-aval').textContent=conc+' concordo · '+ped+(ped===1?' pedido de mudança':' pedidos de mudança')+' · '+porVer+' por ver'+(ed?(porVer||aval.visto_ate<total?'. Você precisa passar por todas as questões para finalizar.':'. Tudo respondido: pode finalizar.'):'');
-  const f=$('#b-finalizar');if(aval.decisao!=='pendente'){f.hidden=true;$('#msg-final').textContent=aval.decisao==='aprovou'?'Você aprovou esta prova em '+quando(aval.decidido_em)+'.':aval.decisao==='pediu_mudanca'?'Você pediu mudança em '+quando(aval.decidido_em)+'. O supervisor vai responder.':'Você foi dispensado desta avaliação.';$('#msg-final').hidden=false}
+  const f=$('#b-finalizar');if(aval.decisao!=='pendente'){f.hidden=true;$('#msg-final').textContent=aval.decisao==='aprovou'?'Você aprovou esta prova em '+quando(aval.decidido_em)+'.':aval.decisao==='pediu_mudanca'?(questoes.some(x=>x&&x.pedido&&x.pedido.estado==='respondido')?'O supervisor respondeu ao seu pedido: aceite a resposta ou faça a tréplica na questão marcada em roxo.':questoes.some(x=>x&&x.pedido&&x.pedido.aberto)?'Você pediu mudança em '+quando(aval.decidido_em)+'. O supervisor vai responder.':'Seu pedido foi encerrado.'):'Você foi dispensado desta avaliação.';$('#msg-final').hidden=false}
   else if(!ed){f.hidden=true;$('#msg-final').textContent=aval.prazo_encerrado?'O prazo desta avaliação terminou.':'Esta avaliação foi encerrada.';$('#msg-final').hidden=false}
   else{f.hidden=false;const falta=porVer+(aval.visto_ate<total?0:0);const pronto=porVer===0&&aval.visto_ate>=total;f.disabled=!pronto;f.classList.toggle('pronto',pronto);f.textContent=pronto?'Finalizar avaliação':'Finalizar avaliação (faltam '+Math.max(porVer,total-aval.visto_ate)+')'}}
 async function votar(){if(!editavel())return;const b=$('#b-concordo');b.disabled=true;try{const r=await ATLAS_API('/api/avaliacoes/'+aval.id+'/questao/'+atual+'/voto',{method:'POST',body:{voto:'concordo'}});questoes[atual-1]={n:atual,concordo:true,pedido:null};desenharDots();atualizarLado();if(atual<total)irPara(atual+1)}catch(e){msg($('#v-notice'),e.message,true)}finally{b.disabled=!editavel()}}
 $('#b-concordo').addEventListener('click',votar);
+const MSG_TIPO={pedido:'pediu mudança',ajustei:'ajustou a seleção',mantido:'manteve com justificativa',aceite:'aceitou',aceite_auto:'aceite automático (sem resposta em 24 h)',treplica:'não aceitou (tréplica)',decisao_adm:'decisão do administrador'};
+/* Resposta do professor à resposta do supervisor: aceita (vale como "concordo" na questão) ou não aceita (tréplica; na segunda vez, impasse ao ADM). */
+async function responderAceite(p,aceito){let texto='';if(!aceito){texto=($('#treplica-texto')?.value||'').trim();if(texto.length<3){msg($('#v-notice'),'Explique ao supervisor por que não aceita.',true);return}}
+  for(const b of document.querySelectorAll('#pedido-atual button'))b.disabled=true;
+  try{const r=await ATLAS_API('/api/avaliacoes/'+aval.id+'/pedido/'+p.id+'/aceite',{method:'POST',body:{aceito,texto}});await abrirAvaliacao(aval.id,atual);msg($('#v-notice'),aceito?(r.concluiu?'Resposta aceita. Sua avaliação foi concluída: você aprovou a prova.':'Resposta aceita.'):(r.pedido.estado==='adm'?'Enviado ao administrador, que vai decidir.':'Tréplica enviada: o supervisor tem 24 h para responder.'))}
+  catch(e){msg($('#v-notice'),e.message,true);for(const b of document.querySelectorAll('#pedido-atual button'))b.disabled=false}}
 $('#b-pedir').addEventListener('click',()=>{if(!editavel())return;const f=$('#pedido-form');f.hidden=!f.hidden;if(!f.hidden){const q=questoes[atual-1]||{};if(q.pedido){tipoPedido=q.pedido.tipo;$('#pedido-texto').value=q.pedido.texto}for(const b of document.querySelectorAll('.tipos button'))b.classList.toggle('on',b.dataset.tipo===tipoPedido);$('#pedido-texto').focus()}});
 for(const b of document.querySelectorAll('.tipos button'))b.addEventListener('click',()=>{tipoPedido=b.dataset.tipo;for(const x of document.querySelectorAll('.tipos button'))x.classList.toggle('on',x===b)});
 $('#b-enviar-pedido').addEventListener('click',async()=>{if(!editavel())return;const texto=$('#pedido-texto').value.trim();if(!tipoPedido){msg($('#v-notice'),'Escolha o tipo do pedido: trocar a questão ou corrigir texto ou gabarito.',true);return}if(texto.length<3){msg($('#v-notice'),'Explique ao supervisor o que precisa mudar.',true);$('#pedido-texto').focus();return}

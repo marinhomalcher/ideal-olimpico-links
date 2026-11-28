@@ -11,7 +11,7 @@ import { rotaPessoasPlanilha } from './pessoas-planilha.js';
 import { rotaAlunosAdm, rotaAlunosPortal } from './alunos.js';
 import { rotaCalendarioAdm } from './calendario.js';
 import { rotaProvasAdm, provaDaSelecao, provasAbertasDaDisciplina, provaParaNovaSelecao, ligarSelecao, desligarSelecao, fecharProvaSeCompleta, aoDevolverSelecao, entregarProva } from './provas.js';
-import { abrirAvaliacao, resumoAvaliacao, rotaAvaliacoesProfessor } from './avaliacoes.js';
+import { abrirAvaliacao, resumoAvaliacao, rotaAvaliacoesProfessor, rotaAvaliacoesSupervisor, rotaAvaliacoesAdm } from './avaliacoes.js';
 // Administração: login "Entrar com Google", liberado SOMENTE para o e-mail em ADMIN_EMAIL.
 // Professores e Supervisores: login por código no e-mail institucional.
 // Questões: enviadas pelo Professor e analisadas pelo Supervisor da disciplina (tabelas itens/item_versoes/revisoes).
@@ -2021,7 +2021,8 @@ async function rotasSelecoesSupervisor(request, env, path, url, user) {
   if (path === '/api/supervisor/selecoes' && request.method === 'GET') {
     const { results } = await env.DB.prepare(
       "SELECT s.id, s.serie, s.tipo, s.titulo, s.situacao, s.ano, s.motivo_devolucao, s.criado_em, s.atualizado_em, s.enviada_em, s.aplicada_em, s.prova_id, s.fase, s.avaliacao_prazo_em, s.liberada_em, " +
-      "u.nome AS supervisor, (SELECT COUNT(*) FROM selecao_itens si WHERE si.selecao_id = s.id) AS total " +
+      "u.nome AS supervisor, (SELECT COUNT(*) FROM selecao_itens si WHERE si.selecao_id = s.id) AS total, " +
+      "(SELECT COUNT(*) FROM avaliacao_pedidos pe WHERE pe.selecao_id = s.id AND pe.estado IN ('aberto','treplica')) AS pedidos_abertos " +
       "FROM selecoes s JOIN usuarios u ON u.id = s.supervisor_id WHERE s.disciplina = ? " +
       "ORDER BY CASE s.situacao WHEN 'rascunho' THEN 0 WHEN 'enviada' THEN 1 ELSE 2 END, s.id DESC LIMIT 300"
     ).bind(user.disciplina).all();
@@ -2068,7 +2069,13 @@ async function rotasSelecoesSupervisor(request, env, path, url, user) {
     throw new HttpError(409, sel.situacao === 'enviada' ? (sel.prova_id ? 'Esta seleção já foi finalizada.' : 'Esta seleção já foi enviada ao administrador.') : 'Esta seleção já foi aplicada.');
   }
   // Em avaliação pelos professores (etapa B): a seleção fica travada até todos aprovarem (ou o prazo acabar: etapa D).
-  if (sel.fase === 'avaliacao') throw new HttpError(409, 'Esta seleção está em avaliação pelos professores e não pode ser alterada agora.');
+  // Exceção (etapa C): com um pedido de mudança aguardando resposta, o supervisor pode alterar a seleção (PUT) para depois responder "ajustei".
+  let ajustandoPedido = false;
+  if (sel.fase === 'avaliacao') {
+    const abertos = await env.DB.prepare("SELECT COUNT(*) AS n FROM avaliacao_pedidos WHERE selecao_id = ? AND estado IN ('aberto','treplica')").bind(sel.id).first();
+    ajustandoPedido = !m[2] && request.method === 'PUT' && abertos.n > 0;
+    if (!ajustandoPedido) throw new HttpError(409, 'Esta seleção está em avaliação pelos professores e não pode ser alterada agora.');
+  }
   if (sel.fase === 'liberada' && !m[2]) throw new HttpError(409, 'Os professores já aprovaram esta seleção: clique em "Enviar para o diagramador".');
 
   if (!m[2] && request.method === 'DELETE') {
@@ -2087,7 +2094,12 @@ async function rotasSelecoesSupervisor(request, env, path, url, user) {
     const { serie, tipo } = sel.prova_id ? { serie: sel.serie, tipo: sel.tipo } : validarSerieTipo({ serie: body.serie ?? sel.serie, tipo: body.tipo ?? sel.tipo });
     const titulo = body.titulo === undefined ? sel.titulo : validarTitulo(body.titulo);
     const codigos = Array.isArray(body.itens) ? body.itens.map(c => String(c).toUpperCase()) : [];
+    // Durante a avaliação, as versões congeladas das questões que continuam na seleção são preservadas:
+    // só a resposta "ajustei" congela de novo (e é assim que o servidor sabe o que mudou).
+    const congeladas = ajustandoPedido ? (await env.DB.prepare('SELECT item_id, versao, grupo_versao FROM selecao_itens WHERE selecao_id = ?').bind(sel.id).all()).results : [];
     const r = await gravarItensSelecao(env, user, sel, { serie, tipo, titulo, codigos, tolerante: false });
+    if (congeladas.length) await env.DB.batch(congeladas.map(c => env.DB.prepare('UPDATE selecao_itens SET versao = ?, grupo_versao = ? WHERE selecao_id = ? AND item_id = ?').bind(c.versao, c.grupo_versao, sel.id, c.item_id)));
+    if (ajustandoPedido) await registrar(env, 'selecao_ajustada_na_avaliacao', { selecao: sel.id, total: r.total }, user.id);
     return { ok: true, selecao: { id: sel.id, total: r.total } };
   }
 
@@ -2639,6 +2651,8 @@ async function rotasAdm(request, env, path) {
   if (sharepointAdm) return sharepointAdm;
   const backupAdm = await rotasBackupAdm(request, env, path, sessao);
   if (backupAdm) return backupAdm;
+  const avaliacoesAdm = await rotaAvaliacoesAdm(request, env, path, { ...ajudantesAvaliacao(env), sessao });
+  if (avaliacoesAdm) return avaliacoesAdm;
   const selecoesAdm = await rotasSelecoesAdm(request, env, path, new URL(request.url), sessao);
   if (selecoesAdm) return selecoesAdm;
   const provasAdm = await rotaProvasAdm(request, env, path, new URL(request.url), ajudantesProvas(env, sessao));
@@ -2852,6 +2866,13 @@ export default {
       if (url.pathname.startsWith('/api/classificar/')) {
         if (!ALLOWED_ORIGINS.includes(origin)) throw new HttpError(403, 'Origem não permitida.');
         return await replyAssinado(env, await rotasClassificar(request, env, url.pathname), 200, origin);
+      }
+      if (url.pathname.startsWith('/api/supervisor/avaliacoes/')) {
+        // Supervisor: painel da avaliação pelos professores (por código) e resposta aos pedidos de mudança (etapa C).
+        if (!ALLOWED_ORIGINS.includes(origin)) throw new HttpError(403, 'Origem não permitida.');
+        const user = await usuarioDaSessao(request, env);
+        if (user.papel !== 'supervisor') throw new HttpError(403, 'Área restrita ao Supervisor da disciplina.');
+        return await replyAssinado(env, await rotaAvaliacoesSupervisor(request, env, url.pathname, user, ajudantesAvaliacao(env)), 200, origin);
       }
       if (url.pathname.startsWith('/api/supervisor/')) {
         if (!ALLOWED_ORIGINS.includes(origin)) throw new HttpError(403, 'Origem não permitida.');
