@@ -161,6 +161,7 @@ ok('Filtro de nome', await page.locator('#list tbody tr').count() === 1 && /Dig 
 await page.locator('#search').fill('');
 await page.locator('#add').click();
 ok('"+ Nova pessoa" abre com "Banco de questões" marcado', await page.locator('#dialog').isVisible() && await page.locator('#f-banco').isChecked() && await page.locator('#subject').isVisible());
+ok('Nova pessoa traz as caixas das séries (1ª, 2ª e 3ª), desmarcadas', (await page.locator('[name=bq-serie]').count())===3 && await page.locator('#series-row').isVisible() && (await page.locator('[name=bq-serie]:checked').count())===0);
 await page.locator('#name').fill('Bia Redação');await page.locator('#email').fill('bia.red');
 await page.locator('#f-banco').uncheck();
 await page.locator('#save').click();

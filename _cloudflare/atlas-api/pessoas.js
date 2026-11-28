@@ -23,6 +23,7 @@ export async function listarPessoas(env) {
   const turmas = (await env.DB.prepare('SELECT usuario_id, turma_id FROM redacao_professor_turmas').all()).results;
   const unidades = (await env.DB.prepare('SELECT usuario_id, unidade FROM redacao_digitalizador_unidades').all()).results;
   const coord = (await env.DB.prepare('SELECT usuario_id, unidade, segmento, serie FROM coordenadores ORDER BY unidade, segmento, serie').all()).results;
+  const series = (await env.DB.prepare('SELECT usuario_id, serie FROM professor_series ORDER BY serie').all()).results;   // séries em que leciona (provas que precisa avaliar)
   return pessoas.map(p => {
     const e = equipe.get(p.id);
     return {
@@ -33,12 +34,13 @@ export async function listarPessoas(env) {
         turmas: turmas.filter(x => x.usuario_id === p.id).map(x => x.turma_id),
         unidades: unidades.filter(x => x.usuario_id === p.id).map(x => x.unidade)
       },
-      coordenacao: coord.filter(x => x.usuario_id === p.id).map(({ unidade, segmento, serie }) => ({ unidade, segmento, serie }))
+      coordenacao: coord.filter(x => x.usuario_id === p.id).map(({ unidade, segmento, serie }) => ({ unidade, segmento, serie })),
+      series: series.filter(x => x.usuario_id === p.id).map(x => x.serie)
     };
   });
 }
 
-/* Cria (id = null) ou altera uma pessoa. Só mexe nas partes enviadas: banco, redacao, coordenacao, diagramador. */
+/* Cria (id = null) ou altera uma pessoa. Só mexe nas partes enviadas: banco, redacao, coordenacao, series, diagramador. */
 export async function salvarPessoa(env, id, body, h) {
   const { limparNome, limparEmail, limparAcessoAte, emailEmUso, DISCIPLINAS, registrar, sessao } = h;
   if (!body || typeof body !== 'object') erro(400, 'Dados inválidos.');
@@ -128,9 +130,15 @@ export async function salvarPessoa(env, id, body, h) {
       ops.push(env.DB.prepare('INSERT INTO coordenadores (usuario_id, unidade, segmento, serie) VALUES (?, ?, ?, ?)').bind(id, unidade, segmento, serie));
     }
   }
+  if (body.series !== undefined) {
+    const lista = Array.isArray(body.series) ? [...new Set(body.series.map(Number))] : null;
+    if (!lista || lista.some(x => ![1, 2, 3].includes(x))) erro(400, 'Séries inválidas (use 1, 2 e 3).');
+    ops.push(env.DB.prepare('DELETE FROM professor_series WHERE usuario_id = ?').bind(id));
+    for (const serie of lista) ops.push(env.DB.prepare('INSERT INTO professor_series (usuario_id, serie) VALUES (?, ?)').bind(id, serie));
+  }
   await env.DB.batch(ops);
   await registrar(env, 'pessoa_salva', { adm: sessao.email, id, nome, email, ativo, disciplina, digitador, classificador, diagramador,
-    redacao: body.redacao, coordenacao: body.coordenacao });
+    redacao: body.redacao, coordenacao: body.coordenacao, series: body.series });
   return id;
 }
 

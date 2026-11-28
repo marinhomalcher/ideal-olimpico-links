@@ -63,7 +63,7 @@ const jpeg = n => new Uint8Array([0xFF, 0xD8, 0xFF, 0xE0, n, 1, 2, 3]);
 const conta = (q, ...a) => db.prepare(q).get(...a).n;
 
 /* ---------- migração ---------- */
-ok('Schema 21', db.prepare("SELECT valor FROM meta WHERE chave='schema_versao'").get().valor === '21');
+ok('Schema 22', db.prepare("SELECT valor FROM meta WHERE chave='schema_versao'").get().valor === '22');
 { const m = new DatabaseSync(':memory:');
   m.exec(sql.split('-- ---------- v18 ----------')[0]); m.exec(fs.readFileSync(REPO + '_cloudflare/atlas-api/migrations/0018_desempenho.sql', 'utf8'));
   ok('Migração 0018 cria desempenho_documentos e marca a versão 18', m.prepare("SELECT COUNT(*) AS n FROM sqlite_master WHERE name = 'desempenho_documentos'").get().n === 1 && m.prepare("SELECT valor FROM meta WHERE chave = 'schema_versao'").get().valor === '18'); }
