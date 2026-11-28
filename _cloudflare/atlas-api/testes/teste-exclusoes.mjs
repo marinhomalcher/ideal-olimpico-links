@@ -48,6 +48,7 @@ async function call(path, { method = 'GET', body, token } = {}) {
   const res = await worker.fetch(new Request('https://atlas-api.test' + path, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) }), env);
   return { status: res.status, data: await res.json().catch(() => null) };
 }
+env.ATLAS_AVISOS_ATIVOS = '1';   // os avisos por e-mail ficam ligados neste teste
 const tAdm = (await call('/api/adm/login', { method: 'POST', body: { credential: await jwt({}) } })).data.token;
 
 db.exec(`INSERT INTO usuarios (nome,email,disciplina,papel) VALUES ('Edi Franco','edi@grupoideal.com.br','Literatura','supervisor');`);
@@ -114,6 +115,21 @@ const deGrupo = item(); db.prepare('UPDATE itens SET grupo_id = ? WHERE id = ?')
 r = await del(deGrupo.codigo, conf(deGrupo.codigo));
 ok('Questão de grupo não é excluída sozinha', r.status === 409 && /grupo/.test(r.data.error) && existe(deGrupo.id), r.data.error);
 
+// ---- Grupo inteiro (28/11/2026) ----
+const g2 = Number(db.prepare("INSERT INTO grupos (codigo, disciplina, autor_id) VALUES ('GL000002', 'Literatura', ?)").run(edi).lastInsertRowid);
+db.prepare("INSERT INTO grupo_versoes (grupo_id, versao, dados, autor_id) VALUES (?, 1, '{}', ?)").run(g2, edi);
+const m1 = item(), m2 = item();
+db.prepare('UPDATE itens SET grupo_id = ?, ordem_grupo = 1 WHERE id = ?').run(g2, m1.id); db.prepare('UPDATE itens SET grupo_id = ?, ordem_grupo = 2 WHERE id = ?').run(g2, m2.id);
+r = await del(m1.codigo, { ...conf(m1.codigo), grupo_inteiro: true });
+ok('Excluir o grupo inteiro apaga as questões e o texto-base do grupo', r.status === 200 && r.data.grupo === true && r.data.codigos.length === 2 && !existe(m1.id) && !existe(m2.id) &&
+  !db.prepare('SELECT 1 FROM grupos WHERE id = ?').get(g2) && !db.prepare('SELECT 1 FROM grupo_versoes WHERE grupo_id = ?').get(g2) && !!db.prepare("SELECT 1 FROM eventos WHERE acao = 'grupo_excluido'").get(), JSON.stringify(r.data));
+const g3 = Number(db.prepare("INSERT INTO grupos (codigo, disciplina, autor_id) VALUES ('GL000003', 'Literatura', ?)").run(edi).lastInsertRowid);
+const m3 = item(), m4 = item();
+db.prepare('UPDATE itens SET grupo_id = ? WHERE id IN (?, ?)').run(g3, m3.id, m4.id);
+selecao('enviada', null, [m4]);
+r = await del(m3.codigo, { ...conf(m3.codigo), grupo_inteiro: true });
+ok('Grupo com uma questão já usada não é excluído (e diz qual)', r.status === 409 && r.data.error.includes(m4.codigo) && existe(m3.id) && existe(m4.id), r.data.error);
+
 // ---- Prova ----
 const delProva = id => call('/api/adm/provas/' + id, { method: 'DELETE', token: tAdm });
 const q1 = item();
@@ -122,6 +138,8 @@ r = await delProva(pAberta);
 ok('Prova aberta com seleção começada: é excluída junto com a seleção', r.status === 200 && r.data.selecoes_apagadas === 1 &&
   !db.prepare('SELECT 1 FROM provas WHERE id = ?').get(pAberta) && !db.prepare('SELECT 1 FROM selecoes WHERE id = ?').get(sA) && !db.prepare('SELECT 1 FROM selecao_itens WHERE selecao_id = ?').get(sA), JSON.stringify(r.data));
 ok('A questão da seleção apagada continua no banco', existe(q1.id));
+await new Promise(res => setTimeout(res, 50));
+ok('O supervisor que tinha começado a seleção é avisado por e-mail', r.data.avisados === 1 && mails.some(m => JSON.stringify(m).includes('edi@grupoideal.com.br') && JSON.stringify(m).includes('excluída')), JSON.stringify(mails).slice(0, 200));
 const pFechada = prova('fechada'); selecao('enviada', pFechada, [item()]);
 r = await delProva(pFechada);
 ok('Prova fechada (todas finalizaram, ainda não foi ao Diagramador): pode excluir', r.status === 200 && !db.prepare('SELECT 1 FROM provas WHERE id = ?').get(pFechada), JSON.stringify(r.data));
@@ -132,7 +150,8 @@ ok('Prova aplicada: não exclui', r.status === 409 && /aplicada/.test(r.data.err
 
 // ---- Telas ----
 const hq = fs.readFileSync(REPO + 'atlas/admin-questoes.html', 'utf8'), ha = fs.readFileSync(REPO + 'atlas/admin-avaliacoes.html', 'utf8');
-ok('Questões: botão Excluir com aviso "apagada de tudo" e código para confirmar', hq.includes('id="del-item"') && hq.includes('apagada de tudo') && hq.includes('id="del-codigo"') && hq.includes("method:'DELETE',body:{confirmo_exclusao:true,codigo_confirmacao:cod}"));
+ok('Questões: questão de grupo mostra "Excluir o grupo inteiro"', hq.includes("item.grupo?'Excluir o grupo inteiro':'Excluir'") && hq.includes('grupo_inteiro:!!current.grupo'));
+ok('Questões: botão Excluir com aviso "apagada de tudo" e código para confirmar', hq.includes('id="del-item"') && hq.includes('apagada de tudo') && hq.includes('id="del-codigo"') && hq.includes("method:'DELETE',body:{confirmo_exclusao:true,codigo_confirmacao:cod,grupo_inteiro:!!current.grupo}"));
 ok('Avaliações: "Excluir prova" também com seleção começada, avisando que as seleções serão apagadas', ha.includes("bt('Excluir prova','danger'") && ha.includes("p.situacao==='aberta'||p.situacao==='fechada'") && ha.includes('também serão apagadas'));
 
 for (const x of results) console.log(x.join(' | '));
