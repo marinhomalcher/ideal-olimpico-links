@@ -1739,6 +1739,44 @@ async function rotasAdmItens(request, env, path, sessao) {
       prazo_dias: DIAS_DESFAZER_DESCARTE } };
   }
 
+  // Excluir de vez (28/11/2026, decisão do Marinho): bloqueia se a questão já está numa seleção finalizada,
+  // numa prova enviada ao Diagramador ou aplicada; em rascunho de supervisor, sai do rascunho. Questão de grupo
+  // (texto-base compartilhado) não é excluída sozinha. As versões ficam guardadas no evento de exclusão.
+  if (!m[2] && request.method === 'DELETE') {
+    const body = await readJson(request);
+    if (body.confirmo_exclusao !== true) throw new HttpError(400, 'Confirme que entende que a exclusão não pode ser desfeita.');
+    if (String(body.codigo_confirmacao || '').trim().toUpperCase() !== item.codigo) throw new HttpError(400, 'O código digitado não confere com o da questão.');
+    const linha = await env.DB.prepare('SELECT grupo_id, retirada_id, autor_id FROM itens WHERE id = ?').bind(item.id).first();
+    if (linha?.grupo_id) throw new HttpError(409, 'Esta questão faz parte de um grupo (texto-base compartilhado). Excluir só uma parte deixaria o grupo incompleto.');
+    const { results: usos } = await env.DB.prepare(
+      'SELECT s.id, s.situacao, s.serie, s.tipo, s.ano, p.situacao AS prova_situacao FROM selecao_itens si JOIN selecoes s ON s.id = si.selecao_id ' +
+      'LEFT JOIN provas p ON p.id = s.prova_id WHERE si.item_id = ?').bind(item.id).all();
+    const travas = usos.filter(u => u.situacao !== 'rascunho' || ['enviada', 'aplicada'].includes(u.prova_situacao));
+    if (travas.length) {
+      const onde = travas.map(u => 'seleção #' + u.id + ' (' + u.serie + 'ª ' + u.tipo + ' ' + u.ano + ', ' + (u.situacao === 'aplicada' || u.prova_situacao === 'aplicada' ? 'aplicada' : u.prova_situacao === 'enviada' ? 'enviada ao Diagramador' : 'finalizada') + ')').join('; ');
+      throw new HttpError(409, 'Esta questão já está em uso e não pode ser excluída: ' + onde + '.');
+    }
+    const { results: versoes } = await env.DB.prepare('SELECT versao, dados, autor_id, criado_em FROM item_versoes WHERE item_id = ? ORDER BY versao').bind(item.id).all();
+    const rascunhos = usos.map(u => u.id);
+    const id = item.id;
+    const ops = [
+      env.DB.prepare('DELETE FROM avaliacao_mensagens WHERE pedido_id IN (SELECT id FROM avaliacao_pedidos WHERE item_id = ?)').bind(id),
+      env.DB.prepare('DELETE FROM avaliacao_pedidos WHERE item_id = ?').bind(id),
+      env.DB.prepare('DELETE FROM avaliacao_visualizacoes WHERE item_id = ?').bind(id),
+      env.DB.prepare('DELETE FROM selecao_itens WHERE item_id = ?').bind(id),
+      env.DB.prepare('DELETE FROM reservas WHERE item_id = ?').bind(id),
+      env.DB.prepare('UPDATE eventos SET item_id = NULL WHERE item_id = ?').bind(id),
+      env.DB.prepare('DELETE FROM revisoes WHERE item_id = ?').bind(id),
+      env.DB.prepare('DELETE FROM consertos WHERE item_id = ?').bind(id),
+      env.DB.prepare('DELETE FROM item_versoes WHERE item_id = ?').bind(id),
+      env.DB.prepare('DELETE FROM itens WHERE id = ?').bind(id),
+      env.DB.prepare("INSERT INTO eventos (usuario_id, acao, detalhe) VALUES (?, 'questao_excluida', ?)").bind(await admUsuarioId(env),
+        JSON.stringify({ adm: sessao.email, codigo: item.codigo, disciplina: item.disciplina, situacao: item.situacao, autor_id: linha?.autor_id, retirada: linha?.retirada_id || null, rascunhos, versoes }))
+    ];
+    await env.DB.batch(ops);
+    return { ok: true, codigo: item.codigo, rascunhos };
+  }
+
   if (m[2] && request.method === 'POST') {
     if (item.situacao !== 'descartado') throw new HttpError(409, 'Esta questão não está descartada.');
     if ((await env.DB.prepare('SELECT retirada_id FROM itens WHERE id = ?').bind(item.id).first())?.retirada_id) throw new HttpError(409, 'Esta questão foi retirada junto com as do professor desligado. Para devolvê-la, use "Questões retiradas" em Professores e disciplinas.');

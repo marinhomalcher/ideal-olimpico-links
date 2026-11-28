@@ -250,11 +250,23 @@ export async function rotaProvasAdm(request, env, path, url, h) {
     await h.registrar(env, 'prova_alterada', { adm: h.sessao.email, prova: prova.id, ...f });
     return { ok: true, prova: { id: prova.id } };
   }
+  /* Excluir (28/11/2026, decisão do Marinho): só antes de ir ao Diagramador. As seleções da prova são
+     apagadas junto (mesmo com o supervisor no meio) e as questões voltam a ficar disponíveis. */
   if (!m[2] && request.method === 'DELETE') {
-    if (discs.some(d => d.selecao)) erro(409, 'Um supervisor já começou a seleção desta prova. Ela não pode ser excluída.');
-    await env.DB.batch([env.DB.prepare('DELETE FROM prova_disciplinas WHERE prova_id = ?').bind(prova.id), env.DB.prepare('DELETE FROM provas WHERE id = ?').bind(prova.id)]);
-    await h.registrar(env, 'prova_excluida', { adm: h.sessao.email, prova: prova.id });
-    return { ok: true };
+    if (prova.situacao === 'enviada' || prova.situacao === 'aplicada') erro(409, prova.situacao === 'enviada' ? 'Esta prova já foi enviada ao Diagramador e não pode ser excluída.' : 'Esta prova já foi aplicada e não pode ser excluída.');
+    const { results: ligadas } = await env.DB.prepare('SELECT id FROM selecoes WHERE prova_id = ? UNION SELECT selecao_id FROM prova_disciplinas WHERE prova_id = ? AND selecao_id IS NOT NULL').bind(prova.id, prova.id).all();
+    const sels = ligadas.map(x => x.id);
+    const ops = [];
+    for (const s of sels) {
+      ops.push(env.DB.prepare('DELETE FROM avaliacao_mensagens WHERE pedido_id IN (SELECT id FROM avaliacao_pedidos WHERE selecao_id = ?)').bind(s));
+      for (const t of ['avaliacao_pedidos', 'avaliacao_visualizacoes', 'avaliacao_professores', 'selecao_itens']) ops.push(env.DB.prepare('DELETE FROM ' + t + ' WHERE selecao_id = ?').bind(s));
+    }
+    ops.push(env.DB.prepare('DELETE FROM prova_disciplinas WHERE prova_id = ?').bind(prova.id));
+    for (const s of sels) ops.push(env.DB.prepare('DELETE FROM selecoes WHERE id = ?').bind(s));
+    ops.push(env.DB.prepare('DELETE FROM provas WHERE id = ?').bind(prova.id));
+    await env.DB.batch(ops);
+    await h.registrar(env, 'prova_excluida', { adm: h.sessao.email, prova: prova.id, selecoes_apagadas: sels });
+    return { ok: true, selecoes_apagadas: sels.length };
   }
   if (m[2] === '/word' && request.method === 'GET') {
     if (prova.situacao === 'aberta') erro(409, 'O Word só fica pronto quando todas as disciplinas finalizarem.');
