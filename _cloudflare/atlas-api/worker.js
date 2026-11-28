@@ -9,6 +9,7 @@ import { listarPessoas, salvarPessoa } from './pessoas.js';
 import { tabelaDeCodigos, codificarNomes, origemDoSegredo } from './codigo-supervisor.js';
 import { rotaPessoasPlanilha } from './pessoas-planilha.js';
 import { rotaAlunosAdm, rotaAlunosPortal } from './alunos.js';
+import { rotaCalendarioAdm } from './calendario.js';
 import { rotaProvasAdm, provaDaSelecao, provasAbertasDaDisciplina, provaParaNovaSelecao, ligarSelecao, desligarSelecao, fecharProvaSeCompleta, aoDevolverSelecao, entregarProva } from './provas.js';
 // Administração: login "Entrar com Google", liberado SOMENTE para o e-mail em ADMIN_EMAIL.
 // Professores e Supervisores: login por código no e-mail institucional.
@@ -2528,6 +2529,8 @@ async function rotasAdm(request, env, path) {
   if (selecoesAdm) return selecoesAdm;
   const provasAdm = await rotaProvasAdm(request, env, path, new URL(request.url), ajudantesProvas(env, sessao));
   if (provasAdm) return provasAdm;
+  const calendarioAdm = await rotaCalendarioAdm(request, env, path, new URL(request.url), { readJson, registrar, sessao, hojeSP: () => hojeSP(env) });
+  if (calendarioAdm) return calendarioAdm;
   const itensAdm = await rotasAdmItens(request, env, path, sessao);
   if (itensAdm) return itensAdm;
 

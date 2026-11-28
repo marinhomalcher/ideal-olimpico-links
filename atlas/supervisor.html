@@ -1,10 +1,10 @@
 <!doctype html>
 <html lang="pt-BR">
 <head>
-<meta name="atlas-versao" content="20261127h"><script src="atlas-versao.js?v=20261127h" defer></script>
+<meta name="atlas-versao" content="20261128a"><script src="atlas-versao.js?v=20261128a" defer></script>
 <meta charset="utf-8"><meta name="robots" content="noindex, nofollow"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>ATLAS | Análise do Supervisor</title>
-<script src="auth.js?v=20261127h"></script>
+<script src="auth.js?v=20261128a"></script>
 <style>
 .question img{display:block;max-width:100%;max-height:380px;height:auto;margin:10px 0}.question table{border-collapse:collapse;margin:12px 0;max-width:100%;width:auto}.question td,.question th{border:1px solid #a99498;padding:7px 10px;min-width:64px}.question .atlas-equation{display:inline-block;vertical-align:middle;max-width:100%;overflow-x:auto}
 
@@ -44,7 +44,7 @@ dialog .modal-actions{display:flex;justify-content:flex-end;gap:9px;margin-top:1
 </style>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.19.1/dist/katex.min.css" integrity="sha384-WwGtaC6ywCHxA5cstpj/3+xIZvTez8dq2IcBQaXRkenHZ7FVVq1ZROtURwfbtTlG" crossorigin="anonymous">
 <style>.selo-pronta{background:#1f7a3d!important}.aviso-pronta{border-color:#9fd3b0!important;background:#eefaf2!important}.selo-classificar{display:inline-block;margin-left:6px;background:#2e4b8f;color:#fff;border-radius:999px;padding:1px 8px;font-size:10.5px;font-weight:bold;text-transform:uppercase;letter-spacing:.04em;vertical-align:1px}.aviso-classificar{background:#eef1fb;border:1px solid #c3cdea;border-left:4px solid #2e4b8f;color:#23396b;border-radius:9px;padding:12px 15px;margin:0 0 16px}.aviso-classificar strong{display:block;margin-bottom:2px}.aviso-classificar p{margin:0}</style>
-<link rel="icon" type="image/png" href="atlas-favicon.png"><link rel="stylesheet" href="atlas-marca.css?v=20261127h"><link rel="stylesheet" href="atlas-visual.css?v=20261127h"></head>
+<link rel="icon" type="image/png" href="atlas-favicon.png"><link rel="stylesheet" href="atlas-marca.css?v=20261128a"><link rel="stylesheet" href="atlas-visual.css?v=20261128a"></head>
 <body class="vn vn-supervisor">
 <header><div class="brand"><img class="brand-atlas" src="atlas-horizontal-escuro.png" alt="ATLAS"></div><div class="role"><a class="back-link" href="index.html">← Voltar ao início</a>Área do Supervisor <button type="button" onclick="ATLAS_SAIR()" style="margin-left:12px;border:1px solid #cbaeb2;background:#fff;color:#98151d;border-radius:8px;padding:6px 10px;cursor:pointer">Sair</button></div><img class="ideal-dir" src="ideal-logo-hd.png" alt="Ideal 50 anos"></header>
 <div class="shell"><aside><small>ÁREA DO SUPERVISOR</small><a href="supervisor.html">Fila de análise</a><a href="supervisor-selecoes.html" style="margin-top:6px;background:transparent">Seleções para provas</a></aside><main>
@@ -55,9 +55,9 @@ dialog .modal-actions{display:flex;justify-content:flex-end;gap:9px;margin-top:1
 </main></div>
 <dialog id="equation-dialog" aria-labelledby="eq-title"><h2 id="eq-title">Inserir equação</h2><label for="equation-input">Escreva a expressão em LaTeX</label><input id="equation-input" placeholder="Ex.: \tan(\frac{\alpha+\beta}{2})"><p class="hint">Aceita LaTeX matemático, incluindo frações, raízes, funções trigonométricas e símbolos gregos. Use \sen para seno em português. Dê dois cliques na equação para editar.</p><div id="equation-preview" aria-label="Prévia da equação"></div><p id="equation-error" class="field-error" role="alert" hidden>Revise a expressão: há um comando ou agrupamento inválido.</p><div class="modal-actions"><button type="button" class="secondary" onclick="this.closest('dialog').close()">Cancelar</button><button type="button" class="primary" id="equation-insert">Inserir</button></div></dialog>
 <script src="https://cdn.jsdelivr.net/npm/katex@0.19.1/dist/katex.min.js" integrity="sha384-a1WQdjRj162i159OYq041X6I4K8NenkrI09LlPmiHg0YOb7CR+wJOraXwK9abpnE" crossorigin="anonymous"></script>
-<script src="atlas-editor.js?v=20261127h"></script>
-<script src="atlas-tags.js?v=20261127h"></script>
-<script src="atlas-classificacao.js?v=20261127h"></script>
+<script src="atlas-editor.js?v=20261128a"></script>
+<script src="atlas-tags.js?v=20261128a"></script>
+<script src="atlas-classificacao.js?v=20261128a"></script>
 <script>
 const rich=AtlasRich.setup();const tagsEdit=AtlasTags.setup('tags-edit');const extrasCampo=AtlasRich.extras(rich);let current=null;
 const list=document.querySelector('#list'),queue=document.querySelector('#queue'),details=document.querySelector('#details'),notice=document.querySelector('#notice');

@@ -51,7 +51,7 @@ async function api(path, method = 'GET', body, token = 'adm-token') {
 async function madrugada() { const ctx = { p: [], waitUntil(x) { this.p.push(x); } }; await worker.scheduled({ cron: '17 6 * * *' }, env, ctx); await Promise.all(ctx.p); }
 const conta = (sql, ...a) => db.prepare(sql).get(...a).n;
 
-ok('Schema 21', db.prepare("SELECT valor FROM meta WHERE chave='schema_versao'").get().valor === '21');
+ok('Schema 22', db.prepare("SELECT valor FROM meta WHERE chave='schema_versao'").get().valor === '22');
 
 /* ---------- dados fictícios do ano 2026 ---------- */
 let r = await api('/api/adm/redacao/turmas');
@@ -149,7 +149,7 @@ r = await api('/api/adm/redacao/equipe');
 ok('Professora continua cadastrada, agora sem turma', r.status === 200 && r.data.equipe.some(x => x.id === profId && x.funcao === 'professor' && x.turmas.length === 0), JSON.stringify(r.data.equipe));
 r = await api('/api/redacao/sessao', 'GET', undefined, 'prof-token');
 ok('Professora ainda entra na Redação', r.status === 200 && r.data.usuario.turmas.length === 0, r.data.error);
-ok('Schema continua 21', db.prepare("SELECT valor FROM meta WHERE chave='schema_versao'").get().valor === '21');
+ok('Schema continua 22', db.prepare("SELECT valor FROM meta WHERE chave='schema_versao'").get().valor === '22');
 
 /* ---------- rodar de novo não faz nada ---------- */
 const c1 = await contagens(env, 2026);
