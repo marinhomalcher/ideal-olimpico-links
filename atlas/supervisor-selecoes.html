@@ -112,7 +112,7 @@ body.modo-editor header{position:sticky;top:0;z-index:7}
 <div class="notice" id="notice" role="status"></div>
 
 <section class="panel" id="lista-view">
-  <div class="actions" style="margin-top:0;padding-top:0;border:0"><button type="button" class="primary" id="nova">+ Nova seleção</button></div>
+  <div class="actions" style="margin-top:0;padding-top:0;border:0"><button type="button" class="primary" id="nova">+ Nova prova</button></div>
   <form id="nova-form" class="adjust-form newsel" hidden>
     <label>Prova</label><p class="hint" style="margin:0 0 8px">As provas do bimestre são criadas pelo administrador em Avaliações, com a quantidade de questões de cada disciplina.</p><div class="provas" id="provas-abertas"></div>
     <label for="reaproveitar">Reaproveitar outra seleção (opcional)</label><select id="reaproveitar" class="campo-sel"><option value="">Começar do zero</option></select><p class="hint" style="margin:4px 0 12px">Copia as questões de uma seleção sua já feita (por exemplo, a da MED para a MIL). Depois você pode retirar algumas e acrescentar outras. Questões já aplicadas para a turma da prova nova ficam de fora.</p>
@@ -208,7 +208,7 @@ async function carregarLista(){const box=$('#lista');box.innerHTML='<div class="
   try{data=await ATLAS_API('/api/supervisor/selecoes')}catch(e){box.innerHTML='';msg(e.message,true);return}
   provasAbertas=data.provas||[];minhasSelecoes=data.selecoes||[];
   $('#lead').textContent='Disciplina: '+data.disciplina+'. Escolha a prova, selecione questões aprovadas e finalize: o caderno vai ao Diagramador quando todas as disciplinas enviarem.';
-  box.replaceChildren();if(!data.selecoes.length){const d=document.createElement('div');d.className='empty';d.textContent='Nenhuma seleção ainda. Clique em “+ Nova seleção”.';box.append(d);return}
+  box.replaceChildren();if(!data.selecoes.length){const d=document.createElement('div');d.className='empty';d.textContent='Nenhuma seleção ainda. Clique em “+ Nova prova”.';box.append(d);return}
   const t=document.createElement('table');t.innerHTML='<thead><tr><th>Nº</th><th>Prova</th><th>Questões</th><th>Situação</th><th>Atualizada em</th><th></th></tr></thead>';const b=document.createElement('tbody');
   for(const s of data.selecoes){const r=document.createElement('tr');const c=v=>{const td=document.createElement('td');td.textContent=v;r.append(td);return td};
     c('#'+s.id).style.fontWeight='bold';c(s.prova?nomeProva(s.prova):serieTipo(s)+(s.titulo?' · '+s.titulo:''));c(s.prova?s.total+' de '+s.prova.quantidade:String(s.total));const st=c('');const sp=document.createElement('span');sp.className='sit '+s.situacao;sp.textContent=sitNome(s);st.append(sp);c(quando(s.atualizado_em));
