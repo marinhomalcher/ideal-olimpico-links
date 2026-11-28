@@ -89,7 +89,7 @@ const base={etapa:'em',origem:'autoral',dificuldade:'Média',assunto:'Romantismo
 let r=await call('/api/itens',{method:'POST',token:tEdi,body:{dados:{...base,tags:['#Ecologia','  gráfico  de  barras ','ecologia','ENEM 2023']}}});
 const c1=r.data.item.codigo;
 let d=JSON.parse(db.prepare('SELECT v.dados FROM item_versoes v JOIN itens i ON i.id=v.item_id WHERE i.codigo=?').get(c1).dados);
-ok('Tags normalizadas: minúsculas, sem #, sem repetição, espaços limpos', JSON.stringify(d.tags)===JSON.stringify(['ecologia','gráfico de barras','enem 2023']), JSON.stringify(d.tags));
+ok('Tags normalizadas: minúsculas, sem #, sem acentos, sem repetição, espaços limpos', JSON.stringify(d.tags)===JSON.stringify(['ecologia','grafico de barras','enem 2023']), JSON.stringify(d.tags));
 r=await call('/api/itens',{method:'POST',token:tEdi,body:{dados:{...base,tags:Array.from({length:13},(_,k)=>'t'+k)}}});
 ok('Mais de 12 tags recusado', r.status===400);
 r=await call('/api/itens',{method:'POST',token:tEdi,body:{dados:{...base,tags:['x'.repeat(41)]}}});
@@ -112,8 +112,8 @@ ok('Fila do Supervisor traz as tags', r.data.itens.find(i=>i.codigo===c1).tags.i
  ok('Supervisor não muda dificuldade, origem nem etapa (só Bloom muda)', rr.status===200 && dv.dificuldade==='Média' && dv.origem==='autoral' && dv.etapa==='em' && dv.bloom==='Avaliar', JSON.stringify(dv).slice(0,160));}
 for(const c of [c1,c2]){const v=(await call('/api/itens/'+c,{token:tMarcio})).data.item.versao_atual;await call('/api/supervisor/itens/'+c+'/decisao',{method:'POST',token:tMarcio,body:{decisao:'aprovar',motivo:'',versao:v}})}
 const sel=(await call('/api/supervisor/selecoes',{method:'POST',token:tMarcio,body:{serie:1,tipo:'REG'}})).data.selecao.id;
-r=await call('/api/supervisor/banco?selecao='+sel+'&q=gráfico',{token:tMarcio});
-ok('Banco: busca de texto encontra pela tag', r.data.itens.length===1 && r.data.itens[0].codigo===c1 && r.data.itens[0].tags.includes('gráfico de barras'));
+r=await call('/api/supervisor/banco?selecao='+sel+'&q=grafico',{token:tMarcio});
+ok('Banco: busca de texto encontra pela tag', r.data.itens.length===1 && r.data.itens[0].codigo===c1 && r.data.itens[0].tags.includes('grafico de barras'));
 r=await call('/api/supervisor/banco?selecao='+sel+'&tag=%23ECOLOGIA',{token:tMarcio});
 ok('Banco: filtro exato por tag (com # e maiúsculas)', r.data.itens.length===1 && r.data.itens[0].codigo===c1);
 // ===== telas =====
@@ -127,7 +127,7 @@ const page=await ctx.newPage(); const errors=[]; page.on('pageerror',e=>errors.p
 const paste=(sel,text)=>page.evaluate(([sel,text])=>{const el=document.querySelector(sel);el.focus();const dt=new DataTransfer();dt.setData('text/plain',text);el.dispatchEvent(new ClipboardEvent('paste',{clipboardData:dt,bubbles:true,cancelable:true}))},[sel,text]);
 async function login(card,user){db.exec('DELETE FROM login_rate_limits');await page.goto('https://idealolimpico.com.br/atlas/');await page.evaluate(()=>{sessionStorage.clear();localStorage.removeItem('atlas_user_auth')});await page.goto('https://idealolimpico.com.br/atlas/');await page.click(`[data-role="${card}"]`);await page.fill('#email',user);await page.click('#loginButton');await page.waitForSelector('#code-step:not([hidden])');await page.fill('#code',lastCode());await page.click('#verifyButton');}
 await login('Professor','edi.franco');await page.waitForURL(/professor\.html/);await page.waitForFunction(()=>!document.querySelector('#questao-form').hidden);
-await page.locator('#visualizar').click();await page.waitForTimeout(200);
+await page.locator('#enviar').click();await page.waitForTimeout(200);
 ok('Tela Prof: sem tags, a lista de pendências pede as tags', (await page.textContent('#validation-summary')).includes('Tags') && !!(await page.$('#tags-caixa .is-invalid')));
 await page.click('#tags-caixa');await page.keyboard.type('Ecologia');await page.keyboard.press('Enter');await page.keyboard.type('mapa,');await page.keyboard.type('ENEM');
 const chips=await page.$$eval('#tags-caixa .atlas-tag',c=>c.map(x=>x.firstChild.textContent));
@@ -137,7 +137,7 @@ ok('Tela Prof: Enter e vírgula criam tags', JSON.stringify(chips)===JSON.string
 await page.selectOption('#assunto','Romantismo');const subs=await page.$$eval('#subtema option',o=>o.map(x=>x.value).filter(Boolean));if(subs.length)await page.selectOption('#subtema',subs[0]);
 await page.selectOption('#origem','autoral');await page.selectOption('#dificuldade','Fácil');await page.selectOption('#bloom','Lembrar');
 await paste('#comando','Qual bioma?\n\n\n');for(const l of 'abcde')await paste('#alt-'+l,'Opção '+l);await page.selectOption('#gabarito','B');
-await page.evaluate(()=>{try{if(typeof tagsCampo!=='undefined'&&tagsCampo.get().length<2)tagsCampo.set(['teste','ui'])}catch{}});await page.click('#visualizar');await page.waitForSelector('#previsao:not([hidden])');
+await page.evaluate(()=>{try{if(typeof tagsCampo!=='undefined'&&tagsCampo.get().length<2)tagsCampo.set(['teste','ui'])}catch{}});await page.click('#enviar');await page.waitForSelector('#previsao:not([hidden])');
 ok('Tela Prof: prévia mostra as tags (inclusive a digitada sem Enter)', (await page.textContent('#previsao')).includes('#ecologia') && (await page.textContent('#previsao')).includes('#enem'));
 const btnY=await page.$eval('#enviar',b=>b.getBoundingClientRect().top), prevY=await page.$eval('#previsao',p=>p.getBoundingClientRect().top);
 ok('Tela Prof: botão Enviar fica abaixo da prévia', btnY>prevY);

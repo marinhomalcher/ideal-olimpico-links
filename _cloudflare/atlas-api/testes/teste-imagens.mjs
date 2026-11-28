@@ -121,7 +121,7 @@ ok('Alternativa também recebe imagem proporcional', /%$/.test((await ratio('#al
 await page.selectOption('#assunto','Romantismo');const subs=await page.$$eval('#subtema option',o=>o.map(x=>x.value).filter(Boolean));if(subs.length)await page.selectOption('#subtema',subs[0]);
 await page.selectOption('#origem','autoral');await page.selectOption('#dificuldade','Fácil');await page.selectOption('#bloom','Lembrar');
 await paste('#comando','O gráfico que melhor representa é:');for(const l of 'bcde')await paste('#alt-'+l,'Opção '+l);await page.selectOption('#gabarito','B');
-await page.evaluate(()=>{try{if(typeof tagsCampo!=='undefined'&&tagsCampo.get().length<2)tagsCampo.set(['teste','ui'])}catch{}});await page.click('#visualizar');
+await page.evaluate(()=>{try{if(typeof tagsCampo!=='undefined'&&tagsCampo.get().length<2)tagsCampo.set(['teste','ui'])}catch{}});await page.click('#enviar');
 /* A prévia converte a % do editor em px e só encolhe se não couber na caixa (max-width:100%);
    por isso o estilo não é mais o mesmo texto do editor — o que tem de bater é o tamanho em pixels. */
 const pv=await page.$eval('#previsao .stem img',i=>({style:i.style.width,max:i.style.maxWidth,w:i.getBoundingClientRect().width,caixa:(i.closest('.stem')||i.parentElement).clientWidth}));
@@ -140,7 +140,7 @@ const sup=await page.$eval('#item-content .stem img',i=>{const r=i.getBoundingCl
 ok('Supervisor vê o mesmo tamanho, sem distorcer', sup.style===finalStyle && Math.abs(sup.ar-sup.nat)<0.02, JSON.stringify(sup));
 // Botão direito na imagem: menu próprio com "Copiar imagem" (copia PNG pela área de transferência).
 await page.evaluate(()=>{window.__copias=[];Object.defineProperty(navigator,"clipboard",{value:{write:async itens=>{window.__copias.push(itens.length)}},configurable:true})});
-await page.click("#item-content .stem img",{button:"right"});
+await page.locator("#item-content .stem img").scrollIntoViewIfNeeded();await page.waitForTimeout(400);await page.click("#item-content .stem img",{button:"right"});
 ok("Botão direito na imagem abre o menu com Copiar imagem", await page.isVisible(".atlas-img-menu") && (await page.textContent(".atlas-img-menu")).includes("Copiar imagem"));
 await page.click(".atlas-img-menu button:has-text(\"Copiar imagem\")");await page.waitForSelector(".atlas-img-aviso");
 ok("Copiar imagem põe um PNG na área de transferência e avisa", (await page.evaluate(()=>window.__copias.length))===1 && (await page.textContent(".atlas-img-aviso")).includes("Imagem copiada"));

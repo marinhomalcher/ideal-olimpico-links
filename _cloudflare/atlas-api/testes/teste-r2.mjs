@@ -186,7 +186,7 @@ ok('Tela: imagem colada vai para o R2 e aparece', /\/img\/[0-9a-f]{32}\?e=/.test
 await page.selectOption('#assunto','Romantismo');const subs=await page.$$eval('#subtema option',o=>o.map(x=>x.value).filter(Boolean));if(subs.length)await page.selectOption('#subtema',subs[0]);
 await page.selectOption('#origem','autoral');await page.selectOption('#dificuldade','Fácil');await page.selectOption('#bloom','Lembrar');
 await paste('#comando','Observe a figura.');for(const l of 'abcde')await paste('#alt-'+l,'Opção '+l);await page.selectOption('#gabarito','B');
-await page.evaluate(()=>{try{if(typeof tagsCampo!=='undefined'&&tagsCampo.get().length<2)tagsCampo.set(['teste','ui'])}catch{}});await page.click('#visualizar');await page.waitForFunction(()=>{const i=document.querySelector('#previsao .stem img');return i&&i.complete&&i.naturalWidth>0});
+await page.evaluate(()=>{try{if(typeof tagsCampo!=='undefined'&&tagsCampo.get().length<2)tagsCampo.set(['teste','ui'])}catch{}});await page.click('#enviar');await page.waitForFunction(()=>{const i=document.querySelector('#previsao .stem img');return i&&i.complete&&i.naturalWidth>0});
 ok('Tela: prévia mostra a imagem', true);
 await page.evaluate(()=>{try{if(typeof tagsCampo!=='undefined'&&tagsCampo.get().length<2)tagsCampo.set(['teste','ui'])}catch{}});await page.click('#enviar');await page.waitForFunction(()=>/Código: L\d{7}/.test(document.querySelector('#status').textContent),null,{timeout:8000}).catch(()=>{});
 const codT=((await page.textContent('#status')).match(/L\d{7}/)||[])[0];

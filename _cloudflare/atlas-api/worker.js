@@ -672,6 +672,27 @@ async function sortearCodigoLivre(env, disciplinaOuX, evitar = []) {
   throw new HttpError(503, 'Não foi possível gerar o código da questão. Tente novamente.');
 }
 
+/* Alternativas idênticas (27/11/2026): compara o conteúdo (texto, equações e imagens), ignorando só espaços e entidades HTML.
+   Devolve "B, C e D" quando há 2 ou mais iguais, ou null. */
+function alternativasIguais(d) {
+  const chave = v => String(v ?? '')
+    .replace(/<[^>]*\bdata-latex="([^"]*)"[^>]*>/gi, ' [eq:$1] ')
+    .replace(/<img\b[^>]*\bsrc="([^"]*)"[^>]*>/gi, ' [img:$1] ')
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/&nbsp;/g, ' ').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, '&')
+    .replace(/\s+/g, ' ').trim();
+  const grupos = new Map();
+  for (const l of 'abcde') {
+    const k = chave(d['alt-' + l]);
+    if (!k) continue;
+    if (!grupos.has(k)) grupos.set(k, []);
+    grupos.get(k).push(l.toUpperCase());
+  }
+  const iguais = [...grupos.values()].find(g => g.length > 1);
+  if (!iguais) return null;
+  return iguais.length === 2 ? iguais.join(' e ') : iguais.slice(0, -1).join(', ') + ' e ' + iguais[iguais.length - 1];
+}
+
 function validarDados(input, opcoes = {}) {
   if (!input || typeof input !== 'object' || Array.isArray(input)) throw new HttpError(400, 'Dados da questão inválidos.');
   const d = { rich: true };
@@ -709,7 +730,7 @@ function validarDados(input, opcoes = {}) {
   const tags = [];
   for (const t of (Array.isArray(tagsBrutas) ? tagsBrutas : tagsBrutas.split(/[,;\n]/))) {
     if (typeof t !== 'string') throw new HttpError(400, 'Tags inválidas.');
-    const n = t.replace(/^#+/, '').replace(/\s+/g, ' ').trim().toLocaleLowerCase('pt-BR');
+    const n = t.replace(/^#+/, '').replace(/\s+/g, ' ').trim().toLocaleLowerCase('pt-BR').normalize('NFD').replace(/[\u0300-\u036f]/g, '');
     if (!n) continue;
     if (n.length > 40) throw new HttpError(400, 'Cada tag pode ter até 40 caracteres.');
     if (/[<>]/.test(n)) throw new HttpError(400, 'Tag com caractere não permitido.');
@@ -730,6 +751,8 @@ function validarDados(input, opcoes = {}) {
   if (!['A', 'B', 'C', 'D', 'E'].includes(d.gabarito)) throw new HttpError(400, 'Escolha o gabarito (A a E).');
   if (vazio(d.comando)) throw new HttpError(400, 'Preencha o comando da questão.');
   for (const l of 'abcde') if (vazio(d['alt-' + l])) throw new HttpError(400, 'Preencha a alternativa ' + l.toUpperCase() + '.');
+  const iguais = alternativasIguais(d);
+  if (iguais) throw new HttpError(400, 'As alternativas ' + iguais + ' estão idênticas. Cada alternativa precisa ser diferente das outras.');
   d.fonte = '';   /* campo retirado (19/11/2026): a prova de origem vai na tag */
   const json = JSON.stringify(d);
   if (new TextEncoder().encode(json).length > MAX_ITEM_BYTES) {

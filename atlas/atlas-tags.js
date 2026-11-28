@@ -3,7 +3,7 @@
 (function () {
   const MAX_TAGS = 12, MAX_LEN = 40;
   function normalizar(valor) {
-    return String(valor || '').replace(/^#+/, '').replace(/\s+/g, ' ').trim().toLocaleLowerCase('pt-BR').slice(0, MAX_LEN);
+    return String(valor || '').replace(/^#+/, '').replace(/\s+/g, ' ').trim().toLocaleLowerCase('pt-BR').normalize('NFD').replace(/[\u0300-\u036f]/g, '').slice(0, MAX_LEN);
   }
   function lista(valor) {
     const bruto = Array.isArray(valor) ? valor : String(valor || '').split(/[,;\n]/);

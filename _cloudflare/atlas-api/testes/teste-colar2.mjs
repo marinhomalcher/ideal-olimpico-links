@@ -122,19 +122,14 @@ ok('Letra + espaço: alternativas certas mesmo com "A" no comando', (await tx('a
 await limparCampos();await paste('#comando','A professora leu o poema.\nE a turma discutiu o tema.');await page.waitForTimeout(200);
 ok('Texto comum começando com "A"/"E": nada é separado', (await tx('alt-a'))===''&&(await tx('comando')).startsWith('A professora'), await tx('alt-a'));
 await page.evaluate(()=>{document.getElementById('comando').textContent='Na construção da argumentação, o texto';document.getElementById('alt-a').textContent='só uma alternativa com tab';for(const l of 'bcde')document.getElementById('alt-'+l).innerHTML=''});
-await page.click('[data-ref-para="referencia"]');await page.click('#referencia');
-await page.fill('#referencia',REF1);await page.click('#comando');
-ok('Referência: ao sair do campo, "Acesso em" vai para a linha de baixo', (await page.inputValue('#referencia'))==='MAY, R. H. Disponível em: www.servicioskoinonia.org.\nAcesso em: 12 mar. 2016.', JSON.stringify(await page.inputValue('#referencia')));
-await page.fill('#referencia','');await page.focus('#referencia');await page.evaluate(t=>{const el=document.getElementById('referencia');const dt=new DataTransfer();dt.setData('text/plain',t);el.dispatchEvent(new ClipboardEvent('paste',{clipboardData:dt,bubbles:true,cancelable:true}));el.value=t},REF1);await page.waitForTimeout(100);
-ok('Referência: ao colar, já quebra a linha', (await page.inputValue('#referencia')).includes('.\nAcesso em:'));
+ok('Professor: o campo de referência do texto/imagem não aparece (retirado em 27/11/2026)', await page.isHidden('#referencia')&&await page.isHidden('[data-ref-para="referencia"]'));
 // prévia
 await page.selectOption('#assunto','Romantismo');const subs=await page.$$eval('#subtema option',o=>o.map(x=>x.value).filter(Boolean));if(subs.length)await page.selectOption('#subtema',subs[0]);
 await page.selectOption('#origem','outros');await page.selectOption('#dificuldade','Fácil');await page.selectOption('#bloom','Analisar');await page.selectOption('#gabarito','D');
 await paste('#texto-base','Uma boa ética não se baseia em regras e normas.');await page.evaluate(()=>tagsCampo.set(['argumentação','ética']));
-for(const l of 'bcde')await page.evaluate(id=>{if(!document.getElementById(id).textContent.trim())document.getElementById(id).textContent='x'},'alt-'+l);
-await page.click('#visualizar');await page.waitForSelector('#previsao:not([hidden])');
+for(const l of 'bcde')await page.evaluate(id=>{if(!document.getElementById(id).textContent.trim())document.getElementById(id).textContent='x '+id},'alt-'+l);
+await page.click('#enviar');await page.waitForSelector('#previsao:not([hidden])');
 ok('Prévia: letras das alternativas sem negrito', !/<(b|strong)>[A-E]\)/.test(await page.innerHTML('#previsao'))&&(await page.innerHTML('#previsao')).includes('A) '));
-ok('Prévia mostra a referência em duas linhas', (await page.innerHTML('#previsao')).includes('servicioskoinonia.org.<br>Acesso em'));
 await page.locator('#previsao').screenshot({path:S+'previa-ref.png'});
 ok('Sem erros de JavaScript', errors.length===0, errors.join('|'));
 await browser.close();server.close();
