@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="pt-BR">
 <head>
-<meta name="atlas-versao" content="20261128a"><script src="atlas-versao.js?v=20261128a" defer></script>
+<meta name="atlas-versao" content="20261128b"><script src="atlas-versao.js?v=20261128b" defer></script>
 <meta charset="utf-8"><meta name="robots" content="noindex, nofollow"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>ATLAS | Avaliações</title>
 <style>
@@ -16,7 +16,7 @@
 .aviso{background:#fbecef;border:1px solid #e2a1a7;color:#8c2028;border-radius:9px;padding:9px 12px;font-size:13px;margin-top:10px}
 .prova .lnk{color:var(--red);font-weight:bold;text-decoration:none;font-size:13px}.prova .lnk:hover{text-decoration:underline}
 </style>
-<link rel="icon" type="image/png" href="atlas-favicon.png"><link rel="stylesheet" href="atlas-marca.css?v=20261128a"><link rel="stylesheet" href="atlas-visual.css?v=20261128a"></head>
+<link rel="icon" type="image/png" href="atlas-favicon.png"><link rel="stylesheet" href="atlas-marca.css?v=20261128b"><link rel="stylesheet" href="atlas-visual.css?v=20261128b"></head>
 <body class="vn vn-adm">
 <header><div class="brand"><img class="brand-atlas" src="atlas-horizontal-claro.png" alt="ATLAS"></div><div class="role"><a class="back-link" href="../adm/#atlas">← Voltar ao painel</a><span id="user-box" class="user" hidden><span id="user-email"></span><button type="button" class="secondary" id="logout">Sair</button></span><span id="role-label">Área do Administrador</span></div><img class="ideal-dir" src="ideal-logo-hd.png" alt="Ideal 50 anos"></header>
 <section class="login" id="login-view" hidden>
@@ -125,7 +125,7 @@ function cartao(p){const d=document.createElement('div');d.className='prova';d.d
   let h='<div class="cab"><h3>'+escapeHTML(nomeProva(p))+'</h3><span class="sit '+p.situacao+'">'+escapeHTML(sit)+'</span><span class="data">Aplicação: <b>'+dataBR(p.aplicacao)+'</b> · '+total+' questões ('+INICIO[p.modalidade]+' a '+(INICIO[p.modalidade]+total-1)+')'+'</span></div>';
   h+='<div class="table-wrap"><table><thead><tr><th>Disciplina</th><th>Questões</th><th>Seleção</th><th>Supervisor</th><th></th></tr></thead><tbody>';
   for(const x of p.disciplinas){const s=x.selecao;let st,cls;
-    if(!s){st='Nenhuma seleção ainda';cls='nada'}else if(s.situacao==='rascunho'){st='Em escolha: '+s.total+' de '+x.quantidade;cls='falta'}else{st='✓ Enviada em '+dataBR(s.enviada_em);cls='ok'}
+    if(!s){st='Nenhuma seleção ainda';cls='nada'}else if(s.situacao==='rascunho'&&s.fase==='avaliacao'){st='Em avaliação pelos professores'+(s.prazo_em?' · prazo '+dataBR(s.prazo_em):'');cls='falta'}else if(s.situacao==='rascunho'&&s.fase==='liberada'){st='Aprovada pelos professores · aguardando o supervisor enviar';cls='falta'}else if(s.situacao==='rascunho'){st='Em escolha: '+s.total+' de '+x.quantidade;cls='falta'}else{st='✓ Enviada em '+dataBR(s.enviada_em);cls='ok'}
     h+='<tr><td><b>'+escapeHTML(x.disciplina)+'</b></td><td>'+x.quantidade+'</td><td><span class="'+cls+'">'+escapeHTML(st)+'</span></td><td>'+escapeHTML(s?s.supervisor:(x.supervisor||'— sem supervisor —'))+'</td><td>'+(s&&s.situacao!=='rascunho'?'<a class="lnk" href="admin-selecoes.html?id='+s.id+'">Ver seleção</a>':'')+'</td></tr>'}
   h+='</tbody></table></div>';
   if(p.situacao==='fechada'&&p.aviso)h+='<div class="aviso">'+escapeHTML(p.aviso)+'</div>';

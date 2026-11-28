@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta name="atlas-versao" content="20261128b"><script src="atlas-versao.js?v=20261128b" defer></script>
+<meta charset="utf-8"><meta name="robots" content="noindex, nofollow"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ATLAS | Avaliar provas</title>
+<script src="auth.js?v=20261128b"></script>
+<style>
+/* Avaliar provas (etapa B da aprovação das provas, 28/11/2026; mockups aprov-p-lista.png e aprov-p-ver.png aprovados em 27/11/2026).
+   A questão é desenhada em IMAGEM (canvas) com marca-d'água "GRUPO IDEAL · uso interno" + código do professor: sem texto
+   selecionável, sem botão direito, sem imprimir. Isso inibe cópia; foto de tela não dá para impedir. */
+:root{--red:#98151d;--soft:#fbecef;--ink:#30282b;--muted:#70676b;--line:#e6dadd;--lar1:#f2a20c;--lar2:#e8500f;--verde:#14a38b;--verde2:#0e7a67}
+*{box-sizing:border-box}body{margin:0;background:#f7f5f5;color:var(--ink);font:15px/1.5 Arial,Helvetica,sans-serif}button{font:inherit;cursor:pointer}
+header{background:#fff;border-bottom:4px solid var(--red);padding:12px max(clamp(18px,4vw,52px),calc(50% - 946px));display:flex;justify-content:space-between;align-items:center;gap:16px}.brand{display:flex;align-items:center;gap:17px;color:var(--red);font-size:20px;font-weight:700;letter-spacing:.07em}.role{color:var(--muted);font-size:13px}.back-link{color:var(--red);font-weight:bold;text-decoration:none;margin-right:16px;white-space:nowrap}
+.shell{display:grid;grid-template-columns:210px minmax(0,1fr);max-width:1920px;margin:auto;min-height:80vh}aside{background:#fff;border-right:1px solid var(--line);padding:30px 14px}aside small{display:block;margin:0 12px 12px;color:#8b7b7f;letter-spacing:.13em;font-weight:bold}aside a{display:block;text-decoration:none;padding:11px 12px;border-radius:8px;color:var(--muted)}aside a.active{color:var(--red);background:var(--soft);font-weight:bold}
+main{min-width:0;padding:31px clamp(18px,3.5vw,42px) 70px}h1{font-size:29px;margin:8px 0 2px;line-height:1.1}main>p.lead{color:var(--muted);margin:0 0 25px}.panel{background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:0 6px 24px #44151a0a;padding:24px;margin-bottom:20px}.panel h2{font-size:17px;color:#6e2026;margin:0 0 12px}.hint{font-size:13px;color:#776c70;margin:8px 0 0}.notice{font-size:13px;background:#fff8eb;border:1px solid #eed7ae;border-radius:8px;padding:12px 14px;color:#6a573b;margin:0 0 15px}.notice.erro{background:#fff3f4;border-color:#dca8ad;color:#8c2028}[hidden]{display:none!important}
+.secondary{border:1.5px solid #e4d9dc;border-radius:999px;padding:9px 18px;background:#fff;color:#2a2326;font-weight:bold;text-decoration:none;display:inline-block}
+/* Lista */
+.cartao{position:relative;background:#fff;border:1px solid var(--line);border-radius:20px;box-shadow:0 4px 18px #2a232612;padding:20px 24px 20px 32px;margin:0 0 16px;display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:18px 28px;align-items:center;overflow:hidden}
+.cartao::before{content:"";position:absolute;left:0;top:0;bottom:0;width:10px;background:var(--cor,#f2a20c)}.cartao.pendente{--cor:#e8500f}.cartao.aprovou{--cor:#14a38b}.cartao.pediu{--cor:#f2a20c}.cartao.encerrado{--cor:#b9b0b3}
+.cartao h3{margin:0 0 3px;font-size:20px}.cartao .sub{color:var(--muted);font-size:13px}.barra{height:7px;border-radius:999px;background:#eee7e9;margin-top:12px;overflow:hidden}.barra i{display:block;height:100%;background:linear-gradient(90deg,var(--lar1),var(--lar2))}.cartao.aprovou .barra i{background:var(--verde)}
+.chip{display:inline-block;border-radius:999px;padding:5px 13px;font-size:13px;font-weight:bold;color:#fff;background:var(--lar2)}.chip.verde{background:var(--verde)}.chip.amarelo{background:var(--lar1)}.chip.cinza{background:#8c8286}.cartao .estado small{display:block;color:var(--muted);margin-top:6px;font-size:13px}
+.btn-laranja{border:0;border-radius:999px;padding:12px 26px;color:#fff;font-weight:bold;font-size:16px;background:linear-gradient(90deg,var(--lar1),var(--lar2));box-shadow:0 5px 14px #e8500f55}.btn-laranja:disabled{opacity:.5;cursor:not-allowed;box-shadow:none}
+.empty{color:var(--muted);padding:40px;text-align:center;background:#fff;border-radius:20px;border:1px dashed var(--line)}
+/* Visualizador */
+#ver-view{max-width:1760px;margin:auto;padding:26px clamp(18px,3vw,42px) 60px;user-select:none;-webkit-user-select:none}
+.ver-topo{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap;margin-bottom:6px}.ver-topo h1{margin:0;font-size:26px}.ver-topo .sub{color:var(--muted);font-size:13px;margin:2px 0 0}
+.prazo{display:inline-block;border-radius:999px;padding:7px 16px;font-size:14px;font-weight:bold;color:#fff;background:var(--lar2)}.prazo.vermelho{background:#b21d27}.prazo.verde{background:var(--verde)}.prazo.cinza{background:#8c8286}.prazo.amarelo{background:var(--lar1)}
+.ver-grid{display:grid;grid-template-columns:minmax(0,1fr) 420px;gap:28px;align-items:start}@media(max-width:1100px){.ver-grid{grid-template-columns:1fr}}
+.nav{display:grid;grid-template-columns:68px minmax(0,1fr) 68px;align-items:center;gap:12px;margin:10px 0 18px}.seta{width:68px;height:68px;border:0;border-radius:50%;color:#fff;font-size:34px;line-height:1;background:linear-gradient(145deg,#e8506a,#98151d);box-shadow:0 8px 18px #98151d44}.seta:disabled{opacity:.35;cursor:not-allowed;box-shadow:none}
+.nav-meio{text-align:center}.qn{font-size:22px;font-weight:bold}.dots{display:flex;justify-content:center;gap:7px;flex-wrap:wrap;margin-top:8px}.dots button{width:14px;height:14px;border-radius:50%;border:0;padding:0;background:#ddd4d7}.dots button.visto{background:#c9bfc3}.dots button.ok{background:var(--verde)}.dots button.ped{background:var(--lar1)}.dots button.cur{box-shadow:0 0 0 3px #fff,0 0 0 5px #e8506a}
+.quadro{min-height:520px;padding:14px;position:relative}.quadro canvas{display:block;width:100%;height:auto;user-select:none;-webkit-user-drag:none;pointer-events:none}.carregando{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:15px}
+.opcoes{display:grid;grid-template-columns:1fr 1fr;gap:10px}.opcoes button{border-radius:999px;padding:13px 10px;font-weight:bold;font-size:16px;border:2px solid #e4d9dc;background:#fff;color:#2a2326}.btn-concordo.on{border-color:var(--verde);background:linear-gradient(90deg,var(--verde),var(--verde2));color:#fff;box-shadow:0 5px 14px #14a38b55}.btn-pedir.on{border-color:var(--lar2);background:#fff1e8;color:#b53a05}.opcoes button:disabled{opacity:.5;cursor:not-allowed}
+.tipos{display:flex;gap:8px;margin:14px 0 10px;flex-wrap:wrap}.tipos button{border:1.5px solid #e4d9dc;background:#fff;border-radius:999px;padding:7px 14px;font-weight:bold;font-size:13px}.tipos button.on{border-color:var(--lar2);background:linear-gradient(90deg,var(--lar1),var(--lar2));color:#fff}
+textarea#pedido-texto{width:100%;min-height:120px;border:1px solid #d8cdd0;border-radius:12px;padding:12px;font:inherit;resize:vertical;user-select:text;-webkit-user-select:text}#b-enviar-pedido{width:100%;margin-top:10px}
+.pedido-atual{margin-top:12px;background:#fff6e0;border:1.5px solid #f2a20c;border-radius:12px;padding:10px 14px;font-size:13px;color:#7a4a00}.pedido-atual b{display:block;color:#b53a05}
+.resumo-aval{font-size:13px;color:var(--muted);margin:0 0 12px}#b-finalizar{width:100%;border-radius:999px;padding:12px;font-weight:bold;font-size:15px;border:1.5px solid #e4d9dc;background:#fff;color:#2a2326}#b-finalizar.pronto{border:0;color:#fff;background:linear-gradient(90deg,var(--verde),var(--verde2));box-shadow:0 5px 14px #14a38b55}#b-finalizar:disabled{opacity:.55;cursor:not-allowed}
+.aviso-sigilo{border:2px solid #f2a20c;background:#fff6e0;color:#7a4a00;border-radius:14px;padding:12px 16px;font-size:13px;font-weight:bold;margin-bottom:16px}
+.msg-final{background:#ecf7f0;border:1.5px solid #b9dfc6;color:#1f5f39;border-radius:12px;padding:12px 14px;font-size:14px;font-weight:bold;margin-top:12px}
+/* Forno: onde a questão é montada só para virar imagem; fica fora da vista e some logo depois */
+#forno-wrap{position:fixed;left:0;top:0;width:0;height:0;overflow:hidden;pointer-events:none}#forno{width:940px;background:#fff;padding:28px 34px;color:#1f1a1c;font:17px/1.6 Arial,Helvetica,sans-serif}
+#forno .qtit{font-weight:bold;font-size:17px;margin:0 0 10px;color:#1f1a1c}#forno .texto-titulo{font-weight:bold;margin:10px 0 4px}#forno .stem{text-align:justify;text-align-last:left;margin:0 0 10px}#forno .choice{margin:8px 0}#forno .ref-fonte{font-size:13px;color:#5c5054;margin:2px 0 10px}#forno .gab{margin:18px 0 0;font-size:14px;color:#6e2026;font-weight:bold}
+#forno img{display:block;max-width:100%;max-height:420px;height:auto;margin:10px 0}#forno table{border-collapse:collapse;margin:12px 0;max-width:100%}#forno td,#forno th{border:1px solid #a99498;padding:7px 10px;min-width:64px}
+#forno .atlas-equation{display:inline;vertical-align:baseline;white-space:nowrap}#forno .atlas-equation .katex{font-size:1.15em}#forno .atlas-equation[data-display="block"]{display:block;text-align:center;margin:10px 0}#forno .atlas-latex-document{white-space:pre-wrap}#forno img[style*="width"]{max-height:none!important;height:auto!important}
+@media print{body{display:none!important}}
+@media(max-width:740px){.shell{grid-template-columns:1fr}aside{border-right:0;border-bottom:1px solid var(--line)}.cartao{grid-template-columns:1fr}}
+</style>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.19.1/dist/katex.min.css" integrity="sha384-WwGtaC6ywCHxA5cstpj/3+xIZvTez8dq2IcBQaXRkenHZ7FVVq1ZROtURwfbtTlG" crossorigin="anonymous">
+<link rel="icon" type="image/png" href="atlas-favicon.png"><link rel="stylesheet" href="atlas-marca.css?v=20261128b"><link rel="stylesheet" href="atlas-visual.css?v=20261128b"></head>
+<body class="vn vn-professor">
+<script>
+if(matchMedia('(pointer:coarse)').matches&&Math.min(screen.width,screen.height)<600){const m=document.createElement('main');m.id='celular-bloqueado';m.style.cssText='position:fixed;inset:0;z-index:2147483647;background:#fff;padding:15vh 24px 24px;text-align:center;font-family:system-ui,sans-serif;color:#2a2326;overflow:auto';m.innerHTML='<h1 style="font-size:22px;margin:0 0 10px">Área do professor só no tablet ou no computador</h1><p style="margin:0 0 20px;color:#6a5f63">No celular, só o perfil de supervisor pode entrar. Abra o ATLAS no tablet ou no computador.</p><a href="index.html" style="display:inline-block;background:#98151d;color:#fff;text-decoration:none;border-radius:999px;padding:12px 26px;font-weight:700">← Voltar ao início</a>';document.body.prepend(m)}
+</script>
+<header><div class="brand"><img class="brand-atlas" src="atlas-horizontal-escuro.png" alt="ATLAS"></div><div class="role"><a class="back-link" href="index.html">← Voltar ao início</a>Área do Professor · <strong id="professor-nome">Carregando…</strong> <button type="button" onclick="ATLAS_SAIR()" style="margin-left:12px;border:1px solid #cbaeb2;background:#fff;color:#98151d;border-radius:8px;padding:6px 10px;cursor:pointer">Sair</button></div><img class="ideal-dir" src="ideal-logo-hd.png" alt="Ideal 50 anos"></header>
+<div class="shell" id="lista-view">
+<aside><small>ÁREA DO PROFESSOR</small><a id="aba-nova" href="professor.html">Inserir questão</a><a id="aba-avaliar" class="active" href="professor-avaliar.html">Avaliar provas <span class="badge" id="badge-n" hidden></span></a><a id="aba-resumo" href="professor.html#resumo">Meu resumo</a></aside>
+<main>
+<h1>Avaliar provas</h1><p class="lead" id="lead">Veja as questões que o supervisor escolheu e diga se concorda. Você tem 3 dias úteis.</p>
+<p id="notice" class="notice" role="alert" hidden></p>
+<div id="lista"><div class="empty">Carregando…</div></div>
+</main></div>
+<main id="ver-view" hidden>
+  <div class="ver-topo"><div><h1 id="v-titulo"></h1><p class="sub" id="v-sub"></p></div><span class="prazo" id="v-prazo"></span></div>
+  <p id="v-notice" class="notice" role="alert" hidden></p>
+  <div class="ver-grid">
+    <section>
+      <div class="nav"><button type="button" class="seta" id="ant" aria-label="Questão anterior">‹</button><div class="nav-meio"><div class="qn" id="v-qn"></div><div class="dots" id="dots"></div></div><button type="button" class="seta" id="prox" aria-label="Próxima questão">›</button></div>
+      <div class="panel quadro" id="quadro"><div class="carregando" id="q-status">Carregando…</div></div>
+    </section>
+    <div class="ver-lado">
+      <div class="panel" id="caixa-voto"><h2>O que você acha desta questão?</h2>
+        <div class="opcoes"><button type="button" id="b-concordo" class="btn-concordo">✓ Concordo</button><button type="button" id="b-pedir" class="btn-pedir">Pedir mudança</button></div>
+        <div id="pedido-form" hidden><div class="tipos"><button type="button" data-tipo="trocar">Trocar a questão</button><button type="button" data-tipo="corrigir">Corrigir texto ou gabarito</button></div>
+          <textarea id="pedido-texto" maxlength="2000" placeholder="Explique ao supervisor o que precisa mudar."></textarea>
+          <button type="button" id="b-enviar-pedido" class="btn-laranja">Enviar pedido ao supervisor</button></div>
+        <div id="pedido-atual" class="pedido-atual" hidden></div>
+      </div>
+      <div class="panel"><h2>Sua avaliação</h2><p class="resumo-aval" id="resumo-aval"></p><button type="button" id="b-finalizar">Finalizar avaliação</button><div id="msg-final" class="msg-final" hidden></div></div>
+      <div class="aviso-sigilo">Conteúdo interno e sigiloso: sem copiar, sem imprimir, com marca-d'água com o seu código.</div>
+      <a class="secondary" id="v-voltar" href="professor-avaliar.html">← Voltar à lista</a>
+    </div>
+  </div>
+</main>
+<div id="forno-wrap" aria-hidden="true"><div id="forno"></div></div>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.19.1/dist/katex.min.js" integrity="sha384-a1WQdjRj162i159OYq041X6I4K8NenkrI09LlPmiHg0YOb7CR+wJOraXwK9abpnE" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js" integrity="sha384-ZZ1pncU3bQe8y31yfZdMFdSpttDoPmOZg2wguVK9almUodir1PghgT0eY7Mrty8H" crossorigin="anonymous"></script>
+<script src="atlas-editor.js?v=20261128b"></script>
+<script>
+const $=s=>document.querySelector(s);
+function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+const dataBR=d=>d?String(d).slice(0,10).split('-').reverse().join('/'):'';
+function quando(v){const d=new Date(v);return Number.isNaN(d.getTime())?'—':d.toLocaleString('pt-BR',{timeZone:'America/Belem',day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'})}
+function msg(el,t,erro){el.textContent=t||'';el.classList.toggle('erro',!!erro);el.hidden=!t}
+let codigo='',aval=null,questoes=[],atual=0,total=0,renderToken=0,tipoPedido='';
+const editavel=()=>aval&&aval.fase==='avaliacao'&&aval.decisao==='pendente';
+
+// ---------- lista ----------
+function prazoTexto(a){if(a.decisao==='aprovou')return['Você aprovou','verde','em '+dataBR(a.decidido_em)];if(a.decisao==='pediu_mudanca')return['Pedido enviado','amarelo',a.pedidos_respondidos?'respondido pelo supervisor':'aguardando o supervisor'];
+  if(a.fase==='liberada')return['Aprovada por todos','verde',''];if(a.prazo_encerrado)return['Prazo encerrado','cinza','o supervisor foi liberado'];
+  return['Aguardando você','',a.dias_uteis_restantes===0?'Hoje é o último dia':a.dias_uteis_restantes===1?'Falta 1 dia útil':'Faltam '+a.dias_uteis_restantes+' dias úteis']}
+async function carregarLista(){const box=$('#lista');box.innerHTML='<div class="empty">Carregando…</div>';let d;try{d=await ATLAS_API('/api/avaliacoes')}catch(e){box.innerHTML='';msg($('#notice'),e.message,true);return}
+  codigo=d.codigo||'';const b=$('#badge-n');b.textContent=String(d.pendentes||'');b.hidden=!d.pendentes;
+  if(window.ATLAS_USER&&ATLAS_USER.disciplina)$('#lead').textContent='Veja as questões que o supervisor de '+ATLAS_USER.disciplina+' escolheu e diga se concorda. Você tem 3 dias úteis.';
+  box.replaceChildren();if(!d.avaliacoes.length){box.innerHTML='<div class="empty">Nenhuma prova para avaliar agora. Quando o supervisor finalizar uma seleção da sua disciplina e série, ela aparece aqui e você recebe um aviso por e-mail.</div>';return}
+  for(const a of d.avaliacoes){const c=document.createElement('article');const [chip,cor,sub]=prazoTexto(a);const pend=a.decisao==='pendente'&&a.fase==='avaliacao'&&!a.prazo_encerrado;
+    c.className='cartao '+(a.decisao==='aprovou'?'aprovou':a.decisao==='pediu_mudanca'?'pediu':pend?'pendente':'encerrado');
+    const feitas=a.concordo+a.pedidos;
+    c.innerHTML='<div><h3></h3><div class="sub"></div>'+(pend?'<div class="barra"><i style="width:'+Math.round(100*feitas/Math.max(1,a.total))+'%"></i></div>':'')+'</div><div class="estado"><span class="chip '+cor+'"></span><small></small></div><div></div>';
+    c.querySelector('h3').textContent=a.prova.nome;c.querySelector('.sub').textContent=a.prova.bimestre+'º bimestre · '+(a.prova.situacao==='aplicada'?'aplicada':'aplicação')+' em '+dataBR(a.prova.aplicacao)+' · '+a.total+' questões de '+a.disciplina;
+    c.querySelector('.chip').textContent=chip;c.querySelector('.estado small').textContent=sub;
+    const bt=document.createElement('button');bt.type='button';if(pend){bt.className='btn-laranja';bt.textContent='Avaliar agora →'}else{bt.className='secondary';bt.textContent=a.decisao==='pediu_mudanca'&&a.pedidos_respondidos?'Ver resposta':'Rever'}
+    bt.addEventListener('click',()=>abrirAvaliacao(a.id,Math.min(a.total,Math.max(1,pend?a.visto_ate+(a.visto_ate<a.total?1:0):1))));c.lastElementChild.append(bt);box.append(c)}}
+
+// ---------- visualizador ----------
+async function abrirAvaliacao(id,n=1){let d;try{d=await ATLAS_API('/api/avaliacoes/'+id)}catch(e){msg($('#notice'),e.message,true);return}
+  aval=d.avaliacao;questoes=d.questoes;total=aval.total;codigo=d.codigo||codigo;history.replaceState(null,'','?id='+id);
+  $('#lista-view').hidden=true;$('#ver-view').hidden=false;msg($('#v-notice'),'');$('#msg-final').hidden=true;$('#pedido-form').hidden=true;
+  $('#v-titulo').textContent=aval.prova.nome;$('#v-sub').textContent=aval.disciplina+' · '+aval.prova.bimestre+'º bimestre · aplicação em '+dataBR(aval.prova.aplicacao)+(aval.prazo_em?' · prazo até '+quando(aval.prazo_em):'');
+  const [chip,cor]=prazoTexto(aval);const p=$('#v-prazo');p.textContent=chip;p.className='prazo '+(aval.decisao==='pendente'&&aval.fase==='avaliacao'&&!aval.prazo_encerrado?(aval.dias_uteis_restantes===0?'vermelho':''):cor);
+  window.scrollTo({top:0});irPara(n)}
+function desenharDots(){const box=$('#dots');box.replaceChildren();for(let k=1;k<=total;k++){const q=questoes[k-1]||{};const b=document.createElement('button');b.type='button';b.title='Questão '+k;b.className=(q.concordo?'ok':q.pedido?'ped':k<=(aval.visto_ate||0)?'visto':'')+(k===atual?' cur':'');b.addEventListener('click',()=>irPara(k));box.append(b)}
+  $('#v-qn').textContent='Questão '+atual+' de '+total;$('#ant').disabled=atual<=1;$('#prox').disabled=atual>=total}
+async function irPara(n){if(!(n>=1&&n<=total))return;atual=n;const token=++renderToken;desenharDots();const quadro=$('#quadro');quadro.innerHTML='<div class="carregando" id="q-status">Carregando a questão…</div>';
+  $('#pedido-form').hidden=true;tipoPedido='';for(const b of document.querySelectorAll('.tipos button'))b.classList.remove('on');$('#pedido-texto').value='';
+  let d;try{d=await ATLAS_API('/api/avaliacoes/'+aval.id+'/questao/'+n)}catch(e){if(token===renderToken)quadro.innerHTML='<div class="carregando">'+esc(e.message)+'</div>';return}
+  if(token!==renderToken)return;questoes[n-1]={n,concordo:d.concordo,pedido:d.pedido};aval.visto_ate=d.visto_ate;aval.visto_completo_em=d.visto_completo_em;desenharDots();atualizarLado();
+  try{await desenhar(d.questao,token)}catch(e){if(token===renderToken)quadro.innerHTML='<div class="carregando">Não foi possível desenhar a questão ('+esc(e&&e.message||'erro')+'). Clique em › e volte com ‹ para tentar de novo.</div>'}}
+function questaoHTML(d,n){const body=v=>AtlasRich.clean(v||'');let h='<div class="question"><p class="qtit">QUESTÃO '+n+'</p>'+AtlasRich.textosHTML(d)+'<div class="stem">'+body(d.comando)+'</div>';
+  for(const l of 'abcde')h+='<div class="choice">'+l.toUpperCase()+') '+body(d['alt-'+l])+'</div>'+AtlasRich.altRefHTML(d,l);
+  h+='<p class="gab">Gabarito: '+esc(d.gabarito||'—')+'</p>';return h+'</div>'}
+/* Monta a questão fora da vista, fotografa com html2canvas, apaga a montagem e mostra só a imagem com a marca-d'água. */
+async function desenhar(q,token){const forno=$('#forno');forno.innerHTML=questaoHTML(q.dados,atual);
+  for(const img of forno.querySelectorAll('img'))img.setAttribute('crossorigin','anonymous');
+  await Promise.all([...forno.querySelectorAll('img')].map(i=>i.complete?null:new Promise(r=>{i.onload=i.onerror=r})));
+  if(document.fonts&&document.fonts.ready)await document.fonts.ready;
+  if(token!==renderToken){forno.replaceChildren();return}
+  const canvas=await html2canvas(forno,{backgroundColor:'#ffffff',scale:Math.min(2,Math.max(1.5,window.devicePixelRatio||1)),useCORS:true,logging:false,
+    onclone:doc=>{const w=doc.getElementById('forno-wrap');if(w)w.style.cssText='position:absolute;left:0;top:0;width:940px;height:auto;overflow:visible'}});
+  forno.replaceChildren();if(token!==renderToken)return;
+  canvas.style.width='100%';canvas.style.height='auto';   // html2canvas grava o tamanho em pixels no estilo; a imagem ocupa a largura do quadro
+  marcaDagua(canvas);canvas.setAttribute('aria-label','Questão '+atual+' (imagem)');canvas.addEventListener('contextmenu',e=>e.preventDefault());
+  const quadro=$('#quadro');quadro.replaceChildren(canvas)}
+function marcaDagua(c){const ctx=c.getContext('2d');const txt='GRUPO IDEAL · uso interno · '+(codigo||'ATLAS');
+  ctx.save();ctx.globalAlpha=.16;ctx.fillStyle='#98151d';ctx.font='bold '+Math.round(c.width/20)+'px Arial';ctx.translate(c.width/2,c.height/2);ctx.rotate(-Math.PI/7);
+  const w=ctx.measureText(txt).width+90,passo=Math.max(150,Math.round(c.height/5));
+  for(let y=-c.height;y<=c.height;y+=passo)for(let x=-c.width*1.3-(y/passo%2?w/2:0);x<c.width*1.3;x+=w)ctx.fillText(txt,x,y);ctx.restore();
+  ctx.save();ctx.globalAlpha=.7;ctx.fillStyle='#98151d';ctx.font='bold '+Math.round(c.width/62)+'px Arial';ctx.textAlign='right';ctx.fillText(txt,c.width-24,c.height-16);ctx.restore()}
+function atualizarLado(){const q=questoes[atual-1]||{};const ed=editavel();
+  $('#b-concordo').classList.toggle('on',!!q.concordo);$('#b-pedir').classList.toggle('on',!!q.pedido);$('#b-concordo').disabled=!ed;$('#b-pedir').disabled=!ed;
+  const pa=$('#pedido-atual');if(q.pedido){pa.innerHTML='<b></b><span></span>';pa.querySelector('b').textContent='Pedido enviado: '+(q.pedido.tipo_nome||q.pedido.tipo)+(q.pedido.estado!=='aberto'?' · respondido pelo supervisor':'');pa.querySelector('span').textContent=q.pedido.texto;pa.hidden=false}else pa.hidden=true;
+  const conc=questoes.filter(x=>x&&x.concordo).length,ped=questoes.filter(x=>x&&x.pedido).length,porVer=total-conc-ped;
+  $('#resumo-aval').textContent=conc+' concordo · '+ped+(ped===1?' pedido de mudança':' pedidos de mudança')+' · '+porVer+' por ver'+(ed?(porVer||aval.visto_ate<total?'. Você precisa passar por todas as questões para finalizar.':'. Tudo respondido: pode finalizar.'):'');
+  const f=$('#b-finalizar');if(aval.decisao!=='pendente'){f.hidden=true;$('#msg-final').textContent=aval.decisao==='aprovou'?'Você aprovou esta prova em '+quando(aval.decidido_em)+'.':aval.decisao==='pediu_mudanca'?'Você pediu mudança em '+quando(aval.decidido_em)+'. O supervisor vai responder.':'Você foi dispensado desta avaliação.';$('#msg-final').hidden=false}
+  else if(!ed){f.hidden=true;$('#msg-final').textContent=aval.prazo_encerrado?'O prazo desta avaliação terminou.':'Esta avaliação foi encerrada.';$('#msg-final').hidden=false}
+  else{f.hidden=false;const falta=porVer+(aval.visto_ate<total?0:0);const pronto=porVer===0&&aval.visto_ate>=total;f.disabled=!pronto;f.classList.toggle('pronto',pronto);f.textContent=pronto?'Finalizar avaliação':'Finalizar avaliação (faltam '+Math.max(porVer,total-aval.visto_ate)+')'}}
+async function votar(){if(!editavel())return;const b=$('#b-concordo');b.disabled=true;try{const r=await ATLAS_API('/api/avaliacoes/'+aval.id+'/questao/'+atual+'/voto',{method:'POST',body:{voto:'concordo'}});questoes[atual-1]={n:atual,concordo:true,pedido:null};desenharDots();atualizarLado();if(atual<total)irPara(atual+1)}catch(e){msg($('#v-notice'),e.message,true)}finally{b.disabled=!editavel()}}
+$('#b-concordo').addEventListener('click',votar);
+$('#b-pedir').addEventListener('click',()=>{if(!editavel())return;const f=$('#pedido-form');f.hidden=!f.hidden;if(!f.hidden){const q=questoes[atual-1]||{};if(q.pedido){tipoPedido=q.pedido.tipo;$('#pedido-texto').value=q.pedido.texto}for(const b of document.querySelectorAll('.tipos button'))b.classList.toggle('on',b.dataset.tipo===tipoPedido);$('#pedido-texto').focus()}});
+for(const b of document.querySelectorAll('.tipos button'))b.addEventListener('click',()=>{tipoPedido=b.dataset.tipo;for(const x of document.querySelectorAll('.tipos button'))x.classList.toggle('on',x===b)});
+$('#b-enviar-pedido').addEventListener('click',async()=>{if(!editavel())return;const texto=$('#pedido-texto').value.trim();if(!tipoPedido){msg($('#v-notice'),'Escolha o tipo do pedido: trocar a questão ou corrigir texto ou gabarito.',true);return}if(texto.length<3){msg($('#v-notice'),'Explique ao supervisor o que precisa mudar.',true);$('#pedido-texto').focus();return}
+  const b=$('#b-enviar-pedido');b.disabled=true;try{const r=await ATLAS_API('/api/avaliacoes/'+aval.id+'/questao/'+atual+'/pedido',{method:'POST',body:{tipo:tipoPedido,texto}});questoes[atual-1]={n:atual,concordo:false,pedido:r.pedido};$('#pedido-form').hidden=true;msg($('#v-notice'),'');desenharDots();atualizarLado()}catch(e){msg($('#v-notice'),e.message,true)}finally{b.disabled=false}});
+$('#b-finalizar').addEventListener('click',async()=>{if(!editavel())return;const b=$('#b-finalizar');b.disabled=true;try{const r=await ATLAS_API('/api/avaliacoes/'+aval.id+'/finalizar',{method:'POST',body:{}});aval.decisao=r.decisao;aval.decidido_em=r.decidido_em;aval.fase=r.fase;atualizarLado();const [chip,cor]=prazoTexto(aval);$('#v-prazo').textContent=chip;$('#v-prazo').className='prazo '+cor;msg($('#v-notice'),'')}catch(e){msg($('#v-notice'),e.message,true);b.disabled=false}});
+$('#ant').addEventListener('click',()=>irPara(atual-1));$('#prox').addEventListener('click',()=>irPara(atual+1));
+document.addEventListener('keydown',e=>{if($('#ver-view').hidden||e.target.tagName==='TEXTAREA'||e.target.tagName==='INPUT')return;if(e.key==='ArrowLeft'){e.preventDefault();irPara(atual-1)}else if(e.key==='ArrowRight'){e.preventDefault();irPara(atual+1)}});
+$('#quadro').addEventListener('contextmenu',e=>e.preventDefault());$('#quadro').addEventListener('dragstart',e=>e.preventDefault());
+$('#v-voltar').addEventListener('click',e=>{e.preventDefault();renderToken++;$('#forno').replaceChildren();$('#ver-view').hidden=true;$('#lista-view').hidden=false;history.replaceState(null,'',location.pathname);carregarLista()});
+window.ATLAS_AUTH_READY.then(async u=>{$('#professor-nome').textContent=u.nome;const id=new URLSearchParams(location.search).get('id');await carregarLista();if(id&&/^\d+$/.test(id))abrirAvaliacao(id)}).catch(()=>{});
+</script>
+</body></html>

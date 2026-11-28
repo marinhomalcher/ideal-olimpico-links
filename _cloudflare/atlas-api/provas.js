@@ -29,14 +29,14 @@ async function provaPorId(env, id) {
 }
 async function disciplinasDaProva(env, provaId) {
   const { results } = await env.DB.prepare(
-    'SELECT pd.disciplina, pd.quantidade, pd.selecao_id, s.situacao AS sel_situacao, s.enviada_em AS sel_enviada_em, ' +
+    'SELECT pd.disciplina, pd.quantidade, pd.selecao_id, s.situacao AS sel_situacao, s.enviada_em AS sel_enviada_em, s.fase AS sel_fase, s.avaliacao_prazo_em AS sel_prazo_em, ' +
     '(SELECT COUNT(*) FROM selecao_itens si WHERE si.selecao_id = s.id) AS sel_total, u.nome AS sel_supervisor, ' +
     "(SELECT nome FROM usuarios WHERE disciplina = pd.disciplina AND papel = 'supervisor' AND ativo = 1 LIMIT 1) AS supervisor_atual " +
     'FROM prova_disciplinas pd LEFT JOIN selecoes s ON s.id = pd.selecao_id LEFT JOIN usuarios u ON u.id = s.supervisor_id WHERE pd.prova_id = ?'
   ).bind(provaId).all();
   return results.sort((a, b) => ordem(a.disciplina) - ordem(b.disciplina)).map(r => ({
     disciplina: r.disciplina, quantidade: r.quantidade, supervisor: r.supervisor_atual || null,
-    selecao: r.selecao_id ? { id: r.selecao_id, situacao: r.sel_situacao, total: r.sel_total, supervisor: r.sel_supervisor, enviada_em: r.sel_enviada_em } : null
+    selecao: r.selecao_id ? { id: r.selecao_id, situacao: r.sel_situacao, total: r.sel_total, supervisor: r.sel_supervisor, enviada_em: r.sel_enviada_em, fase: r.sel_fase, prazo_em: r.sel_prazo_em } : null
   }));
 }
 function provaPublica(p) {
@@ -265,7 +265,7 @@ export async function rotaProvasAdm(request, env, path, url, h) {
     const ops = [];
     for (const s of sels) {
       ops.push(env.DB.prepare('DELETE FROM avaliacao_mensagens WHERE pedido_id IN (SELECT id FROM avaliacao_pedidos WHERE selecao_id = ?)').bind(s));
-      for (const t of ['avaliacao_pedidos', 'avaliacao_visualizacoes', 'avaliacao_professores', 'selecao_itens']) ops.push(env.DB.prepare('DELETE FROM ' + t + ' WHERE selecao_id = ?').bind(s));
+      for (const t of ['avaliacao_pedidos', 'avaliacao_votos', 'avaliacao_visualizacoes', 'avaliacao_professores', 'selecao_itens']) ops.push(env.DB.prepare('DELETE FROM ' + t + ' WHERE selecao_id = ?').bind(s));
     }
     ops.push(env.DB.prepare('DELETE FROM prova_disciplinas WHERE prova_id = ?').bind(prova.id));
     for (const s of sels) ops.push(env.DB.prepare('DELETE FROM selecoes WHERE id = ?').bind(s));

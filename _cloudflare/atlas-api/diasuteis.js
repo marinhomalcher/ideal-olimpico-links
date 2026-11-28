@@ -86,3 +86,13 @@ export function prazoEmDiasUteis(instanteUtc, n, naoUteis) {
   }
   return new Date(local.getTime() + BELEM_MS).toISOString().replace('.000Z', 'Z');
 }
+
+/* Quantos dias úteis ainda faltam, de hoje (data "AAAA-MM-DD" de Belém, excluída) até a data de Belém do prazo (incluída).
+   Prazo já na data de hoje ou passada devolve 0. */
+export function diasUteisAte(hojeIso, prazoInstanteUtc, naoUteis) {
+  const fim = iso(new Date(new Date(prazoInstanteUtc).getTime() - BELEM_MS));
+  if (fim <= hojeIso) return 0;
+  let d = data(hojeIso), n = 0;
+  while (iso(d) < fim) { d = somar(d, 1); if (ehDiaUtil(iso(d), naoUteis)) n++; }
+  return n;
+}
