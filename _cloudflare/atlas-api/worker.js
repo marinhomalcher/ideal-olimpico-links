@@ -1799,11 +1799,20 @@ async function rotasAdmItens(request, env, path, sessao) {
 
   // Correção pelo ADM de questão aprovada (nova versão; continua aprovada).
   if (!m[2] && request.method === 'PUT') {
-    if (item.situacao !== 'aprovado') throw new HttpError(409, 'Só questões aprovadas são corrigidas pela Administração.');
+    // Banco de questões (28/11/2026): o ADM edita em qualquer situação, até descartadas. "aprovar: true" =
+    // "Salvar e aprovar" (volta ao banco como aprovada, com código definitivo); sem ele a situação não muda.
     const body = await readJson(request, MAX_ITEM_BYTES + 64 * 1024);
     if (body.versao !== item.versao_atual) throw new HttpError(409, 'A questão mudou desde que você a abriu. Busque de novo.');
+    if ((await env.DB.prepare('SELECT retirada_id FROM itens WHERE id = ?').bind(item.id).first())?.retirada_id) throw new HttpError(409, 'Esta questão foi retirada junto com as do professor desligado. Para mexer nela, devolva-a em "Questões retiradas".');
+    const aprovar = body.aprovar === true && item.situacao !== 'aprovado';
     const grp = await gravacaoDoGrupo(env, item, await validarDadosComImagens(env, body.dados), await admUsuarioId(env), 'adm');
     const dados = grp.dados;
+    if (aprovar) {
+      if (item.disciplina === SEM_DISCIPLINA) throw new HttpError(409, 'Defina a disciplina da questão antes de aprovar.');
+      const dv = JSON.parse(dados);
+      if (!classificacaoCompleta(dv)) throw new HttpError(409, 'Para aprovar, complete a classificação: assunto, nível cognitivo (Bloom) e dificuldade.');
+      if (!(Array.isArray(dv.tags) && dv.tags.length >= 2)) throw new HttpError(409, 'Para aprovar, coloque pelo menos 2 tags.');
+    }
     const consertoId = body.conserto_id === undefined || body.conserto_id === null ? null : Number(body.conserto_id);
     let conserto = null;
     if (consertoId !== null) {
@@ -1812,14 +1821,25 @@ async function rotasAdmItens(request, env, path, sessao) {
     }
     const admId = await admUsuarioId(env);
     const nova = item.versao_atual + 1;
+    const situacaoFinal = aprovar ? 'aprovado' : item.situacao;
+    let codigoFinal = item.codigo;
+    if (aprovar && item.codigo[0] === LETRA_PROVISORIA) {
+      codigoFinal = LETRA_DISCIPLINA[item.disciplina] + item.codigo.slice(1);
+      if (await env.DB.prepare('SELECT 1 AS x FROM itens WHERE codigo = ?').bind(codigoFinal).first()) codigoFinal = await sortearCodigoLivre(env, item.disciplina);
+    }
     const ops = [
       ...grp.ops,
       env.DB.prepare('INSERT INTO item_versoes (item_id, versao, dados, autor_id) VALUES (?, ?, ?, ?)').bind(item.id, nova, dados, admId),
-      env.DB.prepare("UPDATE itens SET versao_atual = ?, assinatura = NULL, atualizado_em = strftime('%Y-%m-%dT%H:%M:%SZ','now') WHERE id = ? AND versao_atual = ? AND situacao = 'aprovado'")
-        .bind(nova, item.id, item.versao_atual),
+      env.DB.prepare("UPDATE itens SET versao_atual = ?, situacao = ?, codigo = ?, assinatura = NULL, atualizado_em = strftime('%Y-%m-%dT%H:%M:%SZ','now') WHERE id = ? AND versao_atual = ? AND situacao = ?")
+        .bind(nova, situacaoFinal, codigoFinal, item.id, item.versao_atual, item.situacao),
       env.DB.prepare("INSERT INTO eventos (usuario_id, acao, item_id, detalhe) VALUES (?, 'item_corrigido_adm', ?, ?)")
-        .bind(admId, item.id, JSON.stringify({ adm: sessao.email, codigo: item.codigo, versao: nova, conserto: consertoId }))
+        .bind(admId, item.id, JSON.stringify({ adm: sessao.email, codigo: codigoFinal, versao: nova, conserto: consertoId, situacao_antes: item.situacao, aprovou: aprovar }))
     ];
+    if (aprovar) {
+      ops.push(env.DB.prepare("INSERT INTO revisoes (item_id, versao, supervisor_id, decisao, motivo) VALUES (?, ?, ?, 'aprovar', 'Aprovada pela Administração')").bind(item.id, nova, admId));
+      ops.push(env.DB.prepare('DELETE FROM reservas WHERE item_id = ?').bind(item.id));
+      if (codigoFinal !== item.codigo) ops.push(env.DB.prepare("INSERT INTO eventos (usuario_id, acao, item_id, detalhe) VALUES (?, 'codigo_definitivo', ?, ?)").bind(admId, item.id, JSON.stringify({ anterior: item.codigo, codigo: codigoFinal })));
+    }
     if (conserto) ops.push(env.DB.prepare("UPDATE consertos SET situacao = 'feito', resolvido_em = strftime('%Y-%m-%dT%H:%M:%SZ','now') WHERE id = ? AND situacao = 'pendente'").bind(conserto.id));
     try { await env.DB.batch(ops); }
     catch (error) {
@@ -1831,7 +1851,11 @@ async function rotasAdmItens(request, env, path, sessao) {
       if (sup) avisar(env, sup.email, 'ATLAS: conserto da questão ' + item.codigo + ' realizado',
         'O administrador fez o conserto que você pediu na questão ' + item.codigo + ' (agora na versão ' + nova + ').\n\n' + LINK_ATLAS);
     }
-    return { ok: true, item: { codigo: item.codigo, situacao: 'aprovado', versao: nova } };
+    if (aprovar && item.autor_tipo === 'professor') {
+      const autorInfo = await emailDoAutor(env, item.id);
+      avisar(env, autorInfo.email, 'ATLAS: a questão ' + codigoFinal + ' foi aprovada', 'Olá, ' + (autorInfo.nome || 'professor(a)') + '.\n\nA sua questão ' + codigoFinal + ' foi aprovada pela Administração.\n\n' + LINK_ATLAS);
+    }
+    return { ok: true, item: { codigo: codigoFinal, situacao: situacaoFinal, versao: nova } };
   }
   throw new HttpError(404, 'Rota indisponível.');
 }
