@@ -2,6 +2,7 @@
    Cada função tem uma cor; botões e cartões arredondados; menu com ícones. Ativado por body.vn. */
 
 body.vn { --vn1: #e8506a; --vn2: #98151d; --vn-soft: #fdeef0; --vn-ink: #6e2026; --vn-line: #efe4e7; background: #f6f3f4 }
+body.vn.vn-adm { --vn1: #98151d; --vn2: #5a1a4d; --vn-soft: #fbecef; --vn-ink: #6e2026; --vn-line: #efe4e7 }
 body.vn.vn-supervisor { --vn1: #4f5bd5; --vn2: #7a4fd8; --vn-soft: #eef0fb; --vn-ink: #3b44a8; --vn-line: #e6e8f6 }
 
 /* Cabeçalho em degradê da cor da função; logo Ideal em bloco branco reto, colado na borda */
@@ -41,6 +42,7 @@ body.vn input, body.vn select, body.vn textarea, body.vn .rich-editor { border-r
 body.vn .modo-cadastro .modo-op { border-radius: 16px }
 body.vn .modo-cadastro .modo-op.on, body.vn .modo-cadastro .modo-op:has(input:checked) { border-color: var(--vn1); background: var(--vn-soft) }
 
+body.vn.vn-adm .panel h1, body.vn.vn-adm .panel h2, body.vn.vn-adm .panel h3, body.vn.vn-adm main h2 { color: var(--vn-ink) }
 body.vn.vn-supervisor .panel h1, body.vn.vn-supervisor .panel h2, body.vn.vn-supervisor .panel h3, body.vn.vn-supervisor main h2 { color: var(--vn-ink) }
 body.vn.vn-supervisor .back-link, body.vn.vn-supervisor .voltar-sel, body.vn.vn-supervisor #voltar { color: var(--vn-ink) }
 
@@ -75,3 +77,14 @@ body.vn .alt-repetida { border: 2px solid #d9480f !important; background: #ffe9d
 
 /* Supervisor: quadro de dados da questão resumido (27/11/2026) */
 body.vn-supervisor .meta { grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px 22px; padding: 14px 18px; border-radius: 16px }
+
+/* ADM (28/11/2026): o topo continua branco, como no painel; só o corpo das páginas muda */
+body.vn-adm header { background: #fff; border-bottom: 4px solid #98151d; box-shadow: none; color: inherit; padding-top: 12px; padding-bottom: 12px; min-height: 0 }
+body.vn-adm header .brand { color: #98151d }
+body.vn-adm header .brand span { color: #98151d; border-left-color: #e6dadd }
+body.vn-adm header .role, body.vn-adm header .role * { color: #70676b }
+body.vn-adm header .role .back-link { color: #98151d; opacity: 1 }
+body.vn-adm header .role button { color: #98151d !important; background: #fff !important; border: 1px solid #d8c9cd !important }
+body.vn-adm header .role button:hover { background: #fbecef !important }
+body.vn-adm header > img.ideal-dir { height: 46px; width: auto; padding: 0; margin-left: 22px; background: none; box-shadow: none }
+body.vn-adm header:has(> img.ideal-dir) { padding-right: max(clamp(18px,4vw,52px), calc(50% - 946px)) }
