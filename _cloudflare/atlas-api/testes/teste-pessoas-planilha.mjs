@@ -227,13 +227,26 @@ ok('Planilha com Redação cadastra a pessoa JÁ como professora de redação', 
 r = await api('/api/adm/pessoas/previa', 'POST', { pessoas: [{ linha: 2, nome: 'Vera Redação', email: 'vera.red', disciplina: 'Redação' }] });
 ok('Reenviar a linha de Redação não muda nada', r.status === 200 && r.data.iguais === 1, JSON.stringify(r.data));
 
+
+/* SÉRIES (28/11/2026): coluna opcional; sem a coluna não mexe; em branco = nenhuma; valores inválidos dão erro. */
+const seriesDe = email => db.prepare('SELECT serie FROM professor_series WHERE usuario_id = ? ORDER BY serie').all(pessoa(email).id).map(x => x.serie).join(',');
+r = await api('/api/adm/pessoas/importar', 'POST', { pessoas: [{ linha: 2, nome: 'Sérgio Séries', email: 'sergio.series', disciplina: 'Física', funcao: '', series: '1ª, 3ª série' }] });
+ok('SÉRIES: "1ª, 3ª série" grava as séries 1 e 3', r.status === 200 && seriesDe('sergio.series@grupoideal.com.br') === '1,3', JSON.stringify(r.data).slice(0, 200));
+r = await api('/api/adm/pessoas/importar', 'POST', { pessoas: [{ linha: 2, nome: 'Sérgio Séries', email: 'sergio.series', disciplina: 'Física', funcao: '' }] });
+ok('Sem a coluna SÉRIES (modelo antigo) as séries ficam como estão', r.status === 200 && seriesDe('sergio.series@grupoideal.com.br') === '1,3');
+r = await api('/api/adm/pessoas/previa', 'POST', { pessoas: [{ linha: 2, nome: 'Sérgio Séries', email: 'sergio.series', disciplina: 'Física', funcao: '', series: '1, 3' }] });
+ok('Mesmas séries na planilha: linha sem mudança', r.status === 200 && r.data.iguais === 1 && r.data.atualizados === 0, JSON.stringify(r.data).slice(0, 200));
+r = await api('/api/adm/pessoas/previa', 'POST', { pessoas: [{ linha: 2, nome: 'Sérgio Séries', email: 'sergio.series', disciplina: 'Física', funcao: '', series: '4' }] });
+ok('Série fora de 1 a 3 é erro da linha', r.status === 200 && r.data.erros.length === 1 && /Séries/.test(r.data.erros[0].motivo), JSON.stringify(r.data.erros));
+r = await api('/api/adm/pessoas/importar', 'POST', { pessoas: [{ linha: 2, nome: 'Sérgio Séries', email: 'sergio.series', disciplina: 'Física', funcao: '', series: '' }] });
+ok('SÉRIES em branco tira todas as séries', r.status === 200 && seriesDe('sergio.series@grupoideal.com.br') === '');
 /* Tela: o quadro existe, carrega o ExcelJS com integridade e monta o modelo com as 4 colunas. */
 const html = fs.readFileSync(repo + 'atlas/admin.html', 'utf8');
 ok('admin.html tem o quadro "Cadastro por planilha" com baixar, conferir e importar', /id="sec-planilha"/.test(html) && /id="pl-baixar"/.test(html) && /id="pl-previa"/.test(html) && /id="pl-importar"/.test(html) && /id="pl-arquivo"/.test(html));
 ok('ExcelJS vem do jsDelivr com integridade (igual à página de alunos)', /exceljs@4\.4\.0\/dist\/exceljs\.min\.js/.test(html) && /integrity='sha384-Pqp51FUN2\/qzfxZxBCtF0stpc9ONI6MYZpVqmo8m20SoaQCzf\+arZvACkLkirlPz'/.test(html));
 const { COLUNAS } = await import('../pessoas-planilha.js');
 ok('Tela e servidor usam as mesmas 3 colunas', COLUNAS.length === 3 && COLUNAS.every(c => html.includes(c)), COLUNAS.filter(c => !html.includes(c)).join('|'));
-ok('A tela lê o modelo de três colunas e ainda aceita a 4ª coluna FUNÇÃO antiga', html.includes("const temFuncao=titulo(4)==='FUNCAO'") && html.includes("funcao:temFuncao?v(4):''") && html.includes('precisa começar com NOME COMPLETO, E-MAIL e DISCIPLINA'));
+ok('A tela lê o modelo e ainda aceita a coluna FUNÇÃO antiga', html.includes("cFuncao=achar('FUNCAO')") && html.includes("funcao:cFuncao?v(cFuncao):''") && html.includes('precisa começar com NOME COMPLETO, E-MAIL e DISCIPLINA'));
 ok('A coluna Disciplina da lista tem menu para todos, com “sem disciplina” e Redação', html.includes('— sem disciplina —') && html.includes('<option value="__red__"') && !html.includes("!t.disciplina?'<small>—</small>'"));
 ok('Escolher Redação marca a função de redação sem mexer no digitalizador', html.includes("if(valor==='__red__')return {banco:null,redacao:{professor:{turmas:r.turmas||[]},digitalizador:dig}}"));
 ok('A tela avisa e desliga a função de redação fora da área de linguagens', html.includes("const LINGUAGENS=['Português','Literatura','Inglês','Artes']") && html.includes("$('#f-red-prof').disabled=!podeRedacao") && html.includes('id="red-prof-aviso"'));
